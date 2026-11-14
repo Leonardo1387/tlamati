@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Tooling
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Project
+*.db
+*.sqlite3
+.env
+secrets.*
+sessions/
+
+# OS
+.DS_Store
+
+# Study material (clones y evidencia REA: no se versionan)
+vendor/
+rea-out/*.json
