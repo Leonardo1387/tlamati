@@ -1,0 +1,197 @@
+"""OpenAI-compatible chat/completions adapter.
+
+Covers OpenRouter, Ollama, vLLM, Enverge — anything exposing
+POST {base_url}/chat/completions with SSE streaming. Config = base_url +
+api_key + model (PRD §3 #2: the model is a plug-in).
+
+Format-fallback duty (anti-pattern "formats one agent emits another won't
+parse"): tool-call argument chunks are accumulated per-index, parsed once at
+the end; a JSON parse failure degrades to MessageEnd(stop_reason="error")
+with the raw string preserved — never a silent drop.
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import AsyncIterator, Sequence
+from dataclasses import dataclass, field
+from typing import Any
+
+import httpx
+
+from tlamati.core.messages import (
+    Event,
+    Message,
+    MessageEnd,
+    TextDelta,
+    ToolCallArgsDelta,
+    ToolCallStart,
+    Usage,
+)
+from tlamati.providers.base import (
+    ProviderError,
+    ToolSpec,
+    iter_sse,
+    post_stream,
+    tools_to_openai,
+)
+
+# Normalized stop vocabulary. Anything unknown → "error" with raw preserved.
+_FINISH_MAP: dict[str | None, str] = {
+    "stop": "end_turn",
+    "tool_calls": "tool_use",
+    "function_call": "tool_use",
+    "length": "max_tokens",
+    "content_filter": "refusal",
+}
+
+
+@dataclass(frozen=True)
+class OpenAICompat:
+    """Provider for OpenAI-compatible endpoints."""
+
+    model: str
+    base_url: str = "https://openrouter.ai/api/v1"
+    api_key: str = ""
+    max_tokens: int = 8192
+    temperature: float | None = None
+    timeout_s: float = 120.0
+    extra_headers: dict[str, str] = field(default_factory=dict)
+    transport: httpx.AsyncBaseTransport | None = None  # test injection (MockTransport)
+
+    def _url(self) -> str:
+        return self.base_url.rstrip("/") + "/chat/completions"
+
+    def _headers(self) -> dict[str, str]:
+        h = {"Content-Type": "application/json", **self.extra_headers}
+        if self.api_key:
+            h["Authorization"] = f"Bearer {self.api_key}"
+        return h
+
+    def _payload(self, messages: Sequence[Message], tools: Sequence[ToolSpec]) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": [self._convert_message(m) for m in messages],
+            "stream": True,
+            "max_tokens": self.max_tokens,
+            "stream_options": {"include_usage": True},
+        }
+        if self.temperature is not None:
+            payload["temperature"] = self.temperature
+        if tools:
+            payload["tools"] = tools_to_openai(tools)
+        return payload
+
+    @staticmethod
+    def _convert_message(m: Message) -> dict[str, Any]:
+        if m.role == "system":
+            return {"role": "system", "content": m.content}
+        if m.role == "user":
+            return {"role": "user", "content": m.content}
+        if m.role == "assistant":
+            out: dict[str, Any] = {"role": "assistant", "content": m.content or None}
+            if m.tool_calls:
+                out["tool_calls"] = [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.name,
+                            "arguments": tc.raw_arguments or json.dumps(tc.arguments),
+                        },
+                    }
+                    for tc in m.tool_calls
+                ]
+            return out
+        if m.role == "tool":
+            tr = m.tool_result
+            assert tr is not None  # Message.__post_init__ guarantees
+            return {"role": "tool", "tool_call_id": tr.tool_call_id, "content": tr.content}
+        raise ProviderError(f"unknown role {m.role!r}", kind="config")
+
+    async def stream(
+        self, messages: Sequence[Message], tools: Sequence[ToolSpec] = ()
+    ) -> AsyncIterator[Event]:
+        timeout = httpx.Timeout(self.timeout_s, connect=15.0)
+        async with httpx.AsyncClient(timeout=timeout, transport=self.transport) as client:
+            response = await post_stream(
+                client, self._url(), self._headers(), self._payload(messages, tools)
+            )
+            try:
+                async for ev in self._consume(response):
+                    yield ev
+            finally:
+                await response.aclose()
+
+    async def _consume(self, response: httpx.Response) -> AsyncIterator[Event]:
+        usage = Usage()
+        stop_reason = "end_turn"
+        finish_raw: Any = None
+        # Per-index accumulation: OpenAI streams tool args as fragments keyed
+        # by choice delta index; id/name arrive on the first fragment.
+        pending: dict[int, dict[str, str]] = {}
+        async for chunk in iter_sse(response):
+            # Provider-level error object (some gateways do HTTP 200 + error body)
+            if isinstance(chunk.get("error"), dict):
+                err = chunk["error"]
+                yield MessageEnd(
+                    stop_reason="error",
+                    usage=usage,
+                    error=f"{err.get('message', err)}",
+                )
+                return
+            if chunk.get("usage"):
+                u = chunk["usage"]
+                usage = Usage(
+                    input_tokens=int(u.get("prompt_tokens", 0) or 0),
+                    output_tokens=int(u.get("completion_tokens", 0) or 0),
+                    cache_read_tokens=int(
+                        (u.get("prompt_tokens_details") or {}).get("cached_tokens", 0) or 0
+                    ),
+                )
+            for choice in chunk.get("choices") or []:
+                delta = choice.get("delta") or {}
+                text = delta.get("content")
+                if text:
+                    yield TextDelta(text=text)
+                for tc in delta.get("tool_calls") or []:
+                    idx = int(tc.get("index", 0))
+                    slot = pending.setdefault(idx, {"id": "", "name": "", "args": ""})
+                    fn = tc.get("function") or {}
+                    if tc.get("id"):
+                        slot["id"] = tc["id"]
+                        slot["name"] = fn.get("name", "")
+                        yield ToolCallStart(id=slot["id"], name=slot["name"])
+                    if fn.get("name") and slot["name"] == "":
+                        slot["name"] = fn["name"]
+                    if fn.get("arguments"):
+                        slot["args"] += fn["arguments"]
+                        yield ToolCallArgsDelta(id=slot["id"], args_json=fn["arguments"])
+                fr = choice.get("finish_reason")
+                if fr is not None:
+                    finish_raw = fr
+                    stop_reason = _FINISH_MAP.get(fr, "error")
+
+        if stop_reason == "error":
+            yield MessageEnd(
+                stop_reason="error",
+                usage=usage,
+                error=f"unrecognized finish_reason {finish_raw!r}",
+            )
+            return
+        if pending:
+            # Validate accumulated JSON here so the loop gets typed errors, not
+            # half-parsed garbage.
+            for slot in pending.values():
+                try:
+                    json.loads(slot["args"] or "{}")
+                except json.JSONDecodeError as e:
+                    raw_args = slot["args"][:300]
+                    yield MessageEnd(
+                        stop_reason="error",
+                        usage=usage,
+                        error=f"tool-call arguments not valid JSON: {e}; raw={raw_args!r}",
+                    )
+                    return
+            stop_reason = "tool_use"
+        yield MessageEnd(stop_reason=stop_reason, usage=usage)  # type: ignore[arg-type]
