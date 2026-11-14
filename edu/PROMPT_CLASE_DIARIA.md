@@ -46,7 +46,9 @@ REGLAS DE ESTILO
    (una línea de explicación por comando nuevo, no más).
 
 FORMATO DE SALIDA
-Título: "Clase del día — [fecha]: [tema en 5 palabras o menos]"
+Archivo: edu/DESARROLLO_TLAMATI_CLASE_N.md (N = siguiente número de la serie;
+revisar la carpeta edu/ para saber cuál sigue).
+Título: "Desarrollo Tlamati — Clase N" + segunda línea "## [fecha]: [tema en 8 palabras o menos]".
 3 a 8 párrafos narrativos + la sección (c) con sus bloques de comandos.
 Sin firma. Cerrar con la pregunta abierta en cursiva (o ** ** en texto plano).
 
