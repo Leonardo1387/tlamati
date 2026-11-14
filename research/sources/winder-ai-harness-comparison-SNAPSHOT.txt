@@ -1,0 +1,595 @@
+- banner
+  - navigation "Main" [ref=e2]
+    - link "Home" [ref=e80]
+    - button "Services" [expanded=false, ref=e148]
+    - button "Solutions" [expanded=false, ref=e149]
+    - button "Industries" [expanded=false, ref=e150]
+    - button "Resources" [expanded=false, ref=e151]
+    - button "About" [expanded=false, ref=e152]
+    - link "Contact Us" [ref=e81]
+- article
+  - sectionheader
+    - navigation "Breadcrumb" [ref=e19]
+      - list
+        - listitem [level=1]
+          - link "Home" [ref=e200]
+        - listitem [level=1]
+          - link "BLOG" [ref=e201]
+    - heading "A Comparison of AI Agent Harnesses in 2026" [level=1, ref=e20]
+    - time
+      - StaticText "Aug 20, 2026"
+    - paragraph
+      - StaticText "by "
+      - link "Dr. Phil Winder " [ref=e82]
+      - StaticText ", CEO"
+  - paragraph
+    - StaticText "I’ve spent the last few months on Helix-Org, my attempt at rebuilding an organisation as AI agents. The first version had me writing hyper-specific agents in code, each one specialising in a single job. It worked, and it became tiresome: every new job meant another small program to write, test and maintain. Eventually I tried describing one of them in Markdown instead and handing it to a harness. It did the same job. Markdown is now code."
+  - paragraph
+    - StaticText "DeepSeek shipped an agent harness in developer preview on 13 August 2026, and it collected 95,386 GitHub stars in about two days, "
+    - link "one of the fastest adoption curves GitHub has recorded" [ref=e21]
+    - StaticText ". The thing I stumbled into has a name, a plugin standard and nine products worth choosing between. We run seven of them. Which one you pick matters less than which layer you need, and no feature grid answers that."
+  - heading "What a harness is, and where the framework sits" [level=2, ref=e3]
+    - StaticText "What a harness is, and where the framework sits"
+    - link [ref=e22]
+      - image
+  - paragraph
+    - StaticText "An agent harness is the code around the model that turns it into something that acts: the loop that keeps calling the model, the tools it is allowed to run, the sandbox those tools run in, the memory that survives a restart, and the rules that decide what reaches the context window. LangChain puts it more bluntly. A harness is "
+    - link "every piece of code, configuration, and execution logic that isn’t the model itself" [ref=e23]
+    - StaticText ". An agentic framework is the layer above, where you define and orchestrate several agents with explicit state and branching. Frameworks compose agents. Harnesses run them."
+  - paragraph
+    - StaticText "The stack has four layers:"
+  - list
+    - listitem [level=1]
+      - ListMarker "• "
+      - StaticText "the "
+      - strong
+      - StaticText ", which reasons;"
+    - listitem [level=1]
+      - ListMarker "• "
+      - StaticText "the "
+      - strong
+      - StaticText ", which runs one agent;"
+    - listitem [level=1]
+      - ListMarker "• "
+      - StaticText "the "
+      - strong
+      - StaticText ", which composes several;"
+    - listitem [level=1]
+      - ListMarker "• "
+      - StaticText "the "
+      - strong
+      - StaticText ", which runs many harnesses across a team over time, with durable execution, cost attribution and governance."
+  - paragraph
+    - link "MongoDB sets out the same split" [ref=e24]
+    - StaticText ", which is worth having from outside this argument, though it is a database vendor arguing for a database-shaped platform."
+  - paragraph
+    - StaticText "What goes inside a harness is now reasonably settled. Sebastian Raschka’s breakdown of a coding agent names "
+    - link "six components" [ref=e25]
+    - StaticText ": live repository context gathered before the first prompt, a prompt split into a cached prefix and a variable suffix, predefined tools with validation and path-based access control, clipping and compression to keep the context small, a structured session memory held apart from the full transcript, and bounded subagents with read-only permissions and a recursion limit. That is the well-explored part. Sandboxing, persistence, connectivity and triggers sit outside it, and they are where the engineering time goes."
+  - heading "The harnesses worth comparing" [level=2, ref=e4]
+    - StaticText "The harnesses worth comparing"
+    - link [ref=e26]
+      - image
+  - paragraph
+    - StaticText "These are the nine, checked on 19 August 2026. The fleet column marks the seven we run as sandboxed desktops inside Helix, our own agent-fleet platform, which is where the judgement in the last two columns comes from."
+  - table
+    - rowgroup
+      - row
+        - columnheader "Harness" [ref=e153]
+        - columnheader "Maker and licence" [ref=e154]
+        - columnheader "Stack" [ref=e155]
+        - columnheader "In our fleet" [ref=e156]
+        - columnheader "Best for" [ref=e157]
+        - columnheader "Main weakness" [ref=e158]
+    - row
+      - cell "Claude Code" [ref=e83]
+        - link "Claude Code" [ref=e159]
+      - cell "Anthropic, proprietary: custom licence plus commercial terms" [ref=e84]
+      - cell "TypeScript, Anthropic models only, 142k stars" [ref=e85]
+      - cell "Yes" [ref=e86]
+      - cell "Anthropic models, and half of the pair we run against each other daily" [ref=e87]
+      - cell "One vendor’s models, and thin on durable memory by design" [ref=e88]
+        - link "thin on durable memory by design" [ref=e160]
+    - row
+      - cell "Codex" [ref=e89]
+        - link "Codex" [ref=e161]
+      - cell "OpenAI, Apache-2.0" [ref=e90]
+      - cell "Rust and TypeScript, OpenAI models, 107k stars" [ref=e91]
+      - cell "Yes" [ref=e92]
+      - cell "The same job on OpenAI models, and the other half of that pair" [ref=e93]
+      - cell "One vendor’s models" [ref=e94]
+    - row
+      - cell "OpenCode" [ref=e95]
+        - link "OpenCode" [ref=e162]
+      - cell "Anomaly, MIT" [ref=e96]
+      - cell "TypeScript, 75+ providers through Models.dev including local models, 199k stars" [ref=e97]
+        - link "75+ providers through Models.dev" [ref=e163]
+      - cell "Yes" [ref=e98]
+      - cell "Running a harness against open-weight models on your own hardware, and compared head to head with DeepSeek Harness" [ref=e99]
+        - link "compared head to head with DeepSeek Harness" [ref=e164]
+      - cell "Convenience reached outward by default: until v1.2.23, in March 2026, it sent the first message of a session, once, to OpenCode Zen’s hosted gpt-5-nano to name that session, whenever the provider had no small model configured. Titles now stay with your own provider" [ref=e100]
+        - StaticText "Convenience reached outward by default: until "
+        - link "v1.2.23, in March 2026" [ref=e165]
+    - row
+      - cell "Qwen Code" [ref=e101]
+        - link "Qwen Code" [ref=e166]
+      - cell "QwenLM at Alibaba, Apache-2.0" [ref=e102]
+      - cell "TypeScript, OpenAI, Anthropic, Gemini and Qwen APIs plus local Ollama or vLLM, 27.2k stars" [ref=e103]
+      - cell "Yes" [ref=e104]
+      - cell "Qwen models, where it is the best-fitting harness we have used" [ref=e105]
+      - cell "Not universal in practice. We have hit bugs pointing it at other models, and the wider ecosystem reports the same class of problem: tool-call formats one agent emits that another will not parse" [ref=e106]
+        - StaticText "Not universal in practice. We have hit bugs pointing it at other models, and the wider ecosystem reports the same class of problem: "
+        - link "tool-call formats one agent emits that another will not parse" [ref=e167]
+    - row
+      - cell "DeepSeek Harness" [ref=e107]
+        - link "DeepSeek Harness" [ref=e168]
+      - cell "DeepSeek, MIT" [ref=e108]
+      - cell "TypeScript, everything is a plugin including the agent loop, drives Claude Code or Codex as sub-agents" [ref=e109]
+        - link "drives Claude Code or Codex as sub-agents" [ref=e169]
+      - cell "Yes" [ref=e110]
+      - cell "Assembling a harness from parts, or putting one harness in front of several others, and head to head with OpenCode" [ref=e111]
+        - link "head to head with OpenCode" [ref=e170]
+      - cell "Developer preview since 13 August 2026, iterating fast enough that nothing about it is stable yet" [ref=e112]
+    - row
+      - cell "Goose" [ref=e113]
+        - link "Goose" [ref=e171]
+      - cell "Agentic AI Foundation at the Linux Foundation, Apache-2.0" [ref=e114]
+        - link "Agentic AI Foundation" [ref=e172]
+      - cell "Rust, desktop app plus CLI and API, 15+ providers including local Ollama, 53k stars" [ref=e115]
+      - cell "Yes" [ref=e116]
+      - cell "Provider-agnostic work where neutral governance matters more than release pace" [ref=e117]
+      - cell "The same governance from the other side: the roadmap answers to a foundation, not to a vendor with a deadline" [ref=e118]
+    - row
+      - cell "Zed Agent" [ref=e119]
+        - link "Zed Agent" [ref=e173]
+      - cell "Zed Industries, GPL-3.0-or-later" [ref=e120]
+      - cell "Rust, drives Claude, Codex or OpenCode over the Agent Client Protocol, 88.9k stars" [ref=e121]
+        - link "drives Claude, Codex or OpenCode over the Agent Client Protocol" [ref=e174]
+      - cell "Yes" [ref=e122]
+      - cell "Editor-native work where you watch the diff as it lands" [ref=e123]
+      - cell "Assumes you have adopted the editor, and the review surface is catching up: with an external agent the diff and accept-reject UI can be missing entirely, still open in August 2026" [ref=e124]
+        - StaticText "Assumes you have adopted the editor, and the review surface is catching up: with an external agent the "
+        - link "diff and accept-reject UI can be missing entirely" [ref=e175]
+    - row
+      - cell "OpenHands" [ref=e125]
+        - link "OpenHands" [ref=e176]
+      - cell "All-Hands-AI, MIT" [ref=e126]
+      - cell "Self-hosted, optional Docker sandbox, any model, ACP client, 85k stars" [ref=e127]
+      - cell "No" [ref=e128]
+      - cell "Self-hosting with a sandbox you control, and driving other agents from one place" [ref=e129]
+      - cell "The sandbox protects the filesystem, not the bill: it loops on ambiguous problems, and Docker-in-Docker is awkward on a locked-down laptop" [ref=e130]
+    - row
+      - cell "Pydantic AI Harness" [ref=e131]
+        - link "Pydantic AI Harness" [ref=e177]
+      - cell "Pydantic, open source" [ref=e132]
+      - cell "Typed Python capabilities composed inside a Pydantic AI agent" [ref=e133]
+      - cell "No" [ref=e134]
+      - cell "Adding harness behaviour to a Python service you are already writing" [ref=e135]
+      - cell "A library, not an application, and still on 0.x versioning" [ref=e136]
+        - link "0.x versioning" [ref=e178]
+  - paragraph
+    - StaticText "The two open-weight-friendly ones get their own comparison: "
+    - link "DeepSeek Harness vs OpenCode" [ref=e27]
+    - StaticText ". The engines that serve those open-weight models on your own hardware have theirs too: "
+    - link "self-hosted inference engines compared" [ref=e28]
+    - StaticText ". Two of those cells are ours rather than anyone’s documentation. Qwen Code is the best harness we have used for Qwen models and the worst for anything else. OpenCode is the one that gets open-weight models doing useful work on hardware we own. Claude Code and Codex we rate highest for day-to-day coding on their own vendors’ models, and we run them against each other because they disagree."
+  - paragraph
+    - StaticText "Aider is missing on purpose. It is a git-native pair programmer built for short supervised runs, and the table is about tools that run long and unattended."
+  - paragraph
+    - StaticText "“OpenHarness” belongs to at least four unrelated projects, including "
+    - link "an MIT Python harness from HKUDS" [ref=e29]
+    - StaticText " released in April 2026, a TypeScript guardrails library, a universal API that runs one agent’s code across other harnesses, and a deep-agents project. The open-source harness most people mean is OpenHands, which has no “harness” in its name at all."
+  - paragraph
+    - StaticText "htek.dev keeps a "
+    - link "living comparison of more than twenty agent platforms" [ref=e30]
+    - StaticText " with pros, cons and a best-for line each, last updated in July 2026. Nine rows here because these are the choices that come up, and because most of them are in our own fleet."
+  - paragraph
+    - StaticText "Helix clients run the same fleet. Every thread boots a containerised desktop on the client’s own infrastructure, with the repository cloned onto its own branch, and any of the seven harnesses in the fleet column can run inside it. For a client team the harness is the smaller decision. The larger one is the agent it runs: the tools and permissions it gets, the evaluation suite that shows a change helped, and the retries, fallbacks and monitoring that production needs. That is the work of our "
+    - link "AI agent development services" [ref=e31]
+    - StaticText ". A focused single agent with a few tool integrations typically takes two to four weeks to prototype and six to eight to reach production, and the engineers who scope it are the ones who build it."
+  - heading "Changing the harness moves more than changing the model" [level=2, ref=e5]
+    - StaticText "Changing the harness moves more than changing the model"
+    - link [ref=e32]
+      - image
+  - paragraph
+    - StaticText "Vercel stripped 80% of the tools out of an agent and watched its success rate go from 80% to 100% on the same model, with tokens more than halved and latency down from 724 seconds to 141. LangChain took its coding agent from 52.8% to 66.5% on Terminal Bench by changing only the harness. Princeton’s CORE-Bench recorded one model scoring 42% under one scaffold and 78% under another. Harvey more than doubled the accuracy of its "
+    - link "legal agents" [ref=e33]
+    - StaticText " through harness work alone. All four are "
+    - link "collected by MongoDB" [ref=e34]
+    - StaticText ", April 2026."
+  - paragraph
+    - StaticText "On Terminal-Bench 2.0, Letta Code scored 59.1% running Claude Opus 4.5, against Claude Code’s 41.6% on the same model, "
+    - link "as Han Lee read the leaderboard in May 2026" [ref=e35]
+    - StaticText ". A third-party harness beat the first-party one on its vendor’s own model, and Lee’s explanation is why: the benchmark rewards durable memory, Letta is built around a memory substrate, and Claude Code is thin on memory by design. Letta’s own published run is older and more modest, "
+    - link "42.5% with Sonnet 4 in under 200 lines of code" [ref=e36]
+    - StaticText ", August 2025."
+  - paragraph
+    - StaticText "Raschka scopes the conclusion to models of similar raw capability: given that the vanilla versions of current models are much of a muchness, "
+    - link "the harness “can often be the distinguishing factor that makes one LLM work better than another”" [ref=e37]
+    - StaticText ". Without that condition the line promises more than he wrote."
+  - heading "What each one assumes about your stack" [level=2, ref=e6]
+    - StaticText "What each one assumes about your stack"
+    - link [ref=e38]
+      - image
+  - paragraph
+    - StaticText "Feature counts are the wrong axis. What separates these tools is what each one assumes you have already decided, and the first assumption is the model. Two of the nine run one vendor’s models and nothing else, which makes the harness a downstream consequence of a contract signed months earlier. The names mislead here: Qwen Code runs anyone’s models, Codex runs only OpenAI’s, and neither is what the label suggests."
+  - paragraph
+    - StaticText "The second assumption is where the thing runs. Claude Code and Codex are managed products on a subscription. OpenCode, Qwen Code, DeepSeek Harness, Goose and OpenHands are yours to host, which usually means the sandbox, the credentials and the audit trail are yours to build. DeepSeek Harness is the exception: it ships an OS-level sandbox, a credentials file and an append-only session log. Zed Agent assumes you have adopted an editor. Pydantic AI Harness assumes something else again: that there is already a Python service, and the agent lives inside it."
+  - paragraph
+    - StaticText "The third is who gets to change the agent’s behaviour. A CLI steered by Markdown puts that in reach of anyone on the team who can write a document. Typed Python puts it back with the people who can deploy. An editor-native agent puts it wherever the editor already is. That is an organisational choice dressed as a technical one, and it outlives the tool."
+  - paragraph
+    - StaticText "The features, meanwhile, are converging. Zed Agent, OpenHands and DeepSeek Harness all speak the Agent Client Protocol, so they drive each other, and DeepSeek Harness will run Claude Code or Codex as child processes if you have them installed. The Linux Foundation stood up an "
+    - link "Agentic AI Foundation" [ref=e39]
+    - StaticText " in 2026 anchored by three donations: Anthropic’s Model Context Protocol for tools, OpenAI’s AGENTS.md for instructions, and Goose itself. Addy Osmani had already noticed the effect, that the harnesses "
+    - link "“look more like each other than their underlying models do”" [ref=e40]
+    - StaticText ". Compare on features and the comparison expires. Compare on assumptions and it holds."
+  - heading "Why this layer appeared when it did" [level=2, ref=e7]
+    - StaticText "Why this layer appeared when it did"
+    - link [ref=e41]
+      - image
+  - paragraph
+    - StaticText "The vocabulary settled in about five months. LangChain published its anatomy of a harness on 10 March 2026, Raschka his components on 4 April, Osmani his harness engineering on 19 April, and on 23 June Pydantic shipped a breaking v2.0.0 built round the idea. Pydantic’s own changelog calls it "
+    - link "a “harness-first design with capabilities as a core primitive: a single, composable unit that bundles an agent’s tools, hooks, instructions, and model settings”" [ref=e42]
+    - StaticText ". A framework absorbing harness features into its core is the clearest evidence the layer is real, and the "
+    - link "Pydantic AI Harness documentation" [ref=e43]
+    - StaticText " listed more than fifty capabilities when we checked it on 19 August 2026. For what Pydantic AI, LangGraph, CrewAI and DSPy are as frameworks, and what the v1-to-v2 break says about trusting a stability promise, see our "
+    - link "comparison of open-source LLM frameworks" [ref=e44]
+    - StaticText "."
+  - paragraph
+    - StaticText "Then DeepSeek "
+    - link "made the loop itself a plugin" [ref=e45]
+    - StaticText ". A category that had no agreed name in 2025 now has an MIT reference implementation, a plugin standard, and an incumbent to displace."
+  - paragraph
+    - StaticText "This layer is unfinished. Manus rebuilt its harness five times in six months, LangChain re-architected its agent three times in a year, and Vercel deleted most of its agent’s tools, all "
+    - link "collected by Philipp Schmid" [ref=e46]
+    - StaticText " in January 2026. Schmid’s diagnosis of why the leaderboards miss it: “A 1% difference on a leaderboard cannot detect the reliability if a model drifts off-track after fifty steps.”"
+  - paragraph
+    - StaticText "Buyers found the subject before the answers did. In our own Search Console, over the ninety days to 19 August 2026, forty-eight distinct queries containing “harness” landed on a single one of our pages, at positions five to twenty, with zero clicks between them."
+  - heading "The case that harness work is throwaway" [level=2, ref=e8]
+    - StaticText "The case that harness work is throwaway"
+    - link [ref=e47]
+      - image
+  - paragraph
+    - StaticText "Han Lee calls the harness hidden technical debt: "
+    - link "“The good teams have built a lot of it. The bitter part is that almost all of it is going to dissolve into the next generation of models.”" [ref=e48]
+    - StaticText " Every model release retires a stack of workarounds somebody was proud of."
+  - paragraph
+    - StaticText "Lee’s own counter-example sits in the same post. Letta beat Claude Code on Anthropic’s model by investing in memory, which is the dimension the model still handles badly. So the test for any piece of harness work is whether a better model would make it unnecessary. Context compaction, probably. Retry logic and output clipping, probably. Sandboxing, permissions, spend limits and audit trails, no: those encode "
+    - link "what your organisation will allow" [ref=e49]
+    - StaticText ", not what the model can do, and no model release repeals them."
+  - paragraph
+    - StaticText "DeepSeek Harness makes the same point uncomfortable from the other side. Standardising on a developer preview that shipped four days before we looked at it is not a conservative act. It is in our fleet because it is interesting, and we would not put a client’s release process behind it yet."
+  - paragraph
+    - StaticText "Osmani’s ratchet is what keeps the rest honest. "
+    - link "“Anytime you find an agent makes a mistake, you take the time to engineer a solution such that the agent never makes that mistake again”" [ref=e50]
+    - StaticText ", with every rule in the instruction file traceable to a real failure and no rule added before one. A harness built that way is a record of what actually went wrong, which survives a model upgrade better than a harness built from predictions about what might. That is how our own PR reviewer went from switched off to trusted, and "
+    - link "how much harness engineering an agent needs" [ref=e51]
+    - StaticText " comes down to what a wrong answer costs."
+  - heading "When a framework earns its place" [level=2, ref=e9]
+    - StaticText "When a framework earns its place"
+    - link [ref=e52]
+      - image
+  - paragraph
+    - StaticText "A framework earns its place on something narrower than “more than one agent”. It gives you typed contracts on what goes in and comes out, state you can inspect and resume, and branching you can reason about before it runs. If the path through the work can be drawn, drawing it is cheaper than hoping."
+  - paragraph
+    - StaticText "The same rule applies here as anywhere else in machine learning. If a rule-based engine can make the decision, use the rule-based engine, and keep the model for the decisions that are genuinely fuzzy. A framework is the rule-based engine of this stack: you write the branches, so you get the determinism. A harness is for when the path cannot be written down in advance. Our "
+    - link "build guide" [ref=e53]
+    - StaticText " puts the trade in one line: “By offloading the burden of getting it done to the agent, you’re explicitly accepting some uncertainty to deal with more diverse requests.”"
+  - paragraph
+    - StaticText "That boundary may not survive long. Pydantic AI’s v2 already pulls harness features into a framework’s core, and the expectation on the framework side is that harness products absorb the abstraction layer. Choose for the next eighteen months, not the next five years."
+  - paragraph
+    - StaticText "In our own engagements we rarely reach for an agent framework any more, though we still work in whichever one a client has already committed to. Left to ourselves it is "
+    - link "custom code" [ref=e54]
+    - StaticText " or a harness, and the line between those two is a counting exercise: a harness pays for itself once there are around ten distinct jobs that can be described agentically in Markdown. Below that number you are maintaining a harness to run one or two things, which is the tedium I started with. Above it, the harness is the cheapest way to add the eleventh."
+  - paragraph
+    - StaticText "A proof of concept is the exception. Reach for an agentic framework there, or use the Claude subscription you already pay for, and save the harness for when the job list is real."
+  - heading "The layer above the harness" [level=2, ref=e10]
+    - StaticText "The layer above the harness"
+    - link [ref=e55]
+      - image
+  - paragraph
+    - StaticText "One harness per engineer works until it does not. The moment several agents run against the same systems, on machines that are not yours, and somebody senior asks what they did last week, the question stops being which harness and becomes who can see the fleet. MongoDB defines that layer as "
+    - link "the infrastructure that runs many harnesses across teams over time" [ref=e56]
+    - StaticText ", with durable execution, cost attribution, governance and data integration. Its "
+    - link "companion piece" [ref=e57]
+    - StaticText " puts the failure mode plainly: “A platform missing any of these produces harnesses that appear to work in controlled conditions and fail under production load.”"
+  - paragraph
+    - StaticText "We sell into that layer. "
+    - link "Helix" [ref=e58]
+    - StaticText " is co-developed by the Winder.AI team: an agent control room where every thread boots a containerised desktop on your own infrastructure, with an IDE, a terminal, a browser and the repository cloned onto its own branch, so a team watches agents work instead of reviewing a diff blind afterwards. It is also why the fleet column exists. The "
+    - link "frameworks comparison" [ref=e59]
+    - StaticText " has the longer entry, with licence, deployment options and pricing."
+  - paragraph
+    - StaticText "What it costs is infrastructure you have to run, and one more system to operate at a point when the agents themselves are still changing monthly. One engineer, one harness, one repository is a fine place to stay for a year."
+  - paragraph
+    - StaticText "An internal platform is where the harness pattern makes most sense, because the job list is long by construction. Helix-Org is the case I know best: "
+    - link "rebuilding an organisation as agents" [ref=e60]
+    - StaticText " produces far more than ten jobs to be done, and every one of them is a Markdown file rather than a program."
+  - heading "Choosing a layer on a real project" [level=2, ref=e11]
+    - StaticText "Choosing a layer on a real project"
+    - link [ref=e61]
+      - image
+  - paragraph
+    - StaticText "Four outcomes are available, and the layer test picks between them:"
+  - list
+    - listitem [level=1]
+      - ListMarker "• "
+      - StaticText "a "
+      - strong
+      - StaticText ", which is where single-agent work usually lands;"
+    - listitem [level=1]
+      - ListMarker "• "
+      - StaticText "a "
+      - strong
+      - StaticText ", when part of the job is deterministic enough to draw;"
+    - listitem [level=1]
+      - ListMarker "• "
+      - StaticText "a "
+      - strong
+      - StaticText ", for a narrow, high-stakes task where the actions are dangerous and the path is known;"
+    - listitem [level=1]
+      - ListMarker "• "
+      - StaticText "a "
+      - strong
+      - StaticText ", when the fleet outgrows one person’s laptop."
+  - paragraph
+    - StaticText "Each step down that list hands the agent more freedom, and freedom is what you pay for in evaluation. The more paths an agent can take, the less a passing demo tells you. Whichever layer you pick, the thing that tells you the choice was right is an evaluation suite, and it is the piece most often missing from the agent work we are handed. A harness change that improves one demo and breaks two others looks like progress until somebody measures it. Making these things "
+    - link "auditable and observable" [ref=e62]
+    - StaticText " is the genuinely difficult part, and we set out how we approach it in our "
+    - link "guide to evaluating an agent before you ship it" [ref=e63]
+    - StaticText ". Our "
+    - link "build guide" [ref=e64]
+    - StaticText " treats evaluation as a first-class part of the build for the same reason, and we published a "
+    - link "working agent with its eval harness and committed results" [ref=e65]
+    - StaticText " so the shape is not a matter of opinion."
+  - paragraph
+    - StaticText "We make this call on live client work. "
+    - link "AI agent development" [ref=e66]
+    - StaticText " is where the harness, the sandbox and the evaluation get built, "
+    - link "LLM consulting" [ref=e67]
+    - StaticText " is where the model and vendor questions upstream of it get settled, and the position we take on the whole subject is on that first page: we say no to frameworks that fit your problem poorly, even when there is no commercial reason to. If you want the decision walked through against your own stack, "
+    - link "get in touch" [ref=e68]
+    - StaticText "."
+  - paragraph
+    - StaticText "My own day-to-day is still Claude Code and Codex, run against each other on the same work, because two agents that disagree produce better software than either alone. Qwen 3.8 under OpenCode now does my back-office work, with its own difficulties, and the hyper-specific agents I wrote in code for Helix-Org are gone: what replaced them is a directory of Markdown files and something that reads them. The last mile to running all of it on our own hardware is not capability any more. It is knowing what the agents did."
+  - heading "Frequently asked questions" [level=2, ref=e12]
+  - DescriptionList
+    - term "What is an AI agent harness?"
+      - button "What is an AI agent harness?" [expanded=false, ref=e137]
+    - definition
+    - term "What is the difference between an agent harness and an agentic framework?"
+      - button "What is the difference between an agent harness and an agentic framework?" [expanded=false, ref=e138]
+    - definition
+    - term "Which agent harness should I use?"
+      - button "Which agent harness should I use?" [expanded=false, ref=e139]
+    - definition
+    - term "What is Pydantic AI Harness?"
+      - button "What is Pydantic AI Harness?" [expanded=false, ref=e140]
+    - definition
+    - term "Do I still need a framework if I already have a harness?"
+      - button "Do I still need a framework if I already have a harness?" [expanded=false, ref=e141]
+    - definition
+    - term "What is Helix, and how does it relate to this comparison?"
+      - button "What is Helix, and how does it relate to this comparison?" [expanded=false, ref=e142]
+    - definition
+  - navigation
+    - heading "On this page" [level=4, ref=e69]
+    - list
+      - listitem [level=1]
+        - link "What a harness is, and where the framework sits" [ref=e179]
+      - listitem [level=1]
+        - link "The harnesses worth comparing" [ref=e180]
+      - listitem [level=1]
+        - link "Changing the harness moves more than changing the model" [ref=e181]
+      - listitem [level=1]
+        - link "What each one assumes about your stack" [ref=e182]
+      - listitem [level=1]
+        - link "Why this layer appeared when it did" [ref=e183]
+      - listitem [level=1]
+        - link "The case that harness work is throwaway" [ref=e184]
+      - listitem [level=1]
+        - link "When a framework earns its place" [ref=e185]
+      - listitem [level=1]
+        - link "The layer above the harness" [ref=e186]
+      - listitem [level=1]
+        - link "Choosing a layer on a real project" [ref=e187]
+  - navigation
+    - heading "Other Articles In This Series" [level=4, ref=e70]
+    - list
+      - listitem [level=1]
+        - link "A Comparison of Open Source LLM Frameworks for Pipelining" [ref=e188]
+      - listitem [level=1]
+        - link "A Comparison of Machine Learning Model Monitoring Tools and Products" [ref=e189]
+      - listitem [level=1]
+        - link "A Comparison of AI Agent Harnesses in 2026" [ref=e190]
+      - listitem [level=1]
+        - link "DeepSeek Harness vs OpenCode: Which One We Run in 2026" [ref=e191]
+      - listitem [level=1]
+        - link "vLLM vs Ollama vs SGLang: LLM Inference Compared 2026" [ref=e192]
+      - listitem [level=1]
+        - link "Copilot Studio vs Azure AI Foundry vs Build: What One Document Costs" [ref=e193]
+      - listitem [level=1]
+        - link "Best LLMOps Tools: Comparison of Open-Source LLM Production Frameworks" [ref=e194]
+  - navigation
+    - heading "Share" [level=4, ref=e71]
+    - link "Share on Linkedin" [ref=e72]
+      - figure
+    - link "Share on Hacker News" [ref=e73]
+      - figure
+    - link "Share on Twitter" [ref=e74]
+      - figure
+    - link "Share on Reddit" [ref=e75]
+      - figure
+    - link "Share on Facebook" [ref=e76]
+      - figure
+    - link "Share by Email" [ref=e77]
+      - figure
+    - paragraph
+      - StaticText "17 minutes"
+  - navigation
+    - heading "Related" [level=4, ref=e78]
+    - list
+      - listitem [level=1]
+        - link "Winder.ai - Your Partner for Enterprise AI Implementation" [ref=e195]
+      - listitem [level=1]
+        - link "How to Build an AI Agent in 2026: Frameworks and Working Code" [ref=e196]
+      - listitem [level=1]
+        - link "RAG vs Fine-Tuning in 2026: A Decision Framework for LLM Teams" [ref=e197]
+      - listitem [level=1]
+        - link "Transforming Legal Research with AI Legal Text Analysis" [ref=e198]
+      - listitem [level=1]
+        - link "A Comparison of Open Source LLM Frameworks for Pipelining" [ref=e199]
+- generic
+  - heading "More articles" [level=2, ref=e13]
+    - StaticText "More articles"
+  - article
+    - generic
+      - heading "How to Build an AI Agent in 2026: Frameworks and Working Code" [level=3, ref=e143]
+      - time
+      - paragraph
+        - StaticText "How to build an AI agent in 2026: Pydantic AI vs LangGraph vs build-your-own compared, two worked examples with real code, and the evaluation and memory patterns that survive production."
+      - link "Read more: 3 Lessons We Learned Going Back to the Office" [ref=e144]
+  - article
+    - generic
+      - heading "RAG vs Fine-Tuning in 2026: A Decision Framework for LLM Teams" [level=3, ref=e145]
+      - link "Read more: 3 Lessons We Learned Going Back to the Office" [ref=e146]
+- contentinfo
+  - navigation "Footer" [ref=e14]
+    - list
+      - listitem [level=1]
+        - StaticText "Services"
+        - StaticText "ADVISE"
+        - list
+          - listitem [level=2]
+            - link "AI Consulting & Development" [ref=e202]
+          - listitem [level=2]
+            - link "AI Readiness Assessment" [ref=e203]
+          - listitem [level=2]
+            - link "Data Strategy Consulting" [ref=e204]
+          - listitem [level=2]
+            - link "AI Governance Consulting" [ref=e205]
+          - listitem [level=2]
+            - link "Pricing" [ref=e206]
+        - StaticText "BUILD"
+        - list
+          - listitem [level=2]
+            - link "AI Product Development" [ref=e207]
+          - listitem [level=2]
+            - link "Reinforcement Learning" [ref=e208]
+          - listitem [level=2]
+            - link "LLM Development" [ref=e209]
+          - listitem [level=2]
+            - link "AI Agent Development" [ref=e210]
+          - listitem [level=2]
+            - link "Generative AI" [ref=e211]
+          - listitem [level=2]
+            - link "Custom AI Development" [ref=e212]
+        - StaticText "OPERATE"
+        - list
+          - listitem [level=2]
+            - link "MLOps Consulting" [ref=e213]
+          - listitem [level=2]
+            - link "AI Integration & Implementation" [ref=e214]
+          - listitem [level=2]
+            - link "AI Business Automation" [ref=e215]
+          - listitem [level=2]
+            - link "Data Science Consulting" [ref=e216]
+      - listitem [level=1]
+        - StaticText "Solutions"
+        - list
+          - listitem [level=2]
+            - link "AI Document Processing" [ref=e217]
+          - listitem [level=2]
+            - link "AI Workflow Automation" [ref=e218]
+          - listitem [level=2]
+            - link "Conversational AI" [ref=e219]
+          - listitem [level=2]
+            - link "AI Pricing Optimisation" [ref=e220]
+        - StaticText "DOCUMENT PROCESSING BY INDUSTRY"
+        - list
+          - listitem [level=2]
+            - link "Financial Services" [ref=e221]
+          - listitem [level=2]
+            - link "Healthcare" [ref=e222]
+          - listitem [level=2]
+            - link "Insurance" [ref=e223]
+          - listitem [level=2]
+            - link "Manufacturing" [ref=e224]
+          - listitem [level=2]
+            - link "Real Estate" [ref=e225]
+          - listitem [level=2]
+            - link "Underwriting" [ref=e226]
+        - StaticText "CONVERSATIONAL AI BY INDUSTRY"
+        - list
+          - listitem [level=2]
+            - link "Insurance" [ref=e227]
+          - listitem [level=2]
+            - link "Retail" [ref=e228]
+      - listitem [level=1]
+        - StaticText "Industries"
+        - list
+          - listitem [level=2]
+            - link "Legal" [ref=e229]
+          - listitem [level=2]
+            - link "Finance" [ref=e230]
+          - listitem [level=2]
+            - link "Healthcare" [ref=e231]
+          - listitem [level=2]
+            - link "Venture Capital" [ref=e232]
+          - listitem [level=2]
+            - link "Manufacturing" [ref=e233]
+          - listitem [level=2]
+            - link "All industries" [ref=e234]
+        - StaticText "AI AGENTS BY INDUSTRY"
+        - list
+          - listitem [level=2]
+            - link "AI Agents for Finance" [ref=e235]
+          - listitem [level=2]
+            - link "AI Agents for Healthcare" [ref=e236]
+        - StaticText "LOCATIONS"
+        - list
+          - listitem [level=2]
+            - link "United Kingdom" [ref=e237]
+          - listitem [level=2]
+            - link "AI Consultancy (UK)" [ref=e238]
+          - listitem [level=2]
+            - link "AI Agent Development (UK)" [ref=e239]
+          - listitem [level=2]
+            - link "LLM Consultancy (UK)" [ref=e240]
+          - listitem [level=2]
+            - link "AI Consultancy (London)" [ref=e241]
+      - listitem [level=1]
+        - StaticText "Company"
+        - list
+          - listitem [level=2]
+            - link "About Us" [ref=e242]
+          - listitem [level=2]
+            - link "Our Team" [ref=e243]
+          - listitem [level=2]
+            - link "Case Studies" [ref=e244]
+          - listitem [level=2]
+            - link "Blog" [ref=e245]
+          - listitem [level=2]
+            - link "The Mural" [ref=e246]
+          - listitem [level=2]
+            - link "Events" [ref=e247]
+          - listitem [level=2]
+            - link "Contact" [ref=e248]
+          - listitem [level=2]
+            - link "Ask AI Phil" [ref=e249]
+  - heading "Sign up for our newsletter" [level=2, ref=e79]
+  - paragraph
+    - StaticText "Subscribe for AI engineering insights, case studies, and industry analysis."
+  - Iframe "Form 0" [ref=e147]
+    - form
+      - group
+        - textbox "First name*" [required, ref=e251]
+        - textbox "Last name*" [required, ref=e252]
+      - group
+        - textbox "Email*" [required, ref=e253]
+      - button "Subscribe" [ref=e250]
+  - link "Home" [ref=e15]
+  - link "Privacy" [ref=e16]
+  - link "Policies" [ref=e17]
+  - link "Credits" [ref=e18]
+- button "Ask AI Phil" [expanded=false, ref=e1]
