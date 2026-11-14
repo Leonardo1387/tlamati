@@ -55,9 +55,13 @@ class ToolSpec:
 
 @runtime_checkable
 class Provider(Protocol):
-    """The narrow interface between core/loop.py and any backend."""
+    """The narrow interface between core/loop.py and any backend.
 
-    model: str
+    ``model`` is declared read-only (property) so frozen dataclass adapters
+    satisfy it structurally."""
+
+    @property
+    def model(self) -> str: ...
 
     def stream(
         self, messages: Sequence[Message], tools: Sequence[ToolSpec] = ()
