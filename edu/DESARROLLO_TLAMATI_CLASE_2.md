@@ -1,4 +1,5 @@
-# Clase del día — 14-nov-2026: el robot que arregla bugs y cobra barato
+# Desarrollo Tlamati — Clase 2
+## 14-nov-2026: el robot que arregla bugs y cobra barato
 
 *(v1 — escrita con las reglas nuevas: alumno en camino a técnico, notas replicables.)*
 
