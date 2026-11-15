@@ -44,7 +44,7 @@ async def main() -> None:
 [tool_result c1] 1|def promedio(nums):
 2|    return sum(nums)/len(nums) - 1
 [assistant] El bug es el `- 1` al final.
-[calls] write_file({"path": "calc.py", "content": "def promedio(nums):\\n    return sum(nums)/len(nums)\\n"})
+[calls] write_file({"path": "calc.py", "content": "def promedio(nums): ..."})
 [tool_result c2] escrito calc.py
 [assistant]
 [calls] terminal({"command": "python3 test_calc.py"})
