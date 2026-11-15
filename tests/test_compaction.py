@@ -33,7 +33,8 @@ from tlamati.core.messages import (
     Usage,
 )
 from tlamati.providers.base import ProviderError, ToolSpec
-from tlamati.tools_min.mini import make_tools
+from tlamati.tools.builtin import make_tools
+from tlamati.tools.registry import Registry
 
 BIG = "x" * 600  # ~150+ tokens por tool result
 
@@ -280,7 +281,7 @@ class TestLoopCompaction:
             p,
             system="s",
             user_prompt="lee big.txt varias veces y termina",
-            tools=make_tools(big_workdir),
+            tools=Registry(make_tools(big_workdir)),
             budget=Budget(750),  # tan apretado que M2 no basta → exceeded → resumen
             max_turns=20,
             on_event=lambda k, d: events.append((k, d)),
@@ -336,7 +337,7 @@ class TestLoopCompaction:
             p,
             system="s",
             user_prompt="lee big.txt",
-            tools=make_tools(big_workdir),
+            tools=Registry(make_tools(big_workdir)),
             budget=Budget(1_600),
             max_turns=20,
         )

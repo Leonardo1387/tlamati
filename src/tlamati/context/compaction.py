@@ -1,7 +1,7 @@
 """A6 — Context compaction: M2 microcompaction + cheap-model summary.
 
 Token-saving map (research/04, 5 layers, cheapest first): truncate at the
-spout (M1, tools_min) → MICROCOMPACT (M2, this module) → budget check
+spout (M1, tools/builtin) → MICROCOMPACT (M2, this module) → budget check
 (context/budget.py) → SUMMARY with a cheap model (this module) → fresh window
 (last resort, honest marker).
 
@@ -45,7 +45,7 @@ from tlamati.providers.base import Provider, ProviderError, ToolSpec
 # purpose so it reads as system vocabulary, not user text.
 CLEARED_PLACEHOLDER = "[Old tool result content cleared]"
 
-# Tools whose output can be re-obtained by calling the tool again. tools_min
+# Tools whose output can be re-obtained by calling the tool again. tools/builtin
 # today; Fase B registry must keep this list in sync (donor pitfall #4239).
 DEFAULT_COMPACTABLE_TOOLS: frozenset[str] = frozenset(
     {"read_file", "write_file", "terminal", "grep", "glob", "web_fetch", "search_memory"}
