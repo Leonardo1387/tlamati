@@ -282,7 +282,10 @@ class TestLoopCompaction:
             system="s",
             user_prompt="lee big.txt varias veces y termina",
             tools=Registry(make_tools(big_workdir)),
-            budget=Budget(750),  # tan apretado que M2 no basta → exceeded → resumen
+            # recalibrado B2: specs de 5 tools = 566 tok de prefijo (pitfall
+            # documentado: prefijo crece → budget se recalibra; la INTENCIÓN
+            # del test sigue: M2 no basta → exceeded → resumen)
+            budget=Budget(1200),
             max_turns=20,
             on_event=lambda k, d: events.append((k, d)),
             compactor=Compactor(
