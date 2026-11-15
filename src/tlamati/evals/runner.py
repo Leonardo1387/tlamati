@@ -30,8 +30,14 @@ from tlamati.providers.base import Provider
 from tlamati.providers.openai_compat import OpenAICompat
 from tlamati.tools_min.mini import make_tools
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_FIXTURES = REPO_ROOT / "fixtures"
+# fixtures/ no viaja en el wheel instalado: buscar en candidatos honestos.
+_SRC_ROOT = Path(__file__).resolve().parents[3]  # repo: src/tlamati/evals → repo root
+FIXTURE_CANDIDATES = (
+    _SRC_ROOT / "fixtures",
+    Path.cwd() / "fixtures",
+    Path.home() / ".local" / "share" / "tlamati" / "fixtures",
+)
+DEFAULT_FIXTURES = next((p for p in FIXTURE_CANDIDATES if p.is_dir()), FIXTURE_CANDIDATES[0])
 SYSTEM = (
     "Eres Tlamati, un agente de terminal local-first. Resuelve la tarea con las "
     "herramientas disponibles. Sé breve y directo. Trabaja en el directorio actual. "
@@ -66,6 +72,8 @@ class EvalSummary:
 
 def discover_tasks(fixtures_dir: Path, only: str | None = None) -> list[Path]:
     """Tareas = subdirectorios con instruction.md + verify.py (orden estable)."""
+    if not fixtures_dir.is_dir():
+        return []
     tasks = [
         d
         for d in sorted(fixtures_dir.iterdir())
@@ -155,7 +163,11 @@ async def run_eval(args: argparse.Namespace) -> int:
     fixtures_dir = Path(args.fixtures) if args.fixtures else DEFAULT_FIXTURES
     tasks = discover_tasks(fixtures_dir, args.task)
     if not tasks:
-        print(f"tlamati-eval: sin tareas en {fixtures_dir}", file=sys.stderr)
+        print(
+            f"tlamati-eval: sin tareas en {fixtures_dir} "
+            "(fuera del repo usa --fixtures DIR apuntando a fixtures/)",
+            file=sys.stderr,
+        )
         return 2
 
     cfg = load_config()
