@@ -17,6 +17,7 @@ import yaml
 
 from tlamati import __version__
 from tlamati.context.budget import Budget
+from tlamati.context.compaction import CompactionConfig, Compactor, ModelSummarizer
 from tlamati.core.loop import LoopResult, run_loop
 from tlamati.providers.openai_compat import OpenAICompat
 from tlamati.tools_min.mini import make_tools
@@ -27,6 +28,7 @@ DEFAULT_SYSTEM = (
     "Cuando termines, di TERMINADO y resume qué cambiaste."
 )
 DEFAULT_MODEL = "qwen/qwen3-coder"
+DEFAULT_COMPACT_MODEL = "qwen/qwen3-coder"  # A6: modelo BARATO configurable (fallback chain)
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MAX_CONTEXT = 128_000
 
@@ -81,6 +83,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_MAX_CONTEXT,
         help=f"context window tokens for budget (default: {DEFAULT_MAX_CONTEXT})",
     )
+    p.add_argument(
+        "--compact-model",
+        metavar="ID",
+        help=f"cheap model for compaction summaries (default: {DEFAULT_COMPACT_MODEL}; "
+        "comma-separated list = fallback chain)",
+    )
+    p.add_argument(
+        "--no-compact",
+        action="store_true",
+        help="disable compaction (budget_exceeded stops the loop immediately)",
+    )
     p.add_argument("--quiet", action="store_true", help="suppress streaming output")
     return p
 
@@ -105,6 +118,15 @@ def _printer(quiet: bool) -> Any:
             )
         elif kind == "budget":
             print(data["breakdown"], file=sys.stderr, flush=True)
+        elif kind == "compaction":
+            print(
+                f"[compaction] micro={data['microcompacted']} "
+                f"resumidos={data['summarized']} "
+                f"tokens {data['tokens_before']}→{data['tokens_after']}"
+                + (" (resumen FALLÓ: ventana nueva)" if data["summary_failed"] else ""),
+                file=sys.stderr,
+                flush=True,
+            )
 
     return on_event
 
@@ -126,6 +148,19 @@ async def _run_headless(args: argparse.Namespace) -> int:
     tools = make_tools(Path.cwd())
     budget = Budget(max_context_tokens=args.max_context)
 
+    compactor: Compactor | None = None
+    if not args.no_compact:
+        cfg_compact = cfg.get("compaction") or {}
+        chain = args.compact_model or cfg_compact.get("model") or DEFAULT_COMPACT_MODEL
+        summarizer = ModelSummarizer(
+            [
+                OpenAICompat(model=m.strip(), base_url=base_url, api_key=api_key)
+                for m in str(chain).split(",")
+                if m.strip()
+            ]
+        )
+        compactor = Compactor(CompactionConfig(), summarizer)
+
     result: LoopResult = await run_loop(
         provider,
         system=cfg.get("system_prompt") or DEFAULT_SYSTEM,
@@ -134,6 +169,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
         budget=budget,
         max_turns=args.max_turns,
         on_event=_printer(args.quiet),
+        compactor=compactor,
     )
     if not args.quiet:
         print("", flush=True)

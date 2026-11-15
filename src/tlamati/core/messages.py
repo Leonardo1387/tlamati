@@ -51,6 +51,10 @@ class ToolResult:
     (Fase B) escalates outbound tools to "ask" when the turn consumed any
     untrusted result.
     ``truncated`` is the honest marker for spout-level truncation (M1).
+    ``microcompacted`` marks content erased by M2 microcompaction (the body was
+    replaced by a placeholder because it is re-fetchable). Donor: qwen-code
+    microcompact.ts — an eviction that is not reported is a silent data-loss bug
+    (their issue #4239), so the flag travels with the result forever.
     """
 
     tool_call_id: str
@@ -58,6 +62,7 @@ class ToolResult:
     is_error: bool = False
     untrusted: bool = False
     truncated: bool = False
+    microcompacted: bool = False
 
 
 @dataclass(frozen=True)
@@ -105,6 +110,7 @@ class Message:
                 "is_error": tr.is_error,
                 "untrusted": tr.untrusted,
                 "truncated": tr.truncated,
+                "microcompacted": tr.microcompacted,
             }
         return d
 
@@ -127,6 +133,7 @@ class Message:
                 is_error=tr_d.get("is_error", False),
                 untrusted=tr_d.get("untrusted", False),
                 truncated=tr_d.get("truncated", False),
+                microcompacted=tr_d.get("microcompacted", False),
             )
             if tr_d is not None
             else None

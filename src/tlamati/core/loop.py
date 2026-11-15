@@ -12,6 +12,11 @@ user messages mid-loop).
 Budget (A5 dependency-inversion fix): the loop receives a Budget and asks for
 a breakdown BEFORE each provider call; status "exceeded" stops the loop with
 an honest result, "warn" is surfaced via the event callback.
+
+Compaction (A6): an optional Compactor is invoked at the budget check, BEFORE
+the provider call (message boundary, never mid-stream). It rebuilds the
+history SUFFIX only — the cacheable prefix (system, tools, head anchor) is
+never mutated ("caching is sacred").
 """
 
 from __future__ import annotations
@@ -24,6 +29,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from tlamati.context.budget import Budget
+from tlamati.context.compaction import Compactor
 from tlamati.core.messages import (
     Message,
     MessageEnd,
@@ -158,6 +164,7 @@ async def run_loop(
     budget: Budget,
     max_turns: int = 20,
     on_event: LoopEvent | None = None,
+    compactor: Compactor | None = None,
 ) -> LoopResult:
     """Run the agent until end_turn, budget, max_turns, abort, or error."""
     noop: LoopEvent = lambda kind, data: None  # noqa: E731
@@ -169,7 +176,9 @@ async def run_loop(
     tool_by_name = {t.name: t for t in tools}
 
     try:
-        return await _run_inner(provider, state, tools, tool_by_name, budget, max_turns, on_event)
+        return await _run_inner(
+            provider, state, tools, tool_by_name, budget, max_turns, on_event, compactor
+        )
     except _Abort:
         return LoopResult(
             final_text="(ejecución abortada por el usuario)",
@@ -198,8 +207,10 @@ async def _run_inner(
     budget: Budget,
     max_turns: int,
     on_event: LoopEvent,
+    compactor: Compactor | None = None,
 ) -> LoopResult:
     last_text = ""
+    tool_specs = [t.as_spec() for t in tools]
     while state.turns < max_turns:
         # Interjection v1: pending user message enters at turn start.
         if state.pending_interjection:
@@ -207,8 +218,31 @@ async def _run_inner(
             state.pending_interjection = None
 
         # Budget check BEFORE spending (A5 inversion fix).
-        breakdown = budget.breakdown(state.system, [t.as_spec() for t in tools], state.history)
+        breakdown = budget.breakdown(state.system, tool_specs, state.history)
         on_event("budget", {"breakdown": breakdown.human()})
+        if compactor is not None and breakdown.status != "ok":
+            # A6: compact the SUFFIX only, at a message boundary (golden rule:
+            # never mutate the cacheable prefix; never mid-stream).
+            state.history, report = await compactor.compact(
+                state.history,
+                system=state.system,
+                tools=tool_specs,
+                budget=budget,
+                status=breakdown.status,
+            )
+            if report is not None:
+                state.usage = state.usage + report.usage
+                on_event(
+                    "compaction",
+                    {
+                        "microcompacted": report.microcompacted,
+                        "summarized": report.summarized,
+                        "summary_failed": report.summary_failed,
+                        "tokens_before": report.tokens_before,
+                        "tokens_after": report.tokens_after,
+                    },
+                )
+                breakdown = budget.breakdown(state.system, tool_specs, state.history)
         if breakdown.status == "exceeded":
             return LoopResult(
                 final_text=last_text,
