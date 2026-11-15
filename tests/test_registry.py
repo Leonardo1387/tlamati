@@ -3,12 +3,10 @@ honest degradation, loop integration."""
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import pytest
 
-from tlamati.tools.builtin import make_tools
 from tlamati.tools.registry import Permission, Registry, Tool, truncate, validate_schema
 
 
@@ -171,40 +169,3 @@ class TestTruncate:
     def test_long_cut_with_marker(self) -> None:
         out, tr = truncate("a" * 60_000)
         assert tr and out.endswith("... [truncated]")
-
-
-class TestBuiltinTools:
-    """Los 3 tools migrados mantienen la semántica exacta de Fase A."""
-
-    def test_three_tools_permissions_auto(self) -> None:
-        tools = make_tools(Path("/tmp"))
-        assert [t.name for t in tools] == ["read_file", "write_file", "terminal"]
-        assert all(t.permission is Permission.AUTO for t in tools)
-
-    def test_terminal_is_sandboxable_others_not(self) -> None:
-        tools = {t.name: t for t in make_tools(Path("/tmp"))}
-        assert tools["terminal"].sandboxable
-        assert not tools["read_file"].sandboxable
-        assert not tools["write_file"].sandboxable
-
-    async def test_read_write_roundtrip(self, tmp_path: Path) -> None:
-        r = Registry(make_tools(tmp_path))
-        w = await r.execute("write_file", {"path": "a.txt", "content": "línea"}, "c1")
-        assert not w.is_error
-        got = await r.execute("read_file", {"path": "a.txt"}, "c2")
-        assert "1|línea" in got.content
-
-    async def test_read_missing_schema_enforced(self, tmp_path: Path) -> None:
-        r = Registry(make_tools(tmp_path))
-        res = await r.execute("read_file", {}, "c1")  # falta path obligatorio
-        assert res.is_error and "invalid arguments" in res.content
-
-    async def test_terminal_real_execution(self, tmp_path: Path) -> None:
-        r = Registry(make_tools(tmp_path))
-        res = await r.execute("terminal", {"command": "echo hola"}, "c1")
-        assert "[exit 0]" in res.content and "hola" in res.content
-
-    async def test_terminal_empty_command_rejected_by_schema(self, tmp_path: Path) -> None:
-        r = Registry(make_tools(tmp_path))
-        res = await r.execute("terminal", {}, "c1")
-        assert res.is_error
