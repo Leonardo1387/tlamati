@@ -20,7 +20,8 @@ from tlamati.context.budget import Budget
 from tlamati.context.compaction import CompactionConfig, Compactor, ModelSummarizer
 from tlamati.core.loop import LoopResult, run_loop
 from tlamati.providers.openai_compat import OpenAICompat
-from tlamati.tools_min.mini import make_tools
+from tlamati.tools.builtin import make_tools
+from tlamati.tools.registry import Registry
 
 DEFAULT_SYSTEM = (
     "Eres Tlamati, un agente de terminal local-first. Resuelve la tarea con las "
@@ -145,7 +146,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
         return 2
 
     provider = OpenAICompat(model=model, base_url=base_url, api_key=api_key)
-    tools = make_tools(Path.cwd())
+    tools = Registry(make_tools(Path.cwd()))
     budget = Budget(max_context_tokens=args.max_context)
 
     compactor: Compactor | None = None

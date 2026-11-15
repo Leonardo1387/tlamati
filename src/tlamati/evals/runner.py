@@ -28,7 +28,8 @@ from tlamati.context.budget import Budget
 from tlamati.core.loop import LoopResult, run_loop
 from tlamati.providers.base import Provider
 from tlamati.providers.openai_compat import OpenAICompat
-from tlamati.tools_min.mini import make_tools
+from tlamati.tools.builtin import make_tools
+from tlamati.tools.registry import Registry
 
 # fixtures/ no viaja en el wheel instalado: buscar en candidatos honestos.
 _SRC_ROOT = Path(__file__).resolve().parents[3]  # repo: src/tlamati/evals → repo root
@@ -121,7 +122,7 @@ async def run_task(
             provider,
             system=SYSTEM,
             user_prompt=instruction,
-            tools=make_tools(workdir),
+            tools=Registry(make_tools(workdir)),
             budget=Budget(max_context_tokens=max_context),
             max_turns=max_turns,
             on_event=_task_printer(task_dir.name),

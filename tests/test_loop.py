@@ -22,7 +22,8 @@ from tlamati.core.messages import (
     Usage,
 )
 from tlamati.providers.base import ToolSpec
-from tlamati.tools_min.mini import make_tools
+from tlamati.tools.builtin import make_tools
+from tlamati.tools.registry import Registry
 
 
 class FakeProvider:
@@ -77,7 +78,7 @@ class TestRunLoop:
             p,
             system="s",
             user_prompt="hi",
-            tools=make_tools(workdir),
+            tools=Registry(make_tools(workdir)),
             budget=Budget(100_000),
         )
         assert result.stop_reason == "end_turn"
@@ -107,7 +108,7 @@ class TestRunLoop:
             p,
             system="s",
             user_prompt="arregla el bug de buggy.py",
-            tools=make_tools(workdir),
+            tools=Registry(make_tools(workdir)),
             budget=Budget(100_000),
             on_event=lambda k, d: events.append(k),
         )
@@ -131,7 +132,7 @@ class TestRunLoop:
             p,
             system="s",
             user_prompt="x",
-            tools=make_tools(workdir),
+            tools=Registry(make_tools(workdir)),
             budget=Budget(100_000),
         )
         tool_msg = next(m for m in p.calls[1] if m.role == "tool")
@@ -147,7 +148,7 @@ class TestRunLoop:
             p,
             system="s",
             user_prompt="x",
-            tools=make_tools(workdir),
+            tools=Registry(make_tools(workdir)),
             budget=Budget(100_000),
             max_turns=3,
         )
@@ -160,7 +161,7 @@ class TestRunLoop:
             p,
             system="s" * 50_000,
             user_prompt="x",
-            tools=make_tools(workdir),
+            tools=Registry(make_tools(workdir)),
             budget=Budget(100),  # ridículamente chico → exceeded inmediato
         )
         assert result.stop_reason == "budget_exceeded"
@@ -172,7 +173,7 @@ class TestRunLoop:
             p,
             system="s",
             user_prompt="x",
-            tools=make_tools(workdir),
+            tools=Registry(make_tools(workdir)),
             budget=Budget(100_000),
         )
         assert result.stop_reason == "error"
@@ -209,7 +210,7 @@ class TestRunLoop:
                 p,
                 system="s",
                 user_prompt="x",
-                tools=make_tools(workdir),
+                tools=Registry(make_tools(workdir)),
                 budget=Budget(100_000),
             )
         )

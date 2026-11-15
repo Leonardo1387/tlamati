@@ -24,7 +24,7 @@ from __future__ import annotations
 import asyncio
 import json
 import signal
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -41,7 +41,7 @@ from tlamati.core.messages import (
     Usage,
 )
 from tlamati.providers.base import Provider, ProviderError
-from tlamati.tools_min.mini import MiniTool, execute
+from tlamati.tools.registry import Registry
 
 
 @dataclass
@@ -102,7 +102,7 @@ def _install_sigint(
 async def _stream_one_turn(
     provider: Provider,
     state: LoopState,
-    tools: Sequence[MiniTool],
+    tools: Registry,
     on_event: LoopEvent,
 ) -> tuple[Message, MessageEnd | None, str | None]:
     """Consume one provider turn → (assistant Message, MessageEnd, error).
@@ -116,7 +116,7 @@ async def _stream_one_turn(
     end: MessageEnd | None = None
 
     messages = [Message(role="system", content=state.system), *state.history]
-    async for ev in provider.stream(messages, [t.as_spec() for t in tools]):
+    async for ev in provider.stream(messages, tools.specs()):
         if isinstance(ev, TextDelta):
             text_parts.append(ev.text)
             on_event("text", {"text": ev.text})
@@ -160,7 +160,7 @@ async def run_loop(
     *,
     system: str,
     user_prompt: str,
-    tools: Sequence[MiniTool],
+    tools: Registry,
     budget: Budget,
     max_turns: int = 20,
     on_event: LoopEvent | None = None,
@@ -173,11 +173,10 @@ async def run_loop(
     state.history.append(Message(role="user", content=user_prompt))
     abort_flag = {"set": False}
     prev_handler = _install_sigint(state, abort_flag)
-    tool_by_name = {t.name: t for t in tools}
 
     try:
         return await _run_inner(
-            provider, state, tools, tool_by_name, budget, max_turns, on_event, compactor
+            provider, state, tools, budget, max_turns, on_event, compactor
         )
     except _Abort:
         return LoopResult(
@@ -202,15 +201,14 @@ async def run_loop(
 async def _run_inner(
     provider: Provider,
     state: LoopState,
-    tools: Sequence[MiniTool],
-    tool_by_name: dict[str, MiniTool],
+    tools: Registry,
     budget: Budget,
     max_turns: int,
     on_event: LoopEvent,
     compactor: Compactor | None = None,
 ) -> LoopResult:
     last_text = ""
-    tool_specs = [t.as_spec() for t in tools]
+    tool_specs = tools.specs()
     while state.turns < max_turns:
         # Interjection v1: pending user message enters at turn start.
         if state.pending_interjection:
@@ -301,16 +299,9 @@ async def _run_inner(
                     tool_call_id=tc.id, content=f"ERROR: {parse_error}", is_error=True
                 )
             else:
-                tool = tool_by_name.get(tc.name)
-                if tool is None:
-                    result = ToolResult(
-                        tool_call_id=tc.id,
-                        content=f"ERROR: unknown tool {tc.name!r}",
-                        is_error=True,
-                    )
-                else:
-                    on_event("tool_run", {"name": tc.name, "args": tc.arguments})
-                    result = await execute(tool, tc.arguments, tc.id)
+                # Registry guards: unknown tool → schema → permission → run.
+                on_event("tool_run", {"name": tc.name, "args": tc.arguments})
+                result = await tools.execute(tc.name, tc.arguments, tc.id)
             on_event("tool_result", {"id": tc.id, "is_error": result.is_error})
             state.history.append(Message(role="tool", tool_result=result))
 

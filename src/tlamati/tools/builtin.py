@@ -1,44 +1,21 @@
-"""PROVISIONAL minimal toolset for Fase A (corrección aprobada 14-nov).
+"""Built-in tools (migrated from tools_min/, now formal ``Tool`` instances).
 
-Han-Lee test: these are TEMPORAL — a formal registry (name, schema,
-permission, sandbox_policy) replaces them in B1-B3. No sandbox here; the
-terminal runs foreground with a timeout and the working directory is pinned.
-
-Kept deliberately tiny: 3 tools, ~150 LOC, one dispatch dict.
+B1 migration keeps behaviour byte-identical (the A7 baseline is the ratchet:
+5/5 tasks, same tool semantics). B2 replaces these bodies with the formal
+versions (read with truncation metadata, fuzzy edit, rg search, sandboxed
+terminal). Permission defaults stay AUTO until B4 wires policy config;
+``terminal`` is marked sandboxable so B3 (bwrap) can jail it.
 """
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from tlamati.core.messages import ToolResult
-from tlamati.providers.base import ToolSpec
+from tlamati.tools.registry import Permission, Tool, truncate
 
-MAX_OUTPUT_CHARS = 50_000  # M1: truncate at the spout, honest marker
 TERMINAL_TIMEOUT_S = 120.0
-
-
-@dataclass(frozen=True)
-class MiniTool:
-    name: str
-    description: str
-    input_schema: dict[str, Any]
-    run: Callable[[dict[str, Any]], Awaitable[str]]
-
-    def as_spec(self) -> ToolSpec:
-        return ToolSpec(
-            name=self.name, description=self.description, input_schema=self.input_schema
-        )
-
-
-def _truncate(text: str) -> tuple[str, bool]:
-    if len(text) <= MAX_OUTPUT_CHARS:
-        return text, False
-    return text[:MAX_OUTPUT_CHARS] + "\n... [truncated]", True
 
 
 def _resolve(workdir: Path, path_str: str) -> Path:
@@ -48,8 +25,8 @@ def _resolve(workdir: Path, path_str: str) -> Path:
     return p.resolve()
 
 
-def make_tools(workdir: Path) -> list[MiniTool]:
-    """Build the provisional toolset pinned to ``workdir``."""
+def make_tools(workdir: Path) -> list[Tool]:
+    """Build the built-in toolset pinned to ``workdir``."""
 
     async def read_file(args: dict[str, Any]) -> str:
         path = _resolve(workdir, str(args.get("path", "")))
@@ -60,7 +37,7 @@ def make_tools(workdir: Path) -> list[MiniTool]:
         except OSError as e:
             return f"ERROR: {e}"
         numbered = "\n".join(f"{i + 1}|{line}" for i, line in enumerate(text.splitlines()))
-        out, _ = _truncate(numbered)
+        out, _ = truncate(numbered)
         return out
 
     async def write_file(args: dict[str, Any]) -> str:
@@ -75,8 +52,6 @@ def make_tools(workdir: Path) -> list[MiniTool]:
 
     async def terminal(args: dict[str, Any]) -> str:
         cmd = str(args.get("command", ""))
-        if not cmd:
-            return "ERROR: empty command"
         proc: asyncio.subprocess.Process | None = None
         try:
             proc = await asyncio.create_subprocess_shell(
@@ -95,11 +70,11 @@ def make_tools(workdir: Path) -> list[MiniTool]:
         if proc is None or proc.returncode is None:
             return "ERROR: process did not complete"
         out = stdout.decode("utf-8", errors="replace")
-        out, _ = _truncate(out)
+        out, _ = truncate(out)
         return f"[exit {proc.returncode}]\n{out}".rstrip()
 
     return [
-        MiniTool(
+        Tool(
             name="read_file",
             description="Read a text file with line numbers (relative to the working directory).",
             input_schema={
@@ -108,8 +83,10 @@ def make_tools(workdir: Path) -> list[MiniTool]:
                 "required": ["path"],
             },
             run=read_file,
+            permission=Permission.AUTO,
+            sandboxable=False,
         ),
-        MiniTool(
+        Tool(
             name="write_file",
             description="Write (create or fully overwrite) a text file.",
             input_schema={
@@ -121,8 +98,10 @@ def make_tools(workdir: Path) -> list[MiniTool]:
                 "required": ["path", "content"],
             },
             run=write_file,
+            permission=Permission.AUTO,
+            sandboxable=False,
         ),
-        MiniTool(
+        Tool(
             name="terminal",
             description=(
                 "Run a shell command in the working directory "
@@ -134,20 +113,7 @@ def make_tools(workdir: Path) -> list[MiniTool]:
                 "required": ["command"],
             },
             run=terminal,
+            permission=Permission.AUTO,
+            sandboxable=True,  # B3: bwrap jail target
         ),
     ]
-
-
-async def execute(tool: MiniTool, raw_args: dict[str, Any], tool_call_id: str) -> ToolResult:
-    """Run one tool, converting ANY failure into an honest ToolResult
-    (is_error=True) — the loop never crashes on a tool bug."""
-    try:
-        content = await tool.run(raw_args)
-        is_error = content.startswith("ERROR:")
-    except Exception as e:
-        content = f"ERROR: tool {tool.name} raised {type(e).__name__}: {e}"
-        is_error = True
-    content, truncated = _truncate(content)
-    return ToolResult(
-        tool_call_id=tool_call_id, content=content, is_error=is_error, truncated=truncated
-    )
