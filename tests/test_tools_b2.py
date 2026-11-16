@@ -46,7 +46,7 @@ class TestRenderLines:
 
 
 class TestFuzzyLadder:
-    TEXT = 'def foo():\n    return 42\n\ndef bar():\n    return 43\n'
+    TEXT = "def foo():\n    return 42\n\ndef bar():\n    return 43\n"
 
     def test_s1_exact(self) -> None:
         out, strat = fuzzy_replace(self.TEXT, "return 42", "return 0")
@@ -149,9 +149,7 @@ class TestSearchTool:
     async def test_content_search(self, reg: Registry, tmp_path: Path) -> None:
         (tmp_path / "a.py").write_text("def needle():\n    pass\n")
         (tmp_path / "b.txt").write_text("nothing here\n")
-        res = await reg.execute(
-            "search_files", {"pattern": "needle", "target": "content"}, "c1"
-        )
+        res = await reg.execute("search_files", {"pattern": "needle", "target": "content"}, "c1")
         assert not res.is_error
         assert "a.py:1" in res.content and "b.txt" not in res.content
 

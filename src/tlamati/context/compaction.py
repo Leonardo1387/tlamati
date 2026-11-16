@@ -141,9 +141,7 @@ def _is_cleared(content: str) -> bool:
     return content.strip() == CLEARED_PLACEHOLDER
 
 
-def microcompact(
-    history: Sequence[Message], config: CompactionConfig
-) -> tuple[list[Message], int]:
+def microcompact(history: Sequence[Message], config: CompactionConfig) -> tuple[list[Message], int]:
     """M2: clear old re-fetchable tool outputs. Returns (new history, cleared).
 
     Only touches messages OUTSIDE the head anchor and the recent tail. Never
@@ -198,9 +196,7 @@ def _summary_message(summary: str) -> Message:
     mid-stream; the loop calls compaction only between turns."""
     return Message(
         role="user",
-        content=(
-            "[CONTEXTO COMPACTADO — resumen de los mensajes anteriores] " + summary
-        ),
+        content=("[CONTEXTO COMPACTADO — resumen de los mensajes anteriores] " + summary),
     )
 
 

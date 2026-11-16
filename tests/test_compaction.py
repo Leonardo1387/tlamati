@@ -134,8 +134,9 @@ class TestMicrocompact:
             _assistant_call("c3", "herramienta_secreta", {}),
             _tool_msg("c3", f"9|{BIG}"),  # fuera del whitelist → nunca
         ]
-        out, cleared = microcompact(h, CompactionConfig(retain_first=0, retain_recent=0,
-                                                        min_chars_to_clear=100))
+        out, cleared = microcompact(
+            h, CompactionConfig(retain_first=0, retain_recent=0, min_chars_to_clear=100)
+        )
         assert cleared == 0
         assert out == h
 
@@ -183,18 +184,14 @@ class TestCompactor:
         tail = [m.as_dict() for m in h[-CFG.retain_recent :]]
         budget = Budget(100_000)
         comp = Compactor(CFG, FakeSummarizer("RESUMEN-X"))
-        out, report = await comp.compact(
-            h, system="s", tools=(), budget=budget, status="exceeded"
-        )
+        out, report = await comp.compact(h, system="s", tools=(), budget=budget, status="exceeded")
         assert report is not None
         assert report.summarized == len(h) - CFG.retain_first - CFG.retain_recent
         assert report.tokens_after < report.tokens_before
         # head anchor y tail sobreviven BYTE-STABLE (regla de oro)
         assert [m.as_dict() for m in out[: CFG.retain_first]] == head
         assert [m.as_dict() for m in out[-CFG.retain_recent :]] == tail
-        assert any(
-            m.role == "user" and m.content.startswith("[CONTEXTO COMPACTADO") for m in out
-        )
+        assert any(m.role == "user" and m.content.startswith("[CONTEXTO COMPACTADO") for m in out)
         assert "RESUMEN-X" in next(
             m.content for m in out if m.content.startswith("[CONTEXTO COMPACTADO")
         )
@@ -318,11 +315,7 @@ class TestLoopCompaction:
                 assert wire(call[2]) == wire(first_full[2])  # primera respuesta assistant
 
         # el resumen entró como marcador visible en alguna llamada posterior
-        assert any(
-            m.content.startswith("[CONTEXTO COMPACTADO")
-            for call in p.calls
-            for m in call
-        )
+        assert any(m.content.startswith("[CONTEXTO COMPACTADO") for call in p.calls for m in call)
         # los tool results viejos quedaron con placeholder + flag de auditoría
         assert any(
             m.role == "tool"

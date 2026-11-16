@@ -46,8 +46,17 @@ def make_search_tools(workdir: Path) -> list[Any]:
         else:
             cmd = [rg, "--json", "--max-count", str(limit), "--", pattern, str(base)]
             if file_glob:
-                cmd = [rg, "--json", "-g", str(file_glob), "--max-count", str(limit),
-                       "--", pattern, str(base)]
+                cmd = [
+                    rg,
+                    "--json",
+                    "-g",
+                    str(file_glob),
+                    "--max-count",
+                    str(limit),
+                    "--",
+                    pattern,
+                    str(base),
+                ]
 
         try:
             proc = await asyncio.create_subprocess_exec(

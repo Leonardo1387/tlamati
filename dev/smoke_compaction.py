@@ -54,8 +54,10 @@ async def main() -> None:
     print("=== RESUMEN ===")
     print(summary)
     print("=== USAGE ===")
-    print(f"input={usage.input_tokens} output={usage.output_tokens} "
-          f"cache_read={usage.cache_read_tokens}")
+    print(
+        f"input={usage.input_tokens} output={usage.output_tokens} "
+        f"cache_read={usage.cache_read_tokens}"
+    )
 
 
 if __name__ == "__main__":

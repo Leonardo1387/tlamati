@@ -175,9 +175,7 @@ async def run_loop(
     prev_handler = _install_sigint(state, abort_flag)
 
     try:
-        return await _run_inner(
-            provider, state, tools, budget, max_turns, on_event, compactor
-        )
+        return await _run_inner(provider, state, tools, budget, max_turns, on_event, compactor)
     except _Abort:
         return LoopResult(
             final_text="(ejecución abortada por el usuario)",
