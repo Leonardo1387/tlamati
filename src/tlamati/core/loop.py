@@ -165,17 +165,33 @@ async def run_loop(
     max_turns: int = 20,
     on_event: LoopEvent | None = None,
     compactor: Compactor | None = None,
+    history: list[Message] | None = None,
+    on_message: Callable[[Message], None] | None = None,
 ) -> LoopResult:
-    """Run the agent until end_turn, budget, max_turns, abort, or error."""
+    """Run the agent until end_turn, budget, max_turns, abort, or error.
+
+    C1 (session store): ``history`` seeds a RESUMED conversation (messages are
+    replayed as-is; the loop stays provider-blind). ``on_message`` is called
+    for every message appended (user prompt, assistant turns, tool results)
+    so the caller can persist DURING the run — a crashed run keeps everything
+    written up to the crash (same robustness lesson as the B5 ledger).
+    """
     noop: LoopEvent = lambda kind, data: None  # noqa: E731
     on_event = on_event or noop
     state = LoopState(system=system)
-    state.history.append(Message(role="user", content=user_prompt))
+    if history:
+        state.history.extend(history)
+    first = Message(role="user", content=user_prompt)
+    state.history.append(first)
+    if on_message is not None:
+        on_message(first)
     abort_flag = {"set": False}
     prev_handler = _install_sigint(state, abort_flag)
 
     try:
-        return await _run_inner(provider, state, tools, budget, max_turns, on_event, compactor)
+        return await _run_inner(
+            provider, state, tools, budget, max_turns, on_event, compactor, on_message
+        )
     except _Abort:
         return LoopResult(
             final_text="(ejecución abortada por el usuario)",
@@ -204,13 +220,17 @@ async def _run_inner(
     max_turns: int,
     on_event: LoopEvent,
     compactor: Compactor | None = None,
+    on_message: Callable[[Message], None] | None = None,
 ) -> LoopResult:
     last_text = ""
     tool_specs = tools.specs()
     while state.turns < max_turns:
         # Interjection v1: pending user message enters at turn start.
         if state.pending_interjection:
-            state.history.append(Message(role="user", content=state.pending_interjection))
+            interj = Message(role="user", content=state.pending_interjection)
+            state.history.append(interj)
+            if on_message is not None:
+                on_message(interj)
             state.pending_interjection = None
 
         # Budget check BEFORE spending (A5 inversion fix).
@@ -251,6 +271,8 @@ async def _run_inner(
         assistant, end, parse_error = await _stream_one_turn(provider, state, tools, on_event)
         state.turns += 1
         state.history.append(assistant)
+        if on_message is not None:
+            on_message(assistant)
         if end is not None:
             state.usage = state.usage + end.usage
         on_event("turn_end", {"turn": state.turns, "usage": end.usage if end else Usage()})
@@ -301,7 +323,10 @@ async def _run_inner(
                 on_event("tool_run", {"name": tc.name, "args": tc.arguments})
                 result = await tools.execute(tc.name, tc.arguments, tc.id)
             on_event("tool_result", {"id": tc.id, "is_error": result.is_error})
-            state.history.append(Message(role="tool", tool_result=result))
+            tool_msg = Message(role="tool", tool_result=result)
+            state.history.append(tool_msg)
+            if on_message is not None:
+                on_message(tool_msg)
 
         await asyncio.sleep(0)  # yield to event loop (signal delivery)
 

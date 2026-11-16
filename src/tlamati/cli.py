@@ -10,6 +10,8 @@ import argparse
 import asyncio
 import os
 import sys
+import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +24,7 @@ from tlamati.core.loop import LoopResult, run_loop
 from tlamati.policy.config import Policy, PolicyConfig
 from tlamati.providers.openai_compat import OpenAICompat
 from tlamati.sandbox.bwrap import bwrap_available
+from tlamati.session.store import SessionStore
 from tlamati.tools.builtin import make_tools
 from tlamati.tools.registry import Registry
 
@@ -34,6 +37,7 @@ DEFAULT_MODEL = "qwen/qwen3-coder"
 DEFAULT_COMPACT_MODEL = "qwen/qwen3-coder"  # A6: modelo BARATO configurable (fallback chain)
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MAX_CONTEXT = 128_000
+DEFAULT_SESSION_DB = Path.home() / ".local" / "share" / "tlamati" / "sessions.db"
 
 CONFIG_PATHS = (
     Path("tlamati.yaml"),
@@ -114,7 +118,35 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="headless: pre-approve a tool for ASK permissions ('*' = all; default: NEVER yolo)",
     )
+    p.add_argument(
+        "--session-db",
+        metavar="PATH",
+        default=str(DEFAULT_SESSION_DB),
+        help=f"SQLite session store path (default: {DEFAULT_SESSION_DB})",
+    )
+    p.add_argument(
+        "--no-session",
+        action="store_true",
+        help="do not persist this run to the session store",
+    )
+    p.add_argument(
+        "--continue",
+        dest="continue_last",
+        action="store_true",
+        help="resume the most recent session (with -p: continue that conversation)",
+    )
+    p.add_argument(
+        "--resume",
+        metavar="SESSION_ID",
+        help="resume a specific session by id",
+    )
     p.add_argument("--quiet", action="store_true", help="suppress streaming output")
+    p.add_argument(
+        "cmd",
+        nargs="?",
+        choices=["sessions"],
+        help="'sessions' = list stored sessions (no LLM, free)",
+    )
     return p
 
 
@@ -181,6 +213,38 @@ async def _run_headless(args: argparse.Namespace) -> int:
         )
         return 2
 
+    # C1: session store — persist during the run (crash-safe, ledger lesson).
+    store: SessionStore | None = None
+    session_id: str | None = None
+    resumed_history: list[Any] = []
+    if not args.no_session:
+        store = SessionStore(args.session_db)
+        if store.broken:
+            print(f"[session] aviso: {store.broken} — corrida SIN persistir", file=sys.stderr)
+            store = None
+        else:
+            resume_id = args.resume or (store.latest_session_id() if args.continue_last else None)
+            if resume_id is not None:
+                loaded = store.load_session(resume_id)
+                if loaded is None:
+                    print(f"[session] no existe la sesión {resume_id!r}", file=sys.stderr)
+                    store.close()
+                    return 2
+                session_id = resume_id
+                resumed_history = loaded.messages
+                print(
+                    f"[session] retomando {resume_id} ({len(loaded.messages)} mensajes previos)",
+                    file=sys.stderr,
+                )
+            if session_id is None:
+                session_id = f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
+                store.create_session(
+                    session_id,
+                    cwd=str(Path.cwd()),
+                    model=model,
+                    first_prompt=args.prompt or "",
+                )
+
     provider = OpenAICompat(model=model, base_url=base_url, api_key=api_key)
     sandbox = not args.no_sandbox
     if sandbox and not bwrap_available():
@@ -214,6 +278,10 @@ async def _run_headless(args: argparse.Namespace) -> int:
         )
         compactor = Compactor(CompactionConfig(), summarizer)
 
+    def _persist(m: Any) -> None:
+        if store is not None and session_id is not None:
+            store.append_message(session_id, m)
+
     result: LoopResult = await run_loop(
         provider,
         system=cfg.get("system_prompt") or DEFAULT_SYSTEM,
@@ -223,7 +291,14 @@ async def _run_headless(args: argparse.Namespace) -> int:
         max_turns=args.max_turns,
         on_event=_printer(args.quiet),
         compactor=compactor,
+        history=resumed_history or None,
+        on_message=_persist,
     )
+    if store is not None and session_id is not None:
+        store.record_usage(session_id, result.turns, result.usage)
+        store.finish_session(session_id, stop_reason=result.stop_reason, turns=result.turns)
+        store.close()
+        print(f"[session] {session_id}", file=sys.stderr)
     if not args.quiet:
         print("", flush=True)
     u = result.usage
@@ -238,8 +313,26 @@ async def _run_headless(args: argparse.Namespace) -> int:
     return 0 if result.stop_reason in ("end_turn",) else 1
 
 
+def _run_sessions(args: argparse.Namespace) -> int:
+    """`tlamati sessions` — list stored sessions (free, no LLM)."""
+    store = SessionStore(args.session_db)
+    if store.broken:
+        print(f"tlamati: {store.broken}", file=sys.stderr)
+        return 2
+    sessions = store.list_sessions()
+    store.close()
+    if not sessions:
+        print("(sin sesiones guardadas)")
+        return 0
+    for s in sessions:
+        print(s.human())
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.cmd == "sessions":
+        return _run_sessions(args)
     if args.prompt:
         return asyncio.run(_run_headless(args))
     build_parser().print_help()
