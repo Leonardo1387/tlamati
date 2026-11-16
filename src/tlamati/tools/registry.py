@@ -26,13 +26,16 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import jsonschema
 from jsonschema.exceptions import SchemaError
 
 from tlamati.core.messages import ToolResult
 from tlamati.providers.base import ToolSpec
+
+if TYPE_CHECKING:  # B4: policy.config importa Permission de aquí → ciclo evitado
+    from tlamati.policy.config import Policy
 
 MAX_OUTPUT_CHARS = 50_000  # M1: truncate at the spout, honest marker
 
@@ -60,6 +63,7 @@ class Tool:
     run: Callable[[dict[str, Any]], Awaitable[str]]
     permission: Permission = Permission.AUTO
     sandboxable: bool = False
+    produces_untrusted: bool = False  # B4: sus resultados OK marcan la trifecta
 
     def as_spec(self) -> ToolSpec:
         return ToolSpec(
@@ -101,9 +105,15 @@ class Registry:
     dispatch): two tools claiming one name would corrupt every audit trail.
     """
 
-    def __init__(self, tools: list[Tool] | None = None, approver: Approver | None = None):
+    def __init__(
+        self,
+        tools: list[Tool] | None = None,
+        approver: Approver | None = None,
+        policy: Policy | None = None,
+    ):
         self._tools: dict[str, Tool] = {}
         self.approver = approver
+        self.policy = policy  # B4: overrides + patrones + trifecta
         for t in tools or []:
             self.register(t)
 
@@ -150,15 +160,20 @@ class Registry:
         if schema_error is not None:
             return ToolResult(tool_call_id=tool_call_id, content=schema_error, is_error=True)
 
-        # 2. Permission gate. B4 replaces the approver; today ASK without an
-        # approver degrades honestly (never silently runs, never yolo).
-        if tool.permission is Permission.DENY:
+        # 2. Permission gate (B4: Policy resuelve override+patrones+trifecta;
+        # sin policy = permiso declarado del tool, semántica B1 intacta).
+        declared = tool.permission
+        effective = (
+            self.policy.resolve(name, args, declared) if self.policy is not None else declared
+        )
+        if effective is Permission.DENY:
+            reason = "denied by policy" if effective is not declared else "is denied by policy"
             return ToolResult(
                 tool_call_id=tool_call_id,
-                content=f"ERROR: tool {name!r} is denied by policy",
+                content=f"ERROR: tool {name!r} {reason}",
                 is_error=True,
             )
-        if tool.permission is Permission.ASK:
+        if effective is Permission.ASK:
             approved = False
             if self.approver is not None:
                 try:
@@ -170,9 +185,18 @@ class Registry:
                         is_error=True,
                     )
             if not approved:
+                why = (
+                    "escalated to approval (untrusted content consumed)"
+                    if (
+                        self.policy is not None
+                        and self.policy.untrusted_seen
+                        and declared is Permission.AUTO
+                    )
+                    else "requires approval and was not approved"
+                )
                 return ToolResult(
                     tool_call_id=tool_call_id,
-                    content=f"ERROR: tool {name!r} requires approval and was not approved",
+                    content=f"ERROR: tool {name!r} {why}",
                     is_error=True,
                 )
 
@@ -184,6 +208,15 @@ class Registry:
             content = f"ERROR: tool {name} raised {type(e).__name__}: {e}"
             is_error = True
         content, truncated = truncate(content)
+        # B4 trifecta: un tool que PRODUCE contenido no confiable (p.ej.
+        # terminal con red) marca el resultado y la corrida entera.
+        untrusted = bool(tool.produces_untrusted and not is_error)
+        if untrusted and self.policy is not None:
+            self.policy.mark_untrusted()
         return ToolResult(
-            tool_call_id=tool_call_id, content=content, is_error=is_error, truncated=truncated
+            tool_call_id=tool_call_id,
+            content=content,
+            is_error=is_error,
+            untrusted=untrusted,
+            truncated=truncated,
         )
