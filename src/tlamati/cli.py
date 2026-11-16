@@ -19,6 +19,7 @@ from tlamati import __version__
 from tlamati.context.budget import Budget
 from tlamati.context.compaction import CompactionConfig, Compactor, ModelSummarizer
 from tlamati.core.loop import LoopResult, run_loop
+from tlamati.policy.config import Policy, PolicyConfig
 from tlamati.providers.openai_compat import OpenAICompat
 from tlamati.sandbox.bwrap import bwrap_available
 from tlamati.tools.builtin import make_tools
@@ -106,8 +107,32 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="allow network inside the bwrap jail (default: network OFF)",
     )
+    p.add_argument(
+        "--approve-tool",
+        metavar="NAME",
+        action="append",
+        default=[],
+        help="headless: pre-approve a tool for ASK permissions ('*' = all; default: NEVER yolo)",
+    )
     p.add_argument("--quiet", action="store_true", help="suppress streaming output")
     return p
+
+
+def _headless_approver(approved_tools: list[str]) -> Any:
+    """Approver headless (B4): aprueba SOLO tools pre-aprobadas con
+    --approve-tool (o '*' = todas). Lista vacía = nada se aprueba → ASK
+    devuelve error honesto. Default NUNCA yolo (GUIA §B4). El TUI de Fase E
+    traerá el prompt interactivo real."""
+    allow_all = "*" in approved_tools
+    allowed = set(approved_tools)
+
+    async def approver(name: str, args: dict[str, Any]) -> bool:
+        if allow_all or name in allowed:
+            print(f"[policy] tool {name!r} pre-aprobada vía --approve-tool", file=sys.stderr)
+            return True
+        return False
+
+    return approver
 
 
 def _printer(quiet: bool) -> Any:
@@ -164,7 +189,16 @@ async def _run_headless(args: argparse.Namespace) -> int:
             "(instalalo con: sudo apt install bubblewrap)",
             file=sys.stderr,
         )
-    tools = Registry(make_tools(Path.cwd(), sandbox=sandbox, sandbox_net=args.sandbox_net))
+    try:
+        policy = Policy(PolicyConfig.from_dict(cfg.get("permissions")))
+    except ValueError as e:
+        print(f"tlamati: configuración de permisos inválida: {e}", file=sys.stderr)
+        return 2
+    tools = Registry(
+        make_tools(Path.cwd(), sandbox=sandbox, sandbox_net=args.sandbox_net),
+        approver=_headless_approver(args.approve_tool),
+        policy=policy,
+    )
     budget = Budget(max_context_tokens=args.max_context)
 
     compactor: Compactor | None = None
