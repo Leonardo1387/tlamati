@@ -84,5 +84,9 @@ def make_terminal_tools(
             run=terminal,
             permission=Permission.AUTO,
             sandboxable=True,
+            # B4 trifecta: si el comando PUDO tocar la red (red permitida o
+            # sin jaula), su output cruzó la frontera → untrusted. Enjaulado
+            # con red OFF no produce untrusted (la red es inalcanzable).
+            produces_untrusted=bool(sandbox_net or not sandbox),
         ),
     ]
