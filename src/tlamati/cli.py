@@ -20,6 +20,7 @@ from tlamati.context.budget import Budget
 from tlamati.context.compaction import CompactionConfig, Compactor, ModelSummarizer
 from tlamati.core.loop import LoopResult, run_loop
 from tlamati.providers.openai_compat import OpenAICompat
+from tlamati.sandbox.bwrap import bwrap_available
 from tlamati.tools.builtin import make_tools
 from tlamati.tools.registry import Registry
 
@@ -95,6 +96,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="disable compaction (budget_exceeded stops the loop immediately)",
     )
+    p.add_argument(
+        "--no-sandbox",
+        action="store_true",
+        help="disable the bwrap jail for the terminal tool (default: ON when bwrap exists)",
+    )
+    p.add_argument(
+        "--sandbox-net",
+        action="store_true",
+        help="allow network inside the bwrap jail (default: network OFF)",
+    )
     p.add_argument("--quiet", action="store_true", help="suppress streaming output")
     return p
 
@@ -146,7 +157,14 @@ async def _run_headless(args: argparse.Namespace) -> int:
         return 2
 
     provider = OpenAICompat(model=model, base_url=base_url, api_key=api_key)
-    tools = Registry(make_tools(Path.cwd()))
+    sandbox = not args.no_sandbox
+    if sandbox and not bwrap_available():
+        print(
+            "tlamati: bwrap NO instalado — el terminal correrá SIN sandbox "
+            "(instalalo con: sudo apt install bubblewrap)",
+            file=sys.stderr,
+        )
+    tools = Registry(make_tools(Path.cwd(), sandbox=sandbox, sandbox_net=args.sandbox_net))
     budget = Budget(max_context_tokens=args.max_context)
 
     compactor: Compactor | None = None

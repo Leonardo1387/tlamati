@@ -1,8 +1,9 @@
-"""B2 — terminal tool: foreground shell with timeout + honest truncation.
+"""B2/B3 — terminal tool: foreground shell con timeout + truncado honesto.
 
-B3 will wrap ``cmd`` in a bwrap jail (sandboxable=True already declared).
-Until then the command runs directly, pinned to workdir (same semantics as
-Fase A — the A7 baseline depends on it). background+poll is v1.1 (GUIA §B2).
+B3: el comando corre DENTRO de la jaula bwrap (fs read-only + workdir rw +
+sin red) cuando ``sandbox=True`` (default: ON si bwrap existe). Si bwrap no
+está instalado hay degradación HONESTA: el comando corre sin jaula y el
+resultado del tool lleva una nota visible. background+poll es v1.1 (GUIA §B2).
 """
 
 from __future__ import annotations
@@ -11,19 +12,45 @@ import asyncio
 from pathlib import Path
 from typing import Any
 
+from tlamati.sandbox.bwrap import SandboxProfile, bwrap_available, wrap_command
+
 TERMINAL_TIMEOUT_S = 120.0
 MAX_OUTPUT_CHARS = 50_000
 
+_NO_SANDBOX_NOTE = (
+    "[sin sandbox: bwrap no está instalado — el comando corrió SIN jaula]\n"
+)
 
-def make_terminal_tools(workdir: Path) -> list[Any]:
+
+def make_terminal_tools(
+    workdir: Path, *, sandbox: bool | None = None, sandbox_net: bool = False
+) -> list[Any]:
+    """sandbox=None (default) → ON si bwrap existe; True/False → forzado.
+
+    sandbox_net=True → --share-net dentro de la jaula (permiso separado,
+    GUIA §B3; default OFF).
+    """
     from tlamati.tools.registry import Permission, Tool
+
+    if sandbox is None:
+        sandbox = bwrap_available()
+    profile = SandboxProfile(workdir=workdir, net=sandbox_net)
 
     async def terminal(args: dict[str, Any]) -> str:
         cmd = str(args.get("command", ""))
+        effective = cmd
+        no_jail = False
+        if sandbox:
+            wrapped = wrap_command(cmd, profile)
+            if wrapped is None:
+                # pedido ON pero bwrap desapareció en runtime → honesto, no yolo
+                no_jail = True
+            else:
+                effective = wrapped
         proc: asyncio.subprocess.Process | None = None
         try:
             proc = await asyncio.create_subprocess_shell(
-                cmd,
+                effective,
                 cwd=str(workdir),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
@@ -41,7 +68,8 @@ def make_terminal_tools(workdir: Path) -> list[Any]:
         truncated = len(out) > MAX_OUTPUT_CHARS
         if truncated:
             out = out[:MAX_OUTPUT_CHARS] + "\n... [truncated]"
-        return f"[exit {proc.returncode}]\n{out}".rstrip()
+        prefix = _NO_SANDBOX_NOTE if no_jail else ""
+        return f"{prefix}[exit {proc.returncode}]\n{out}".rstrip()
 
     return [
         Tool(
@@ -57,6 +85,6 @@ def make_terminal_tools(workdir: Path) -> list[Any]:
             },
             run=terminal,
             permission=Permission.AUTO,
-            sandboxable=True,  # B3: bwrap jail target
+            sandboxable=True,
         ),
     ]
