@@ -17,9 +17,7 @@ from tlamati.sandbox.bwrap import SandboxProfile, bwrap_available, wrap_command
 TERMINAL_TIMEOUT_S = 120.0
 MAX_OUTPUT_CHARS = 50_000
 
-_NO_SANDBOX_NOTE = (
-    "[sin sandbox: bwrap no está instalado — el comando corrió SIN jaula]\n"
-)
+_NO_SANDBOX_NOTE = "[sin sandbox: bwrap no está instalado — el comando corrió SIN jaula]\n"
 
 
 def make_terminal_tools(

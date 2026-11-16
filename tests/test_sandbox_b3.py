@@ -3,6 +3,7 @@
 Los tests marcados require_bwrap corren la jaula REAL (bwrap instalado en
 esta máquina; si falta, skip honesto — nunca verde falso).
 """
+
 from __future__ import annotations
 
 import shutil
@@ -15,9 +16,7 @@ from tlamati.sandbox.bwrap import SandboxProfile, build_bwrap_argv, wrap_command
 from tlamati.tools.builtin import make_tools
 from tlamati.tools.registry import Registry
 
-require_bwrap = pytest.mark.skipif(
-    shutil.which("bwrap") is None, reason="bwrap no instalado"
-)
+require_bwrap = pytest.mark.skipif(shutil.which("bwrap") is None, reason="bwrap no instalado")
 
 
 class TestProfileArgv:
@@ -69,9 +68,7 @@ class TestJailReal:
 
     async def test_home_outside_workdir_readonly(self, tmp_path: Path) -> None:
         reg = Registry(make_tools(tmp_path, sandbox=True))
-        res = await reg.execute(
-            "terminal", {"command": f"touch {Path.home()}/fuga_b3_home"}, "c1"
-        )
+        res = await reg.execute("terminal", {"command": f"touch {Path.home()}/fuga_b3_home"}, "c1")
         assert "[exit 1]" in res.content
         assert not (Path.home() / "fuga_b3_home").exists()
 
