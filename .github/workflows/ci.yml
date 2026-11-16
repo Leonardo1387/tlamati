@@ -13,6 +13,8 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           version: "latest"
+      - name: System deps (ripgrep para search_files; bwrap es skip-honesto en tests)
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
       - name: Sync deps
         run: uv sync --extra dev
       - name: Ruff
