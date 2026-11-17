@@ -28,6 +28,8 @@ from tlamati.memory.dream import dream
 from tlamati.memory.skills import SkillLibrary, default_skill_roots, make_skill_tools
 from tlamati.memory.store import MemoryStore, default_memory_dir, seed_if_empty
 from tlamati.memory.tools import make_memory_tools
+from tlamati.plan.mode import PLAN_MODE_PROMPT, PlanState
+from tlamati.plan.tools import make_plan_tools
 from tlamati.policy.config import Policy, PolicyConfig
 from tlamati.policy.ledger import Ledger
 from tlamati.providers.openai_compat import OpenAICompat
@@ -188,6 +190,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="disable the audit ledger for this run",
     )
+    p.add_argument(
+        "--plan-mode",
+        action="store_true",
+        help="start the run in plan-mode (explore→approve→execute; write/terminal "
+        "DENIED until the user approves a plan; mutually exclusive with --approve-tool '*')",
+    )
     p.add_argument("--quiet", action="store_true", help="suppress streaming output")
     p.add_argument(
         "cmd",
@@ -307,6 +315,15 @@ def _printer(quiet: bool) -> Any:
 
 
 async def _run_headless(args: argparse.Namespace) -> int:
+    # C5 (gemini regla 7): plan-mode y YOLO son mutuamente exclusivos — fail
+    # fast al parsear, nunca en caliente.
+    if args.plan_mode and "*" in args.approve_tool:
+        print(
+            "tlamati: --plan-mode y --approve-tool '*' son mutuamente exclusivos "
+            "(el plan-mode requiere aprobación humana real de los planes)",
+            file=sys.stderr,
+        )
+        return 2
     cfg = load_config()
     cfg_provider = cfg.get("provider") or {}
     model = args.model or cfg_provider.get("model") or DEFAULT_MODEL
@@ -360,7 +377,10 @@ async def _run_headless(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
     try:
-        policy = Policy(PolicyConfig.from_dict(cfg.get("permissions")))
+        policy = Policy(
+            PolicyConfig.from_dict(cfg.get("permissions")),
+            plan_state=(plan_state := PlanState(active=args.plan_mode)),
+        )
     except ValueError as e:
         print(f"tlamati: configuración de permisos inválida: {e}", file=sys.stderr)
         return 2
@@ -426,6 +446,18 @@ async def _run_headless(args: argparse.Namespace) -> int:
         except OSError as e:
             print(f"[skills] aviso: {e} — corrida SIN skills", file=sys.stderr)
 
+    # C5 plan-mode: bloque de prompt ESTÁTICO (siempre presente — el prefijo
+    # cacheable no varía por corrida; decisión #3 del handoff) + tools de plan
+    # AL FINAL del orden estable (append-only, cache sagrada).
+    system_prompt += PLAN_MODE_PROMPT
+    tool_list.extend(make_plan_tools(Path.cwd(), plan_state, plan_approver=None))
+    if plan_state.active:
+        print(
+            "[plan-mode] corrida en PLAN-MODE: escritura/terminal DENEGADAS "
+            "hasta aprobar un plan (sin aprobador interactivo, exit falla cerrado)",
+            file=sys.stderr,
+        )
+
     tools = Registry(
         tool_list,
         approver=_headless_approver(args.approve_tool),
@@ -458,7 +490,15 @@ async def _run_headless(args: argparse.Namespace) -> int:
     result: LoopResult = await run_loop(
         provider,
         system=system_prompt,
-        user_prompt=args.prompt,
+        # Decisión #3 (handoff C5): el ESTADO dinámico viaja en el primer
+        # mensaje, nunca en el prefijo (prefijo byte-estable = cache sagrada).
+        user_prompt=(
+            args.prompt
+            if not plan_state.active
+            else "[ESTÁS EN PLAN-MODE ACTIVO desde el inicio de esta corrida: "
+            "solo exploración y save_plan; escritura/terminal DENEGADAS hasta "
+            "que exit_plan_mode sea aprobado.]\n\n" + args.prompt
+        ),
         tools=tools,
         budget=budget,
         max_turns=args.max_turns,
