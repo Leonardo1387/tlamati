@@ -190,4 +190,8 @@ class TestCliAudit:
     def test_unknown_subcommand(self) -> None:
         from tlamati.cli import main
 
-        assert main(["basura"]) == 2
+        # Merge B5+C1: cmd ahora tiene choices=[sessions, audit] — argparse
+        # rechaza el subcomando inválido con SystemExit(2) antes de main().
+        with pytest.raises(SystemExit) as exc:
+            main(["basura"])
+        assert exc.value.code == 2

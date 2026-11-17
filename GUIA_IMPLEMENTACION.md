@@ -51,10 +51,23 @@ B4. `policy/`: política TOML-style en config.yaml: herramienta→auto|ask|deny 
 B5. `policy/ledger.py`: SQLite append-only: turno, tool args, resultado hash, costo, decisión de permiso. `tlamati audit --session <id>`.
 
 ## FASE C — Sesión + memoria + skills (F4+F6). ~1 jornada
+> Destilada 16-nov (sesión 8) desde research/02 + research/05: cada decisión lleva su fuente.
+
 C1. `session/store.py`: SQLite (aiosqlite): sessions, messages, summaries, usage. `tlamati resume`, `--continue`.
-C2. `memory/`: 2 archivos fijos al estilo probado: MEMORY.md (hechos, límite chars) + USER.md (preferencias), inyectados en prefijo cacheable; herramienta `memory` (add/replace/remove) con batch atómico.
-C3. `memory/skills/`: SKILL.md (frontmatter YAML + cuerpo), inyección por escaneo de nombres (trigger = descripción en system prompt, carga por tool `skill_view`). Formato compatible con el ecosistema hermes ya maduro (de-facto estándar, y tu librería actual es portables).
-C4. AGENTS.md loader: merge repo→global→override; versionado en prefijo (estabilidad de cache).
+  - Esquema PREPARADO para compactación: tabla `summaries` (ventana→resumen, modelo usado) + columna `retention` por tool_result (flag sobrevive-ventana, fuente: codex `compact_retained_tool_outputs.rs`) + `content_cleared` booleano para microcompactación (fuente: qwen `microcompact.ts` — marcador honesto "[Old tool result content cleared]", anti-colisión regex derivada de la constante productora).
+  - Invariante cache: toda edición de historia ocurre DETRÁS del último breakpoint o vía cache-edits nativos (fuente: mecanismo `clear_tool_uses_20250919`/`cache_edits` de Anthropic que usa CC, doc 05). Regla de re-obtenibilidad: lo que se puede volver a leer del disco (read_file, search, skill_view) es microcompactable; lo irreproducible (terminal output, resultados de red) lleva retention=true.
+C2. `memory/`: MEMORY.md (hechos) + USER.md (preferencias), inyectados en prefijo cacheable; tool `memory` (add/replace/remove) batch atómico.
+  - Techos DUROS (fuente: CC vía REA, eventos tengu_team_mem_sync_* y team_mem_entries_capped → hay CAP de entradas; doc 05 §2): límite de líneas/chars por archivo + cap de entradas; al llenarse el agente CONSOLIDA (fusiona/borra) en el mismo batch — nunca acumula.
+  - Scopes mínimos v1: user + proyecto (CC tiene 4: user/project/local/team — los otros 2 son v2 si hay demanda).
+  - AUTO-DREAM (fuente: CC doc 05 §3, confirmada por qwen — extracción de memoria es planner separado): job asíncrono al CERRAR sesión que destila aprendizajes a MEMORY.md. NUNCA en turno caliente. v1 = simple (1 llamada a modelo barato con el transcript); el hook del ledger B5 da el transcript gratis.
+  - Reglas-semilla Osmani (fuente: doc 05 §1, builder de CC offset 11,666,006): rutas absolutas, no recapitular, no emojis — van como texto inicial de MEMORY.md.
+  - Estabilidad de prefijo: metadata dinámica viaja fuera del prompt (header HTTP / mensaje), jamás muta el prefijo byte a byte (fuente: doc 05, CC attribution header).
+C3. `memory/skills/`: SKILL.md (frontmatter YAML + cuerpo), inyección por escaneo de nombres (trigger = descripción en system prompt, carga por tool `skill_view`). Formato 100% compatible con hermes (~/.hermes/skills leíbles directo = migración de librería con 1 flag). Salida de skill_view microcompact-whitelisted (re-obtenible del disco, igual que CC con search_memory).
+C4. AGENTS.md loader: merge repo→global→override; versionado en prefijo (hash de contenido) para estabilidad de cache.
+
+## FASE C+ — Plan-mode + routing (PRD F1 MUST + F6b SHOULD, sin fase hasta 16-nov)
+C5. Plan-mode: tool `enter_plan_mode`/`exit_plan_mode` — explorar→aprobar→ejecutar (fuentes: qwen enter/exitPlanMode, gemini enter/exit-plan-mode; research/02 hallazgo #5 "primitivas de arnés bueno"). En plan-mode: tools de escritura/terminal → deny por policy (B4 ya da el mecanismo, 0 código nuevo de permisos). `ask_user` + `complete_task` como primitivas (gemini/qwen).
+C6. Workspaces+routing.md (F6b): agentes-como-carpetas, routing de 3 capas (fuente: research/03).
 
 ## FASE D — Subagentes + plugins + MCP (F9+F11+F8). ~1.5 jornadas
 D1. `subagent/spawn.py`: task aislada, toolset reducido READ-ONLY default, max_turns + max_cost, resultado = resumen (patrón delegate de hermes; límites = patrón Raschka #6).

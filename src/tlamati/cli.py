@@ -21,11 +21,18 @@ import yaml
 from tlamati import __version__
 from tlamati.context.budget import Budget
 from tlamati.context.compaction import CompactionConfig, Compactor, ModelSummarizer
+from tlamati.context.instructions import load_instructions, render_for_prompt
 from tlamati.core.loop import LoopResult, run_loop
+from tlamati.core.messages import Message
+from tlamati.memory.dream import dream
+from tlamati.memory.skills import SkillLibrary, default_skill_roots, make_skill_tools
+from tlamati.memory.store import MemoryStore, default_memory_dir, seed_if_empty
+from tlamati.memory.tools import make_memory_tools
 from tlamati.policy.config import Policy, PolicyConfig
 from tlamati.policy.ledger import Ledger
 from tlamati.providers.openai_compat import OpenAICompat
 from tlamati.sandbox.bwrap import bwrap_available
+from tlamati.session.store import SessionStore
 from tlamati.tools.builtin import make_tools
 from tlamati.tools.registry import Registry
 
@@ -38,6 +45,7 @@ DEFAULT_MODEL = "qwen/qwen3-coder"
 DEFAULT_COMPACT_MODEL = "qwen/qwen3-coder"  # A6: modelo BARATO configurable (fallback chain)
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MAX_CONTEXT = 128_000
+DEFAULT_SESSION_DB = Path.home() / ".local" / "share" / "tlamati" / "sessions.db"
 
 CONFIG_PATHS = (
     Path("tlamati.yaml"),
@@ -121,9 +129,54 @@ def build_parser() -> argparse.ArgumentParser:
         help="headless: pre-approve a tool for ASK permissions ('*' = all; default: NEVER yolo)",
     )
     p.add_argument(
-        "--quiet",
+        "--session-db",
+        metavar="PATH",
+        default=str(DEFAULT_SESSION_DB),
+        help=f"SQLite session store path (default: {DEFAULT_SESSION_DB})",
+    )
+    p.add_argument(
+        "--no-session",
         action="store_true",
-        help="suppress streaming output",
+        help="do not persist this run to the session store",
+    )
+    p.add_argument(
+        "--continue",
+        dest="continue_last",
+        action="store_true",
+        help="resume the most recent session (with -p: continue that conversation)",
+    )
+    p.add_argument(
+        "--resume",
+        metavar="SESSION_ID",
+        help="resume a specific session by id",
+    )
+    p.add_argument(
+        "--memory-dir",
+        metavar="PATH",
+        help="memory dir (default: ~/.local/share/tlamati/memory; project scope = .tlamati/memory)",
+    )
+    p.add_argument(
+        "--no-memory",
+        action="store_true",
+        help="disable durable memory (no prefix injection, no memory tools)",
+    )
+    p.add_argument(
+        "--dream",
+        action="store_true",
+        help="consolidate memory with a cheap model at session close (auto-dream, CC donor)",
+    )
+    p.add_argument(
+        "--skills-dir",
+        metavar="PATH",
+        action="append",
+        default=[],
+        help="extra skills directory (repeatable; hermes-compatible — e.g. "
+        "--skills-dir ~/.hermes/skills migrates an existing library with 1 flag)",
+    )
+    p.add_argument(
+        "--no-instructions",
+        action="store_true",
+        help="do not inject AGENTS.md/CLAUDE.md project instructions",
     )
     p.add_argument(
         "--audit-db",
@@ -135,7 +188,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="disable the audit ledger for this run",
     )
-    p.add_argument("cmd", nargs="?", help="subcommand: 'audit' (see --session)")
+    p.add_argument("--quiet", action="store_true", help="suppress streaming output")
+    p.add_argument(
+        "cmd",
+        nargs="?",
+        choices=["sessions", "audit"],
+        help="'sessions' = list stored sessions; 'audit' = read the audit ledger (no LLM, free)",
+    )
     p.add_argument("--session", metavar="ID", help="session id for `tlamati audit`")
     return p
 
@@ -260,6 +319,38 @@ async def _run_headless(args: argparse.Namespace) -> int:
         )
         return 2
 
+    # C1: session store — persist during the run (crash-safe, ledger lesson).
+    store: SessionStore | None = None
+    session_id: str | None = None
+    resumed_history: list[Any] = []
+    if not args.no_session:
+        store = SessionStore(args.session_db)
+        if store.broken:
+            print(f"[session] aviso: {store.broken} — corrida SIN persistir", file=sys.stderr)
+            store = None
+        else:
+            resume_id = args.resume or (store.latest_session_id() if args.continue_last else None)
+            if resume_id is not None:
+                loaded = store.load_session(resume_id)
+                if loaded is None:
+                    print(f"[session] no existe la sesión {resume_id!r}", file=sys.stderr)
+                    store.close()
+                    return 2
+                session_id = resume_id
+                resumed_history = loaded.messages
+                print(
+                    f"[session] retomando {resume_id} ({len(loaded.messages)} mensajes previos)",
+                    file=sys.stderr,
+                )
+            if session_id is None:
+                session_id = f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
+                store.create_session(
+                    session_id,
+                    cwd=str(Path.cwd()),
+                    model=model,
+                    first_prompt=args.prompt or "",
+                )
+
     provider = OpenAICompat(model=model, base_url=base_url, api_key=api_key)
     sandbox = not args.no_sandbox
     if sandbox and not bwrap_available():
@@ -274,8 +365,11 @@ async def _run_headless(args: argparse.Namespace) -> int:
         print(f"tlamati: configuración de permisos inválida: {e}", file=sys.stderr)
         return 2
     ledger: Ledger | None = None
-    session_id = f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
     if not args.no_audit:
+        # Merge B5+C1: el ledger reutiliza el session_id del store; sin store
+        # (--no-session) genera el suyo con el mismo formato TIMESTAMP-uuid8.
+        if session_id is None:
+            session_id = f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
         db = Path(args.audit_db) if args.audit_db else DEFAULT_AUDIT_DB
         try:
             ledger = Ledger(db, session_id)
@@ -284,8 +378,56 @@ async def _run_headless(args: argparse.Namespace) -> int:
                 f"tlamati: ledger de auditoría no disponible ({e}); sigo sin auditoría",
                 file=sys.stderr,
             )
+    tool_list = make_tools(Path.cwd(), sandbox=sandbox, sandbox_net=args.sandbox_net)
+
+    # C2: durable memory — prefix injection + tools (skipped with --no-memory).
+    mem_store: MemoryStore | None = None
+    system_prompt = str(cfg.get("system_prompt") or DEFAULT_SYSTEM)
+
+    # C4: project instructions (AGENTS.md/CLAUDE.md) — outermost first,
+    # versioned by content hash so the cacheable prefix is stable.
+    if not args.no_instructions:
+        instr = load_instructions(Path.cwd())
+        if instr.found:
+            system_prompt += render_for_prompt(instr)
+            print(
+                f"[instrucciones] {len(instr.sources)} archivo(s) v:{instr.version}",
+                file=sys.stderr,
+            )
+
+    if not args.no_memory:
+        mem_dir = Path(args.memory_dir) if args.memory_dir else default_memory_dir()
+        try:
+            mem_store = MemoryStore(mem_dir)
+            seed_if_empty(mem_store)
+            mem_block = mem_store.render_for_prompt()
+            if mem_block:
+                system_prompt = (
+                    system_prompt + "\n\n# MEMORIA DURABLE (leída al inicio; usa el tool `memory` "
+                    "para actualizarla)\n" + mem_block
+                )
+            tool_list.extend(make_memory_tools(mem_store))
+        except OSError as e:
+            print(f"[memory] aviso: {e} — corrida SIN memoria", file=sys.stderr)
+            mem_store = None
+
+    # C3: skills — catalog into prefix, bodies on demand via skill_view.
+    if not args.no_memory:
+        cfg_skills = cfg.get("skills") or {}
+        extra_dirs = [
+            Path(os.path.expanduser(str(d)))
+            for d in list(args.skills_dir) + list(cfg_skills.get("extra_dirs") or [])
+        ]
+        try:
+            library = SkillLibrary(default_skill_roots(Path.cwd(), extra_dirs))
+            if library.catalog():
+                system_prompt = system_prompt + "\n\n# SKILLS\n" + library.catalog_text()
+            tool_list.extend(make_skill_tools(library))
+        except OSError as e:
+            print(f"[skills] aviso: {e} — corrida SIN skills", file=sys.stderr)
+
     tools = Registry(
-        make_tools(Path.cwd(), sandbox=sandbox, sandbox_net=args.sandbox_net),
+        tool_list,
         approver=_headless_approver(args.approve_tool),
         policy=policy,
         ledger=ledger,
@@ -293,6 +435,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
     budget = Budget(max_context_tokens=args.max_context)
 
     compactor: Compactor | None = None
+    summarizer: ModelSummarizer | None = None
     if not args.no_compact:
         cfg_compact = cfg.get("compaction") or {}
         chain = args.compact_model or cfg_compact.get("model") or DEFAULT_COMPACT_MODEL
@@ -305,16 +448,48 @@ async def _run_headless(args: argparse.Namespace) -> int:
         )
         compactor = Compactor(CompactionConfig(), summarizer)
 
+    run_messages: list[Message] = []
+
+    def _persist(m: Any) -> None:
+        run_messages.append(m)
+        if store is not None and session_id is not None:
+            store.append_message(session_id, m)
+
     result: LoopResult = await run_loop(
         provider,
-        system=cfg.get("system_prompt") or DEFAULT_SYSTEM,
+        system=system_prompt,
         user_prompt=args.prompt,
         tools=tools,
         budget=budget,
         max_turns=args.max_turns,
         on_event=_ledger_wrapper(ledger, args.quiet),
         compactor=compactor,
+        history=resumed_history or None,
+        on_message=_persist,
     )
+
+    # C2 auto-dream: consolidation AFTER the run, never in the hot turn
+    # (CC donor). Uses the cheap summarizer chain; opt-in with --dream.
+    if args.dream and mem_store is not None:
+        dream_summarizer = summarizer
+        if dream_summarizer is None:
+            cfg_compact = cfg.get("compaction") or {}
+            chain = args.compact_model or cfg_compact.get("model") or DEFAULT_COMPACT_MODEL
+            dream_summarizer = ModelSummarizer(
+                [
+                    OpenAICompat(model=m.strip(), base_url=base_url, api_key=api_key)
+                    for m in str(chain).split(",")
+                    if m.strip()
+                ]
+            )
+        report = await dream(mem_store, dream_summarizer, run_messages)
+        print(report.human(), file=sys.stderr)
+
+    if store is not None and session_id is not None:
+        store.record_usage(session_id, result.turns, result.usage)
+        store.finish_session(session_id, stop_reason=result.stop_reason, turns=result.turns)
+        store.close()
+        print(f"[session] {session_id}", file=sys.stderr)
     if not args.quiet:
         print("", flush=True)
     u = result.usage
@@ -337,12 +512,33 @@ async def _run_headless(args: argparse.Namespace) -> int:
     return 0 if result.stop_reason in ("end_turn",) else 1
 
 
+def _run_sessions(args: argparse.Namespace) -> int:
+    """`tlamati sessions` — list stored sessions (free, no LLM)."""
+    store = SessionStore(args.session_db)
+    if store.broken:
+        print(f"tlamati: {store.broken}", file=sys.stderr)
+        return 2
+    sessions = store.list_sessions()
+    store.close()
+    if not sessions:
+        print("(sin sesiones guardadas)")
+        return 0
+    for s in sessions:
+        print(s.human())
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.cmd == "audit":
         return _run_audit(args)
+    if args.cmd == "sessions":
+        return _run_sessions(args)
     if args.cmd is not None:
-        print(f"tlamati: subcomando desconocido {args.cmd!r} (existe: audit)", file=sys.stderr)
+        print(
+            f"tlamati: subcomando desconocido {args.cmd!r} (existen: sessions, audit)",
+            file=sys.stderr,
+        )
         return 2
     if args.prompt:
         return asyncio.run(_run_headless(args))
