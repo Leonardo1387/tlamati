@@ -122,8 +122,8 @@ mensaje, no en el prefijo; donor CC attribution-header, research/05).
   b5-ledger, commit 81c5235) PRIMERO → luego c1-session (C1-C4) → luego C5.
   c1-session sale de main SIN B5: al mergear revisar conflictos en cli.py y
   loop.py (ambas ramas los tocan; b5-ledger añade ledger/audit, c1-session
-  añade session/memory/skills/instructions —大概率 merge manual sencillo
-  pero NO automático a ciegas: correr la suite completa después).
+  añade session/memory/skills/instructions — muy probable merge manual
+  sencillo pero NO automático a ciegas: correr la suite completa después).
 
 ## 8. CÓMO VERIFICAR SIN GASTAR
 - Suite completa: `uv run pytest tests/ -q` → 224 passed en c1-session.
