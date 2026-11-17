@@ -42,6 +42,11 @@ from tlamati.policy.ledger import Ledger
 from tlamati.providers.openai_compat import OpenAICompat
 from tlamati.sandbox.bwrap import bwrap_available
 from tlamati.session.store import SessionStore
+from tlamati.subagent.spawn import (
+    DELEGATE_PROMPT_BLOCK,
+    SubagentConfig,
+    make_delegate_tool,
+)
 from tlamati.tools.builtin import make_tools
 from tlamati.tools.registry import Registry
 
@@ -212,6 +217,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="start the run in plan-mode (explore→approve→execute; write/terminal "
         "DENIED until the user approves a plan; mutually exclusive with --approve-tool '*')",
+    )
+    p.add_argument(
+        "--no-subagents",
+        action="store_true",
+        help="disable the delegate_task tool (D1 subagents)",
     )
     p.add_argument("--quiet", action="store_true", help="suppress streaming output")
     p.add_argument(
@@ -496,6 +506,23 @@ async def _run_headless(args: argparse.Namespace) -> int:
     # AL FINAL del orden estable (append-only, cache sagrada).
     system_prompt += PLAN_MODE_PROMPT
     tool_list.extend(make_plan_tools(Path.cwd(), plan_state, plan_approver=None))
+    # D1 subagentes: bloque de prompt ESTÁTICO tras el de plan-mode (prefijo
+    # byte-estable) y tool AL FINAL del orden (append-only, cache sagrada).
+    # En plan-mode la tool queda DENEGADA sola (fuera de la whitelist C5).
+    if not args.no_subagents:
+        system_prompt += DELEGATE_PROMPT_BLOCK
+        sub_cfg = SubagentConfig.from_dict(cfg.get("subagent"), parent_context=args.max_context)
+        # Snapshot ANTES del append: los candidatos del hijo NUNCA incluyen
+        # delegate_task (profundidad 1 por construcción, no solo por filtro).
+        parent_tools = list(tool_list)
+        tool_list.append(
+            make_delegate_tool(
+                provider,
+                tool_candidates=lambda: list(parent_tools),
+                config=sub_cfg,
+                ledger=ledger,
+            )
+        )
     if plan_state.active:
         print(
             "[plan-mode] corrida en PLAN-MODE: escritura/terminal DENEGADAS "
