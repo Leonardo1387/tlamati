@@ -36,6 +36,7 @@ from tlamati.providers.base import ToolSpec
 
 if TYPE_CHECKING:  # B4: policy.config importa Permission de aquí → ciclo evitado
     from tlamati.policy.config import Policy
+    from tlamati.policy.ledger import Ledger
 
 MAX_OUTPUT_CHARS = 50_000  # M1: truncate at the spout, honest marker
 
@@ -110,10 +111,12 @@ class Registry:
         tools: list[Tool] | None = None,
         approver: Approver | None = None,
         policy: Policy | None = None,
+        ledger: Ledger | None = None,
     ):
         self._tools: dict[str, Tool] = {}
         self.approver = approver
         self.policy = policy  # B4: overrides + patrones + trifecta
+        self.ledger = ledger  # B5: auditoría append-only (None = off)
         for t in tools or []:
             self.register(t)
 
@@ -139,26 +142,55 @@ class Registry:
         """Guarded execution: unknown → schema → permission → run.
 
         EVERY failure mode becomes an honest ToolResult(is_error=True); this
-        method never raises (loop invariant from Fase A)."""
+        method never raises (loop invariant from Fase A). B5: cada salida
+        queda en el ledger (si existe) con su decisión."""
+
+        def _log(
+            decision: str,
+            result: ToolResult,
+            logged_args: dict[str, Any] | None = None,
+        ) -> ToolResult:
+            if self.ledger is not None:
+                self.ledger.record_tool_event(
+                    tool=name,
+                    args=logged_args if logged_args is not None else (args or {}),
+                    decision=decision,
+                    result_content=result.content,
+                    is_error=result.is_error,
+                    untrusted=result.untrusted,
+                    truncated=result.truncated,
+                )
+            return result
+
         tool = self._tools.get(name)
         if tool is None:
-            return ToolResult(
-                tool_call_id=tool_call_id,
-                content=f"ERROR: unknown tool {name!r}",
-                is_error=True,
+            return _log(
+                "unknown",
+                ToolResult(
+                    tool_call_id=tool_call_id,
+                    content=f"ERROR: unknown tool {name!r}",
+                    is_error=True,
+                ),
             )
 
         if not isinstance(args, dict):
-            return ToolResult(
-                tool_call_id=tool_call_id,
-                content=f"ERROR: arguments must be an object, got {type(args).__name__}",
-                is_error=True,
+            return _log(
+                "bad_args",
+                ToolResult(
+                    tool_call_id=tool_call_id,
+                    content=f"ERROR: arguments must be an object, got {type(args).__name__}",
+                    is_error=True,
+                ),
+                logged_args={},
             )
 
         # 1. jsonschema BEFORE execution (GUIA §B1).
         schema_error = validate_schema(tool.input_schema, args)
         if schema_error is not None:
-            return ToolResult(tool_call_id=tool_call_id, content=schema_error, is_error=True)
+            return _log(
+                "schema_invalid",
+                ToolResult(tool_call_id=tool_call_id, content=schema_error, is_error=True),
+            )
 
         # 2. Permission gate (B4: Policy resuelve override+patrones+trifecta;
         # sin policy = permiso declarado del tool, semántica B1 intacta).
@@ -168,10 +200,13 @@ class Registry:
         )
         if effective is Permission.DENY:
             reason = "denied by policy" if effective is not declared else "is denied by policy"
-            return ToolResult(
-                tool_call_id=tool_call_id,
-                content=f"ERROR: tool {name!r} {reason}",
-                is_error=True,
+            return _log(
+                "deny",
+                ToolResult(
+                    tool_call_id=tool_call_id,
+                    content=f"ERROR: tool {name!r} {reason}",
+                    is_error=True,
+                ),
             )
         if effective is Permission.ASK:
             approved = False
@@ -179,25 +214,32 @@ class Registry:
                 try:
                     approved = await self.approver(name, args)
                 except Exception as e:  # approver bugs must not kill the loop
-                    return ToolResult(
-                        tool_call_id=tool_call_id,
-                        content=f"ERROR: approval failed ({type(e).__name__}: {e})",
-                        is_error=True,
+                    return _log(
+                        "ask_error",
+                        ToolResult(
+                            tool_call_id=tool_call_id,
+                            content=f"ERROR: approval failed ({type(e).__name__}: {e})",
+                            is_error=True,
+                        ),
                     )
             if not approved:
+                escalated = bool(
+                    self.policy is not None
+                    and self.policy.untrusted_seen
+                    and declared is Permission.AUTO
+                )
                 why = (
                     "escalated to approval (untrusted content consumed)"
-                    if (
-                        self.policy is not None
-                        and self.policy.untrusted_seen
-                        and declared is Permission.AUTO
-                    )
+                    if escalated
                     else "requires approval and was not approved"
                 )
-                return ToolResult(
-                    tool_call_id=tool_call_id,
-                    content=f"ERROR: tool {name!r} {why}",
-                    is_error=True,
+                return _log(
+                    "ask_escalated" if escalated else "ask_denied",
+                    ToolResult(
+                        tool_call_id=tool_call_id,
+                        content=f"ERROR: tool {name!r} {why}",
+                        is_error=True,
+                    ),
                 )
 
         # 3. Run — any exception becomes an honest error result.
@@ -213,10 +255,14 @@ class Registry:
         untrusted = bool(tool.produces_untrusted and not is_error)
         if untrusted and self.policy is not None:
             self.policy.mark_untrusted()
-        return ToolResult(
-            tool_call_id=tool_call_id,
-            content=content,
-            is_error=is_error,
-            untrusted=untrusted,
-            truncated=truncated,
+        decision = "ask_approved" if effective is Permission.ASK else "auto"
+        return _log(
+            decision,
+            ToolResult(
+                tool_call_id=tool_call_id,
+                content=content,
+                is_error=is_error,
+                untrusted=untrusted,
+                truncated=truncated,
+            ),
         )
