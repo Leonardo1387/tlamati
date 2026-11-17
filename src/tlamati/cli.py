@@ -23,6 +23,7 @@ from tlamati.context.compaction import CompactionConfig, Compactor, ModelSummari
 from tlamati.core.loop import LoopResult, run_loop
 from tlamati.core.messages import Message
 from tlamati.memory.dream import dream
+from tlamati.memory.skills import SkillLibrary, default_skill_roots, make_skill_tools
 from tlamati.memory.store import MemoryStore, default_memory_dir, seed_if_empty
 from tlamati.memory.tools import make_memory_tools
 from tlamati.policy.config import Policy, PolicyConfig
@@ -158,6 +159,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--dream",
         action="store_true",
         help="consolidate memory with a cheap model at session close (auto-dream, CC donor)",
+    )
+    p.add_argument(
+        "--skills-dir",
+        metavar="PATH",
+        action="append",
+        default=[],
+        help="extra skills directory (repeatable; hermes-compatible — e.g. "
+        "--skills-dir ~/.hermes/skills migrates an existing library with 1 flag)",
     )
     p.add_argument("--quiet", action="store_true", help="suppress streaming output")
     p.add_argument(
@@ -297,6 +306,21 @@ async def _run_headless(args: argparse.Namespace) -> int:
         except OSError as e:
             print(f"[memory] aviso: {e} — corrida SIN memoria", file=sys.stderr)
             mem_store = None
+
+    # C3: skills — catalog into prefix, bodies on demand via skill_view.
+    if not args.no_memory:
+        cfg_skills = cfg.get("skills") or {}
+        extra_dirs = [
+            Path(os.path.expanduser(str(d)))
+            for d in list(args.skills_dir) + list(cfg_skills.get("extra_dirs") or [])
+        ]
+        try:
+            library = SkillLibrary(default_skill_roots(Path.cwd(), extra_dirs))
+            if library.catalog():
+                system_prompt = system_prompt + "\n\n# SKILLS\n" + library.catalog_text()
+            tool_list.extend(make_skill_tools(library))
+        except OSError as e:
+            print(f"[skills] aviso: {e} — corrida SIN skills", file=sys.stderr)
 
     tools = Registry(
         tool_list,
