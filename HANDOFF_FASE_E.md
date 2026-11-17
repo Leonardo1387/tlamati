@@ -88,17 +88,21 @@ e) DONORS E:
      (decisión: ¿optional extra `tlamati[tui]` o dep base? Recomendado:
      optional extra, el headless no debe pagarla).
 
-## 3. DECISIONES ABIERTAS DE LA FASE E (preguntar al fundador EN CRISTIANO)
-1. Pregunta abierta de CLASE_10: ¿qué ve un extraño en los primeros 5 min
-   del repo público — TUI bonita (E1 primero) o `tlamati -p` real (E2
-   primero)? La respuesta fija el orden. Recomendación Hermes: E2 primero
-   (barato, habilita CI/evals ampliados) y E1 después.
-2. E3 evals ampliados: ¿cuántas fixtures nuevas y de qué dificultad? Las 5
-   actuales son terminal-bench-lite triviales; el delta harness-vs-opencode
-   necesita tareas donde el arnés muerda (contexto largo, multi-tool).
-3. v0.1 público: ¿el repo pasa a público al terminar E4 o el fundador fija
-   otra fecha? (Decisión SUYA — preguntar, no asumir.)
-4. TUI: Textual como optional extra (recomendado) — ratificar.
+## 3. DECISIONES ZANJADAS DE LA FASE E (fundador, 17-nov sesión 15 — NO re-litigar)
+1. ORDEN: E2 (headless --json) PRIMERO, E1 (TUI) después. Recomendación
+   Hermes aceptada.
+2. E3 evals ampliados: 5 fixtures nuevas media-alta (total 10) + BENCHMARK
+   harness-vs-opencode: MISMAS tareas, MISMO modelo (qwen3-coder OpenRouter),
+   medir % resueltas + tokens + overhead prefijo → el número publicable del
+   PRD (tipo "80→100%"). El fundador quiere comparaciones estilo
+   investigación (Vercel/Letta). Gasta: pedir OK antes de cada corrida.
+3. v0.1 PÚBLICO al terminar E4 — PERO con auditoría de seguridad COMPLETA
+   como última puerta ANTES de publicar (datos personales del fundador, api
+   keys, historial git completo, vendor/ jamás subido). Gatillo final = OK
+   del fundador con evidencia. Barrido parcial 17-nov sesión 15: LIMPIO
+   (.gitignore correcto, sin claves en historia, autor genérico
+   "Leonardo <leonardo@local>"). Pendiente auditoría final en E4.
+4. Textual = optional extra `tlamati[tui]`. Ratificado.
 
 ## 4. ¿GASTA?
 - Construir E1/E2/E4 + tests: $0 (TUI se prueba con FakeProvider; headless
