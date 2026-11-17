@@ -15,11 +15,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+tui = [
+    "textual>=1.0",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "ruff>=0.5",
     "mypy>=1.10",
+    "textual>=1.0",
     "types-PyYAML>=6.0",
     "types-jsonschema>=4.26.0.20261006",
 ]
