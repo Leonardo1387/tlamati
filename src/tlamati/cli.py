@@ -21,6 +21,10 @@ from tlamati import __version__
 from tlamati.context.budget import Budget
 from tlamati.context.compaction import CompactionConfig, Compactor, ModelSummarizer
 from tlamati.core.loop import LoopResult, run_loop
+from tlamati.core.messages import Message
+from tlamati.memory.dream import dream
+from tlamati.memory.store import MemoryStore, default_memory_dir, seed_if_empty
+from tlamati.memory.tools import make_memory_tools
 from tlamati.policy.config import Policy, PolicyConfig
 from tlamati.providers.openai_compat import OpenAICompat
 from tlamati.sandbox.bwrap import bwrap_available
@@ -140,6 +144,21 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="SESSION_ID",
         help="resume a specific session by id",
     )
+    p.add_argument(
+        "--memory-dir",
+        metavar="PATH",
+        help="memory dir (default: ~/.local/share/tlamati/memory; project scope = .tlamati/memory)",
+    )
+    p.add_argument(
+        "--no-memory",
+        action="store_true",
+        help="disable durable memory (no prefix injection, no memory tools)",
+    )
+    p.add_argument(
+        "--dream",
+        action="store_true",
+        help="consolidate memory with a cheap model at session close (auto-dream, CC donor)",
+    )
     p.add_argument("--quiet", action="store_true", help="suppress streaming output")
     p.add_argument(
         "cmd",
@@ -258,14 +277,36 @@ async def _run_headless(args: argparse.Namespace) -> int:
     except ValueError as e:
         print(f"tlamati: configuración de permisos inválida: {e}", file=sys.stderr)
         return 2
+    tool_list = make_tools(Path.cwd(), sandbox=sandbox, sandbox_net=args.sandbox_net)
+
+    # C2: durable memory — prefix injection + tools (skipped with --no-memory).
+    mem_store: MemoryStore | None = None
+    system_prompt = str(cfg.get("system_prompt") or DEFAULT_SYSTEM)
+    if not args.no_memory:
+        mem_dir = Path(args.memory_dir) if args.memory_dir else default_memory_dir()
+        try:
+            mem_store = MemoryStore(mem_dir)
+            seed_if_empty(mem_store)
+            mem_block = mem_store.render_for_prompt()
+            if mem_block:
+                system_prompt = (
+                    system_prompt + "\n\n# MEMORIA DURABLE (leída al inicio; usa el tool `memory` "
+                    "para actualizarla)\n" + mem_block
+                )
+            tool_list.extend(make_memory_tools(mem_store))
+        except OSError as e:
+            print(f"[memory] aviso: {e} — corrida SIN memoria", file=sys.stderr)
+            mem_store = None
+
     tools = Registry(
-        make_tools(Path.cwd(), sandbox=sandbox, sandbox_net=args.sandbox_net),
+        tool_list,
         approver=_headless_approver(args.approve_tool),
         policy=policy,
     )
     budget = Budget(max_context_tokens=args.max_context)
 
     compactor: Compactor | None = None
+    summarizer: ModelSummarizer | None = None
     if not args.no_compact:
         cfg_compact = cfg.get("compaction") or {}
         chain = args.compact_model or cfg_compact.get("model") or DEFAULT_COMPACT_MODEL
@@ -278,13 +319,16 @@ async def _run_headless(args: argparse.Namespace) -> int:
         )
         compactor = Compactor(CompactionConfig(), summarizer)
 
+    run_messages: list[Message] = []
+
     def _persist(m: Any) -> None:
+        run_messages.append(m)
         if store is not None and session_id is not None:
             store.append_message(session_id, m)
 
     result: LoopResult = await run_loop(
         provider,
-        system=cfg.get("system_prompt") or DEFAULT_SYSTEM,
+        system=system_prompt,
         user_prompt=args.prompt,
         tools=tools,
         budget=budget,
@@ -294,6 +338,24 @@ async def _run_headless(args: argparse.Namespace) -> int:
         history=resumed_history or None,
         on_message=_persist,
     )
+
+    # C2 auto-dream: consolidation AFTER the run, never in the hot turn
+    # (CC donor). Uses the cheap summarizer chain; opt-in with --dream.
+    if args.dream and mem_store is not None:
+        dream_summarizer = summarizer
+        if dream_summarizer is None:
+            cfg_compact = cfg.get("compaction") or {}
+            chain = args.compact_model or cfg_compact.get("model") or DEFAULT_COMPACT_MODEL
+            dream_summarizer = ModelSummarizer(
+                [
+                    OpenAICompat(model=m.strip(), base_url=base_url, api_key=api_key)
+                    for m in str(chain).split(",")
+                    if m.strip()
+                ]
+            )
+        report = await dream(mem_store, dream_summarizer, run_messages)
+        print(report.human(), file=sys.stderr)
+
     if store is not None and session_id is not None:
         store.record_usage(session_id, result.turns, result.usage)
         store.finish_session(session_id, stop_reason=result.stop_reason, turns=result.turns)
