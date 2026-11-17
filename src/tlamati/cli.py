@@ -22,6 +22,13 @@ from tlamati import __version__
 from tlamati.context.budget import Budget
 from tlamati.context.compaction import CompactionConfig, Compactor, ModelSummarizer
 from tlamati.context.instructions import load_instructions, render_for_prompt
+from tlamati.context.routing import (
+    Routing,
+    load_routing,
+)
+from tlamati.context.routing import (
+    render_for_prompt as render_routing_for_prompt,
+)
 from tlamati.core.loop import LoopResult, run_loop
 from tlamati.core.messages import Message
 from tlamati.memory.dream import dream
@@ -179,6 +186,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-instructions",
         action="store_true",
         help="do not inject AGENTS.md/CLAUDE.md project instructions",
+    )
+    p.add_argument(
+        "--workspace",
+        metavar="NAME",
+        help="force the active routing workspace (C6; default: first fnmatch of the task)",
+    )
+    p.add_argument(
+        "--no-routing",
+        action="store_true",
+        help="disable .tlamati/routing.md workspace routing",
     )
     p.add_argument(
         "--audit-db",
@@ -415,6 +432,28 @@ async def _run_headless(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
 
+    # C6: routing.md (workspaces) — AFTER instructions in the prefix (stable
+    # order, append-only) and BEFORE volatile blocks (memory/skills), so the
+    # cacheable prefix only changes when routing.md or the active context
+    # changes. Sin routing.md → prefijo byte-idéntico a pre-C6 (cache sagrada).
+    routing = Routing(
+        source=None,
+        project_root=None,
+        workspaces=(),
+        active=None,
+        table="",
+        context_block="",
+        version="",
+    )
+    if not args.no_routing:
+        routing = load_routing(Path.cwd(), task=args.prompt, workspace=args.workspace or "")
+        if routing.found:
+            system_prompt += render_routing_for_prompt(routing)
+            active_name = routing.active.name if routing.active else "—"
+            print(f"[routing] workspace={active_name} v:{routing.version}", file=sys.stderr)
+        if routing.error:
+            print(f"[routing] aviso: {routing.error}", file=sys.stderr)
+
     if not args.no_memory:
         mem_dir = Path(args.memory_dir) if args.memory_dir else default_memory_dir()
         try:
@@ -440,8 +479,14 @@ async def _run_headless(args: argparse.Namespace) -> int:
         ]
         try:
             library = SkillLibrary(default_skill_roots(Path.cwd(), extra_dirs))
+            # C6: el workspace activo puede cablear skills just-in-time (capa 2).
+            # El filtro es por workspace = ESTABLE por corrida (nunca por turno),
+            # así el prefijo cacheable no varía entre turnos (regla research/03).
+            ws_skills = routing.active.skills if routing.active else ()
             if library.catalog():
-                system_prompt = system_prompt + "\n\n# SKILLS\n" + library.catalog_text()
+                system_prompt = (
+                    system_prompt + "\n\n# SKILLS\n" + library.catalog_text(only=ws_skills or None)
+                )
             tool_list.extend(make_skill_tools(library))
         except OSError as e:
             print(f"[skills] aviso: {e} — corrida SIN skills", file=sys.stderr)
