@@ -20,6 +20,7 @@ import yaml
 from tlamati import __version__
 from tlamati.context.budget import Budget
 from tlamati.context.compaction import CompactionConfig, Compactor, ModelSummarizer
+from tlamati.context.instructions import load_instructions, render_for_prompt
 from tlamati.core.loop import LoopResult, run_loop
 from tlamati.core.messages import Message
 from tlamati.memory.dream import dream
@@ -168,6 +169,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="extra skills directory (repeatable; hermes-compatible — e.g. "
         "--skills-dir ~/.hermes/skills migrates an existing library with 1 flag)",
     )
+    p.add_argument(
+        "--no-instructions",
+        action="store_true",
+        help="do not inject AGENTS.md/CLAUDE.md project instructions",
+    )
     p.add_argument("--quiet", action="store_true", help="suppress streaming output")
     p.add_argument(
         "cmd",
@@ -291,6 +297,18 @@ async def _run_headless(args: argparse.Namespace) -> int:
     # C2: durable memory — prefix injection + tools (skipped with --no-memory).
     mem_store: MemoryStore | None = None
     system_prompt = str(cfg.get("system_prompt") or DEFAULT_SYSTEM)
+
+    # C4: project instructions (AGENTS.md/CLAUDE.md) — outermost first,
+    # versioned by content hash so the cacheable prefix is stable.
+    if not args.no_instructions:
+        instr = load_instructions(Path.cwd())
+        if instr.found:
+            system_prompt += render_for_prompt(instr)
+            print(
+                f"[instrucciones] {len(instr.sources)} archivo(s) v:{instr.version}",
+                file=sys.stderr,
+            )
+
     if not args.no_memory:
         mem_dir = Path(args.memory_dir) if args.memory_dir else default_memory_dir()
         try:
