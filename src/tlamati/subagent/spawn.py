@@ -31,6 +31,7 @@ from tlamati.context.budget import Budget
 from tlamati.core.loop import LoopResult, run_loop
 from tlamati.core.messages import Event, Message, MessageEnd
 from tlamati.plan.mode import PLAN_READONLY_TOOLS
+from tlamati.plugins import HookRegistry
 from tlamati.policy.ledger import Ledger
 from tlamati.providers.base import Provider, ProviderError, ToolSpec
 from tlamati.tools.registry import Permission, Registry, Tool
@@ -165,10 +166,13 @@ def make_delegate_tool(
     tool_candidates: Callable[[], list[Tool]],
     config: SubagentConfig,
     ledger: Ledger | None = None,
+    hooks: HookRegistry | None = None,
 ) -> Tool:
     """Tool `delegate_task` del PADRE. ``tool_candidates`` es una fábrica que
     devuelve las tools disponibles en la corrida; el filtrado read-only ocurre
-    en cada spawn (build_child_tools)."""
+    en cada spawn (build_child_tools). D2: ``hooks`` (HookRegistry) se hereda
+    al Registry del hijo — la escalera solo ENDURECE: si un plugin del padre
+    veta un tool, el veto también aplica dentro del subagente."""
     spawn_seq = itertools.count(1)
 
     async def _run(args: dict[str, Any]) -> str:
@@ -225,7 +229,7 @@ def make_delegate_tool(
                 capped,
                 system=SUBAGENT_SYSTEM,
                 user_prompt=prompt,
-                tools=Registry(child_tools, ledger=child_ledger),
+                tools=Registry(child_tools, ledger=child_ledger, hooks=hooks),
                 budget=Budget(max_context_tokens=config.max_context_tokens),
                 max_turns=max_turns,
                 on_event=_child_event,
