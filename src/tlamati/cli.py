@@ -795,6 +795,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.prompt:
         return asyncio.run(_run_headless(args))
+    # E1: sin prompt y con terminal INTERACTIVA → la TUI es la cara por
+    # defecto (el headless/CI nunca tiene tty → sigue viendo el help y su
+    # contrato de exit codes intacto).
+    if sys.stdin.isatty() and sys.stdout.isatty():
+        from tlamati.tui.app import run_tui  # import perezoso: el extra [tui]
+
+        return run_tui(session_db=args.session_db)
     build_parser().print_help()
     return 0
 
