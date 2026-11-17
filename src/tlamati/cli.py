@@ -9,7 +9,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+import sqlite3
 import sys
+import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +23,7 @@ from tlamati.context.budget import Budget
 from tlamati.context.compaction import CompactionConfig, Compactor, ModelSummarizer
 from tlamati.core.loop import LoopResult, run_loop
 from tlamati.policy.config import Policy, PolicyConfig
+from tlamati.policy.ledger import Ledger
 from tlamati.providers.openai_compat import OpenAICompat
 from tlamati.sandbox.bwrap import bwrap_available
 from tlamati.tools.builtin import make_tools
@@ -39,6 +43,8 @@ CONFIG_PATHS = (
     Path("tlamati.yaml"),
     Path.home() / ".config" / "tlamati" / "config.yaml",
 )
+
+DEFAULT_AUDIT_DB = Path.home() / ".local" / "share" / "tlamati" / "audit.db"
 
 
 def load_config() -> dict[str, Any]:
@@ -114,8 +120,81 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="headless: pre-approve a tool for ASK permissions ('*' = all; default: NEVER yolo)",
     )
-    p.add_argument("--quiet", action="store_true", help="suppress streaming output")
+    p.add_argument(
+        "--quiet",
+        action="store_true",
+        help="suppress streaming output",
+    )
+    p.add_argument(
+        "--audit-db",
+        metavar="PATH",
+        help=f"audit ledger SQLite path (default: {DEFAULT_AUDIT_DB})",
+    )
+    p.add_argument(
+        "--no-audit",
+        action="store_true",
+        help="disable the audit ledger for this run",
+    )
+    p.add_argument("cmd", nargs="?", help="subcommand: 'audit' (see --session)")
+    p.add_argument("--session", metavar="ID", help="session id for `tlamati audit`")
     return p
+
+
+def _ledger_wrapper(ledger: Ledger | None, quiet: bool) -> Any:
+    """on_event que alimenta el ledger (turno + costos) y luego imprime."""
+    printer = _printer(quiet)
+
+    def on_event(kind: str, data: dict[str, Any]) -> None:
+        if ledger is not None and kind == "turn_end":
+            ledger.turn = data["turn"]
+            u = data["usage"]
+            ledger.record_turn_cost(
+                turn=data["turn"],
+                input_tokens=u.input_tokens,
+                output_tokens=u.output_tokens,
+                cache_read=u.cache_read_tokens,
+                cost_usd=u.cost_usd,
+            )
+        printer(kind, data)
+
+    return on_event
+
+
+def _run_audit(args: argparse.Namespace) -> int:
+    db = Path(args.audit_db) if args.audit_db else DEFAULT_AUDIT_DB
+    if not db.is_file():
+        print(f"tlamati audit: no existe el ledger {db} (¿corriste tlamati -p?)", file=sys.stderr)
+        return 2
+    if not args.session:
+        sessions = Ledger.list_sessions(db)
+        if not sessions:
+            print("tlamati audit: ledger vacío.", file=sys.stderr)
+            return 2
+        print(f"sesiones en {db}:")
+        for sid, n, ts in sessions[:20]:
+            when = time.strftime("%Y-%m-%d %H:%M", time.localtime(ts))
+            print(f"  {sid}  eventos={n}  último={when}")
+        print("usa: tlamati audit --session <id>")
+        return 0
+    events, costs = Ledger.read_session(db, args.session)
+    if not events and not costs:
+        print(f"tlamati audit: sesión {args.session!r} no encontrada en {db}", file=sys.stderr)
+        return 2
+    print(f"== auditoría sesión {args.session} ({len(events)} eventos) ==")
+    for e in events:
+        t = time.strftime("%H:%M:%S", time.localtime(e.ts))
+        flags = "".join(
+            f for f, on in ((" E", e.is_error), (" U", e.untrusted), (" T", e.truncated)) if on
+        )
+        print(f"[{t}] t{e.turn} {e.decision:<13} {e.tool} {e.args_json[:100]}{flags}")
+        if e.result_sha256:
+            print(f"         sha256={e.result_sha256[:16]}…")
+    if costs:
+        tin = sum(c.input_tokens for c in costs)
+        tout = sum(c.output_tokens for c in costs)
+        tcr = sum(c.cache_read for c in costs)
+        print(f"-- turnos={len(costs)} tokens: in={tin} out={tout} cache_read={tcr}")
+    return 0
 
 
 def _headless_approver(approved_tools: list[str]) -> Any:
@@ -194,10 +273,22 @@ async def _run_headless(args: argparse.Namespace) -> int:
     except ValueError as e:
         print(f"tlamati: configuración de permisos inválida: {e}", file=sys.stderr)
         return 2
+    ledger: Ledger | None = None
+    session_id = f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
+    if not args.no_audit:
+        db = Path(args.audit_db) if args.audit_db else DEFAULT_AUDIT_DB
+        try:
+            ledger = Ledger(db, session_id)
+        except sqlite3.Error as e:  # auditoría rota no impide correr
+            print(
+                f"tlamati: ledger de auditoría no disponible ({e}); sigo sin auditoría",
+                file=sys.stderr,
+            )
     tools = Registry(
         make_tools(Path.cwd(), sandbox=sandbox, sandbox_net=args.sandbox_net),
         approver=_headless_approver(args.approve_tool),
         policy=policy,
+        ledger=ledger,
     )
     budget = Budget(max_context_tokens=args.max_context)
 
@@ -221,7 +312,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
         tools=tools,
         budget=budget,
         max_turns=args.max_turns,
-        on_event=_printer(args.quiet),
+        on_event=_ledger_wrapper(ledger, args.quiet),
         compactor=compactor,
     )
     if not args.quiet:
@@ -235,11 +326,24 @@ async def _run_headless(args: argparse.Namespace) -> int:
     )
     if result.error:
         print(f"[error] {result.error}", file=sys.stderr)
+    if ledger is not None:
+        if ledger.broken:
+            print(f"[audit] ATENCIÓN: writes al ledger fallaron: {ledger.broken}", file=sys.stderr)
+        print(
+            f"[audit] sesión {session_id} — ver: tlamati audit --session {session_id}",
+            file=sys.stderr,
+        )
+        ledger.close()
     return 0 if result.stop_reason in ("end_turn",) else 1
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.cmd == "audit":
+        return _run_audit(args)
+    if args.cmd is not None:
+        print(f"tlamati: subcomando desconocido {args.cmd!r} (existe: audit)", file=sys.stderr)
+        return 2
     if args.prompt:
         return asyncio.run(_run_headless(args))
     build_parser().print_help()
