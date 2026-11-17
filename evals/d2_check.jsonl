@@ -1,0 +1,5 @@
+{"task": "conversor", "success": true, "turns": 4, "tokens_in": 4878, "tokens_out": 224, "cache_read": 4592, "cost_usd": null, "stop_reason": "end_turn", "duration_s": 6.91, "error": null}
+{"task": "crear_modulo", "success": true, "turns": 3, "tokens_in": 3397, "tokens_out": 108, "cache_read": 3200, "cost_usd": null, "stop_reason": "end_turn", "duration_s": 7.1, "error": null}
+{"task": "import_roto", "success": true, "turns": 4, "tokens_in": 4780, "tokens_out": 166, "cache_read": 4496, "cost_usd": null, "stop_reason": "end_turn", "duration_s": 6.93, "error": null}
+{"task": "offbyone", "success": true, "turns": 4, "tokens_in": 4772, "tokens_out": 155, "cache_read": 4480, "cost_usd": null, "stop_reason": "end_turn", "duration_s": 5.31, "error": null}
+{"task": "promedio", "success": true, "turns": 4, "tokens_in": 4742, "tokens_out": 204, "cache_read": 4592, "cost_usd": null, "stop_reason": "end_turn", "duration_s": 7.13, "error": null}

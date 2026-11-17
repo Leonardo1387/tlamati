@@ -102,3 +102,25 @@ morir (precedente cercano: Reasonix, donor de D2, murió el 12-nov). Por eso:
 cero acoplamiento (integración solo vía MCP estándar) y NUNCA dependencia
 dura. Self-host requiere un servidor serio (Postgres+Temporal+OpenSearch);
 en una laptop solo el modo SQLite.
+
+## ASTERISCO DEL FUNDADOR (17-nov-2026, sesión 13) — DECISIÓN DEFINITIVA
+
+OpenCrawl queda COMPLETAMENTE DESCARTADO como integración (no nos funciona).
+Pero se anota un ASTERISCO en el proceso: **investigar cómo hacer MULTIPLAYER
+a nuestro agente**. Paso natural para esa investigación: **después de D3
+(MCP)** — MCP es el enchufe donde una memoria compartida externa se conecta
+sin acoplamiento. Insumos que ya dejó este estudio:
+
+1. PRECONDICIÓN detectada al responder la pregunta del fundador sobre pérdida
+   de contexto en D1: el pitch de OpenCrawl ("la memoria resumida pierde justo
+   el detalle que tu compañero necesita") APLICA PARCIALMENTE a nuestro
+   delegate_task. El padre recibe SOLO final_text (by design — anti-inundación,
+   donor hermes). Mitigaciones actuales: (a) metadata honesta de topes
+   alcanzados; (b) tool_events del hijo auditables en el MISMO ledger
+   (`tlamati audit --session <padre>:sub-NN`); (c) el padre puede re-delegar.
+   GAP REAL: los mensajes intermedios del hijo (su razonamiento) NO se
+   persisten (el session store C1 no recibe las corridas de subagentes).
+   En single-player el riesgo es bajo; en multiplayer sería bloqueante.
+   → La investigación multiplayer DEBE incluir: transcript verbatim de
+   subagentes al session store (o store propio) como precondición.
+2. La capa de conexión sería MCP estándar (D3), jamás dependencia dura.
