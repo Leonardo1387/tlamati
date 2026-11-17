@@ -70,10 +70,12 @@ g) Para D3: MCP spec stdio (initialize → tools/list → tools/call). Servidor 
   columna parent — decidir al implementar (verificar política B5; nada de
   ejecuciones invisibles).
 - Tool NO entra a DEFAULT_COMPACTABLE_TOOLS (tiene side-effect: gasta dinero).
-- PREGUNTA ABIERTA (Clase 7, plantear al fundador con opciones si está
-  presente): ¿el padre puede dar escritura al hijo? Posición recomendada v1:
-  NO — la escalera solo ENDURECE hacia abajo (política del proyecto); escritura
-  en subagente podría llegar en v1.1 con permission explícita.
+- DECISIÓN ZANJADA (fundador, 17-nov sesión 11, verbatim: "el subagente menos
+  poderoso que el padre"): el hijo NUNCA tiene más poder que el padre — toolset
+  read-only, sin escritura, escalera solo ENDURECE hacia abajo. NO re-litigar.
+- Quedan abiertas (elegir recomendadas en ventana yolo, documentar en commit):
+  (a) auditoría del hijo: preferir prefijo de sesión hija (NO migrar schema B5).
+  (b) nombre de la tool: `delegate_task` (alineado con hermes).
 ### D2 — plugins/ (F11, ~150-250 LOC)
 - Descubrimiento: entry-point `tlamati.plugins` (importlib.metadata) +
   ~/.config/tlamati/plugins/*.py + .tlamati/plugins/*.py de proyecto.
@@ -117,13 +119,10 @@ no cabe en el tiempo.
    o posterior, CI verde con `gh run list --branch main --limit 1`).
 2. `uv run pytest tests/ -q` → confirmar 292 verdes ANTES de tocar nada.
 3. Leer §2 (skill + GUIA FASE D + donor delegate de hermes).
-4. Resolver decisiones abiertas de D1: si el fundador está presente, preguntar
-   con opciones (clarify, máx 4); si es ventana yolo, elegir recomendadas y
-   documentar en el commit. (a) ¿escritura en subagente? recomendada: NO v1.
-   (b) ¿auditoría del hijo: prefijo de sesión hija o columna parent? elegir la
-   que NO requiera migración del schema B5 existente (preferir prefijo).
-   (c) nombre de la tool: `delegate_task` (alineado con hermes) vs
-   `spawn_subagent`.
+4. Decisiones D1: escritura en subagente YA ZANJADA por el fundador (17-nov):
+   el hijo NUNCA más poderoso que el padre, read-only, NO re-litigar. Las
+   menores (auditoría con prefijo de sesión hija; tool `delegate_task`) van con
+   la recomendada y se documentan en el commit.
 5. `git checkout -b d1-subagent` → implementar subagent/spawn.py + tool +
    CLI/config + tests (unidad: toolset read-only del hijo, profundidad 1 fail
    fast, presupuesto heredado se agota y retorna honesto, resumen-no-transcript;
