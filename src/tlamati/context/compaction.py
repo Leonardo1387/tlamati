@@ -48,7 +48,17 @@ CLEARED_PLACEHOLDER = "[Old tool result content cleared]"
 # Tools whose output can be re-obtained by calling the tool again. tools/builtin
 # today; Fase B registry must keep this list in sync (donor pitfall #4239).
 DEFAULT_COMPACTABLE_TOOLS: frozenset[str] = frozenset(
-    {"read_file", "write_file", "terminal", "grep", "glob", "web_fetch", "search_memory"}
+    {
+        "read_file",
+        "write_file",
+        "terminal",
+        "grep",
+        "glob",
+        "web_fetch",
+        "search_memory",
+        "skill_view",  # C3: re-fetchable from disk (GUIA C3 destilada)
+        "skill_list",
+    }
 )
 
 SUMMARY_SYSTEM = (
