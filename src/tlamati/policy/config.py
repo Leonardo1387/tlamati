@@ -25,9 +25,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from tlamati.tools.registry import Permission
+
+if TYPE_CHECKING:  # C5: plan.mode no importa policy → sin ciclo real
+    from tlamati.plan.mode import PlanState
 
 DEFAULT_EGRESS_TOOLS = frozenset({"terminal"})
 
@@ -78,20 +81,36 @@ class PolicyConfig:
 
 
 class Policy:
-    """Resolución de permisos con estado de corrida (trifecta)."""
+    """Resolución de permisos con estado de corrida (trifecta + plan-mode C5)."""
 
-    def __init__(self, config: PolicyConfig | None = None) -> None:
+    def __init__(
+        self, config: PolicyConfig | None = None, plan_state: PlanState | None = None
+    ) -> None:
         self.config = config or PolicyConfig()
         self.untrusted_seen = False
+        self.plan_state = plan_state  # C5: capa transversal explorar→aprobar→ejecutar
 
     def mark_untrusted(self) -> None:
         """El loop/registry llama esto al consumir un ToolResult untrusted."""
         self.untrusted_seen = True
 
+    def plan_denied(self, tool_name: str) -> bool:
+        """True si el DENY efectivo de esta tool lo impone el plan-mode (C5) —
+        el registry lo usa para dar el error honesto correspondiente."""
+        if self.plan_state is None or not self.plan_state.active:
+            return False
+        from tlamati.plan.mode import PLAN_READONLY_TOOLS, PLAN_TOOLS
+
+        return tool_name not in PLAN_READONLY_TOOLS and tool_name not in PLAN_TOOLS
+
     def resolve(self, tool_name: str, args: dict[str, Any], declared: Permission) -> Permission:
         """Permiso efectivo. La escalera NUNCA relaja: cada capa solo puede
         endurecer (deny > ask > auto)."""
         effective = self.config.tool_overrides.get(tool_name, declared)
+        # C5 plan-mode: regla transversal — fuera de la whitelist read-only,
+        # TODO pasa a DENY (el mecanismo de B4, 0 código nuevo de permisos).
+        if self.plan_denied(tool_name):
+            return Permission.DENY
         command = args.get("command")
         if isinstance(command, str):
             if any(fnmatch(command, pat) for pat in self.config.deny_commands):

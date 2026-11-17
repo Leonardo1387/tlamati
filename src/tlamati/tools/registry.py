@@ -167,6 +167,17 @@ class Registry:
             self.policy.resolve(name, args, declared) if self.policy is not None else declared
         )
         if effective is Permission.DENY:
+            if self.policy is not None and self.policy.plan_denied(name):
+                # C5: error honesto específico del plan-mode (handoff §5).
+                return ToolResult(
+                    tool_call_id=tool_call_id,
+                    content=(
+                        f"ERROR: tool {name!r} denegada — estás en PLAN-MODE "
+                        "(solo exploración). Guarda el plan con save_plan y pide "
+                        "aprobación con exit_plan_mode; al salir podrás ejecutar."
+                    ),
+                    is_error=True,
+                )
             reason = "denied by policy" if effective is not declared else "is denied by policy"
             return ToolResult(
                 tool_call_id=tool_call_id,
