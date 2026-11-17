@@ -1,6 +1,34 @@
 # 07 — Pool de talento: perfiles de programador derivados de sesiones de agente
 # (diseño de negocio inicial, 17-nov-2026, sesión 13 — planteado por el fundador)
 
+## DECISIÓN DE ALCANCE DEL FUNDADOR (17-nov sesión 13, verbatim: "ahorita no
+## vamos a construir ese sistema, lo único que quiero es el que revisa y crea
+## el perfil del usuario enfocado en curriculum basado en lo que está
+## construyendo, todo lo demás no es necesario ahorita")
+
+SCOPE REAL de la rama (lo único que se construirá, y NO ahora):
+- **SOLO el componente PERFILADOR**: el que revisa sesiones y crea un perfil
+  de usuario ENFOCADO EN CURRÍCULUM basado en lo que está construyendo.
+- FUERA DE SCOPE (por ahora): matchmaking, anonimización tipo Bumble, lado
+  empresa, pool de 50k, percentiles contra pool, revelación de identidad.
+  Este doc queda como contexto de la visión completa, NO como spec.
+
+PLAN DEL PILOTO ACORDADO (post-Tlamati v0.1):
+1. Terminar TODOS los pasos de Tlamati (D3 → Fase E → v0.1 publicado).
+2. Construir el perfilador como herramienta que lea el HISTORIAL REAL:
+   la base de Hermes (~/.hermes/state.db — VERIFICADO 17-nov: 575 sesiones,
+   52,397 mensajes, tablas sessions/messages con FTS) contiene todo lo que
+   el fundador ha construido con Hermes (Tlamati, Proyecto Legal, App Vial,
+   leads B2B, DOF pipeline, videos, decks...).
+3. Generar EL PERFIL DEL FUNDADOR con ese historial = prueba real.
+4. Con el resultado en mano, decidir: ¿cómo sale el perfil? ¿qué es lo
+   importante de medir? (la lista de 5 señales de abajo es hipótesis —
+   el piloto la valida o la corrige).
+SINERGIA TÉCNICA: cuando exista, el perfilador de sesiones de TLAMATI será
+un plugin D2 sobre session store C1 + ledger B5; pero el PILOTO corre sobre
+el state.db de Hermes (que ya existe y es rico) — no requiere esperar nada.
+RESPUESTA HERMES 17-nov: SÍ ES POSIBLE, datos verificados en vivo.
+
 ## LA IDEA (con palabras del fundador)
 
 Rama de negocio nueva: la plataforma la usan programadores (o estudiantes —

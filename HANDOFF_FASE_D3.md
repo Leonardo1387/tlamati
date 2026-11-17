@@ -141,13 +141,16 @@ e) DONORS D3:
   subprocess colgado → corrida sigue, prefijo estable en corrida fría.
 - SECURITY.md: actualizar §MCP con lo implementado (hoy dice "se tratarán").
 
-### D3b (NO ES PARA ESTA SESIÓN) — exporter de talento (pool)
-Diseño completo en research/07_POOL_DE_TALENTO.md (5 señales a medir,
-mecánica de 3 capas, ficha de 1 pantalla, privacidad opt-in, anti-gaming,
-integración vía plugin D2). Solo si el fundador lo pide explícitamente:
-plugin D2 que derive métricas de sesión (session store C1 + ledger B5) a un
-perfil exportable, CON consentimiento explícito (--talent-export opt-in,
-nunca por default). NO codificar nada de esto en D3.
+### D3b (NO ES PARA ESTA SESIÓN) — perfilador de talento (SOLO perfil, decisión fundador 17-nov sesión 13)
+SCOPE REDUCIDO por el fundador: NO se construye el sistema completo
+(matchmaking/anonimización/empresa FUERA). Lo único que se quiere, y SOLO
+cuando Tlamati esté TERMINADO (post v0.1): un perfilador que revise sesiones
+y cree un perfil de usuario ENFOCADO EN CURRÍCULUM basado en lo que está
+construyendo. PILOTO acordado: correrlo sobre el historial REAL de Hermes
+(~/.hermes/state.db, 575 sesiones / 52,397 mensajes — verificado) para
+generar el perfil DEL FUNDADOR, y con ese resultado decidir qué señales
+valen la pena. Diseño + decisión en research/07_POOL_DE_TALENTO.md §final.
+NO codificar nada de esto en D3 ni en Fase E.
 
 ### ORDEN DE TRABAJO
 D3 es la unidad de ESTA sesión (cierra la FASE D). Después: Fase E (TUI,
