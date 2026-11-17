@@ -29,6 +29,12 @@ from tlamati.context.routing import (
 from tlamati.context.routing import (
     render_for_prompt as render_routing_for_prompt,
 )
+from tlamati.core.json_events import (
+    EXIT_USAGE,
+    JsonlEmitter,
+    exit_code_for,
+    result_event,
+)
 from tlamati.core.loop import LoopResult, run_loop
 from tlamati.core.messages import Message
 from tlamati.mcp.client import close_mcp, load_mcp_servers, parse_mcp_config
@@ -250,6 +256,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--quiet", action="store_true", help="suppress streaming output")
     p.add_argument(
+        "--json",
+        action="store_true",
+        help="E2: machine mode — JSONL events on stdout (one JSON object per "
+        "line, final `result` event) + honest exit codes, for CI/scripts",
+    )
+    p.add_argument(
         "cmd",
         nargs="?",
         choices=["sessions", "audit"],
@@ -259,8 +271,12 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def _ledger_wrapper(ledger: Ledger | None, quiet: bool) -> Any:
-    """on_event que alimenta el ledger (turno + costos) y luego imprime."""
+def _ledger_wrapper(ledger: Ledger | None, quiet: bool, emitter: JsonlEmitter | None = None) -> Any:
+    """on_event que alimenta el ledger (turno + costos) y luego publica.
+
+    E2: con emitter (--json), los eventos salen como JSONL a stdout y el
+    printer humano se omite por completo (stdout es EXCLUSIVO del stream).
+    Sin emitter, comportamiento idéntico al pre-E2."""
     printer = _printer(quiet)
 
     def on_event(kind: str, data: dict[str, Any]) -> None:
@@ -274,7 +290,10 @@ def _ledger_wrapper(ledger: Ledger | None, quiet: bool) -> Any:
                 cache_read=u.cache_read_tokens,
                 cost_usd=u.cost_usd,
             )
-        printer(kind, data)
+        if emitter is not None:
+            emitter.emit(kind, data)
+        else:
+            printer(kind, data)
 
     return on_event
 
@@ -367,26 +386,45 @@ def _printer(quiet: bool) -> Any:
 
 
 async def _run_headless(args: argparse.Namespace) -> int:
+    # E2: modo máquina. stdout = EXCLUSIVO del stream JSONL; stderr sigue
+    # humano. Los exit codes honestos (core/json_events.py) aplican SOLO con
+    # --json — el modo humano conserva 0/1/2 (contrato pre-E2 intacto).
+    emitter: JsonlEmitter | None = JsonlEmitter() if args.json else None
     # C5 (gemini regla 7): plan-mode y YOLO son mutuamente exclusivos — fail
     # fast al parsear, nunca en caliente.
     if args.plan_mode and "*" in args.approve_tool:
-        print(
+        msg = (
             "tlamati: --plan-mode y --approve-tool '*' son mutuamente exclusivos "
-            "(el plan-mode requiere aprobación humana real de los planes)",
-            file=sys.stderr,
+            "(el plan-mode requiere aprobación humana real de los planes)"
         )
-        return 2
+        print(msg, file=sys.stderr)
+        if emitter is not None:
+            emitter.emit_error("args", msg)
+        return EXIT_USAGE
     cfg = load_config()
     cfg_provider = cfg.get("provider") or {}
     model = args.model or cfg_provider.get("model") or DEFAULT_MODEL
     base_url = args.base_url or cfg_provider.get("base_url") or DEFAULT_BASE_URL
     api_key = _resolve_api_key(cfg_provider)
-    if not api_key:
-        print(
-            "tlamati: falta la API key (OPENROUTER_API_KEY o config provider.api_key_env)",
-            file=sys.stderr,
+    if emitter is not None:
+        # Primer evento del stream: qué corrida es esta (consumidor de CI).
+        emitter.emit(
+            "init",
+            {
+                "model": model,
+                "base_url": base_url,
+                "cwd": str(Path.cwd()),
+                "max_turns": args.max_turns,
+                "max_context": args.max_context,
+                "version": __version__,
+            },
         )
-        return 2
+    if not api_key:
+        msg = "tlamati: falta la API key (OPENROUTER_API_KEY o config provider.api_key_env)"
+        print(msg, file=sys.stderr)
+        if emitter is not None:
+            emitter.emit_error("api_key", msg)
+        return EXIT_USAGE
 
     # C1: session store — persist during the run (crash-safe, ledger lesson).
     store: SessionStore | None = None
@@ -403,8 +441,10 @@ async def _run_headless(args: argparse.Namespace) -> int:
                 loaded = store.load_session(resume_id)
                 if loaded is None:
                     print(f"[session] no existe la sesión {resume_id!r}", file=sys.stderr)
+                    if emitter is not None:
+                        emitter.emit_error("session", f"no existe la sesión {resume_id!r}")
                     store.close()
-                    return 2
+                    return EXIT_USAGE
                 session_id = resume_id
                 resumed_history = loaded.messages
                 print(
@@ -434,8 +474,11 @@ async def _run_headless(args: argparse.Namespace) -> int:
             plan_state=(plan_state := PlanState(active=args.plan_mode)),
         )
     except ValueError as e:
-        print(f"tlamati: configuración de permisos inválida: {e}", file=sys.stderr)
-        return 2
+        msg = f"tlamati: configuración de permisos inválida: {e}"
+        print(msg, file=sys.stderr)
+        if emitter is not None:
+            emitter.emit_error("policy", msg)
+        return EXIT_USAGE
     ledger: Ledger | None = None
     if not args.no_audit:
         # Merge B5+C1: el ledger reutiliza el session_id del store; sin store
@@ -647,7 +690,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
         tools=tools,
         budget=budget,
         max_turns=args.max_turns,
-        on_event=_ledger_wrapper(ledger, args.quiet),
+        on_event=_ledger_wrapper(ledger, args.quiet, emitter),
         compactor=compactor,
         history=resumed_history or None,
         on_message=_persist,
@@ -680,6 +723,26 @@ async def _run_headless(args: argparse.Namespace) -> int:
         store.finish_session(session_id, stop_reason=result.stop_reason, turns=result.turns)
         store.close()
         print(f"[session] {session_id}", file=sys.stderr)
+    if emitter is not None:
+        # E2: evento terminal SIEMPRE último — el consumidor de CI solo
+        # necesita esta línea (+ el exit code del proceso) para decidir.
+        emitter.emit("result", result_event(result, session_id=session_id, model=model))
+        if emitter.broken:
+            print(
+                f"[json] aviso: stream roto ({emitter.broken}) — corrida intacta", file=sys.stderr
+            )
+        u2 = result.usage
+        print(
+            f"[fin] stop={result.stop_reason} turnos={result.turns} "
+            f"tokens: in={u2.input_tokens} out={u2.output_tokens} "
+            f"cache_read={u2.cache_read_tokens}",
+            file=sys.stderr,
+        )
+        if result.error:
+            print(f"[error] {result.error}", file=sys.stderr)
+        if ledger is not None:
+            ledger.close()
+        return exit_code_for(result.stop_reason)
     if not args.quiet:
         print("", flush=True)
     u = result.usage
