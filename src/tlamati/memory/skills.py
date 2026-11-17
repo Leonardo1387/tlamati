@@ -22,6 +22,7 @@ microcompact-whitelisted: re-fetchable from disk at zero cost.
 from __future__ import annotations
 
 import re
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -111,14 +112,19 @@ class SkillLibrary:
     def get(self, name: str) -> Skill | None:
         return self._skills.get(name)
 
-    def catalog_text(self) -> str:
+    def catalog_text(self, only: Collection[str] | None = None) -> str:
         """The block injected into the system prompt. Stable order → the
-        cacheable prefix only changes when the library changes."""
+        cacheable prefix only changes when the library changes. `only` (C6
+        routing): restrict to a name allowlist — callers must pass a STABLE
+        allowlist per run (workspace-level), never per turn (cache sacred)."""
         lines = [
             "Skills disponibles (procedimientos reutilizables). Para usar una:",
             "skill_view(name). Solo carga las relevantes para la tarea actual.",
         ]
+        allowed = {n.lower() for n in only} if only is not None else None
         for s in self.catalog():
+            if allowed is not None and s.name.lower() not in allowed:
+                continue
             prefix = f"{s.category}/" if s.category else ""
             lines.append(f"- {prefix}{s.name}: {s.description}")
         return "\n".join(lines)
