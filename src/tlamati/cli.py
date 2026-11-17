@@ -31,6 +31,7 @@ from tlamati.context.routing import (
 )
 from tlamati.core.loop import LoopResult, run_loop
 from tlamati.core.messages import Message
+from tlamati.mcp.client import close_mcp, load_mcp_servers, parse_mcp_config
 from tlamati.memory.dream import dream
 from tlamati.memory.skills import SkillLibrary, default_skill_roots, make_skill_tools
 from tlamati.memory.store import MemoryStore, default_memory_dir, seed_if_empty
@@ -235,6 +236,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-plugins",
         action="store_true",
         help="disable plugin discovery (the internal audit plugin is NEVER disabled)",
+    )
+    p.add_argument(
+        "--mcp-config",
+        metavar="PATH",
+        help="override yaml file with an 'mcp:' section "
+        "(default: tlamati.yaml / ~/.config/tlamati/config.yaml)",
+    )
+    p.add_argument(
+        "--no-mcp",
+        action="store_true",
+        help="disable MCP servers for this run (kill switch)",
     )
     p.add_argument("--quiet", action="store_true", help="suppress streaming output")
     p.add_argument(
@@ -563,6 +575,33 @@ async def _run_headless(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
 
+    # D3 MCP: servidores SOLO declarados en config (--mcp-config override).
+    # Tools AL FINAL del tool_list (append-only tras delegate_task, orden
+    # estable por (servidor, tool) — cache sagrada). OJO: a diferencia de los
+    # plugins D2, las tools MCP SÍ cambian el prefijo (son visibles al modelo):
+    # añadir/quitar servidores invalida caché — esperado, es configuración de
+    # corrida, estable DENTRO de la corrida. Fail-soft: servidor caído = aviso
+    # honesto + corrida sin él. ASK + produces_untrusted innegociables.
+    mcp_clients: list[Any] = []
+    if not args.no_mcp:
+        mcp_cfg: dict[str, Any] = cfg
+        if args.mcp_config:
+            path = Path(os.path.expanduser(str(args.mcp_config)))
+            if path.is_file():
+                with open(path) as f:
+                    loaded_mcp = yaml.safe_load(f) or {}
+                mcp_cfg = loaded_mcp if isinstance(loaded_mcp, dict) else {}
+            else:
+                print(f"[mcp] aviso: {path} no existe — sin servidores MCP", file=sys.stderr)
+                mcp_cfg = {}
+        servers, mcp_errors = parse_mcp_config(mcp_cfg.get("mcp"))
+        for why in mcp_errors:
+            print(f"[mcp] aviso de config: {why}", file=sys.stderr)
+        if servers:
+            mcp_report = await load_mcp_servers(servers)
+            mcp_clients = list(mcp_report.clients)
+            tool_list.extend(mcp_report.tools)
+
     tools = Registry(
         tool_list,
         approver=_headless_approver(args.approve_tool),
@@ -613,6 +652,11 @@ async def _run_headless(args: argparse.Namespace) -> int:
         history=resumed_history or None,
         on_message=_persist,
     )
+
+    # D3: cierre limpio de servidores MCP al terminar la corrida (terminate →
+    # wait → kill). Un servidor colgado NUNCA cuelga la corrida (nunca raise).
+    if mcp_clients:
+        await close_mcp(mcp_clients)
 
     # C2 auto-dream: consolidation AFTER the run, never in the hot turn
     # (CC donor). Uses the cheap summarizer chain; opt-in with --dream.

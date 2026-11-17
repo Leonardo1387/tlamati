@@ -29,8 +29,23 @@
   append-only (`tlamati audit`). La auditoría es un plugin INTERNO no
   desactivable; los eventos de subagentes viajan al mismo db con prefijo de
   sesión `<padre>:sub-NN`. Nada de ejecuciones invisibles.
-- **Contenido no-confiable (MCP, D3)**: los resultados de servidores MCP se
-  tratarán como `produces_untrusted` + permission ASK por default.
+- **Contenido no-confiable (MCP, D3)**: los servidores MCP son territorio
+  NO-confiable por construcción. Reglas innegociables:
+  - NUNCA se auto-descubren: solo servidores declarados por el dueño en
+    `tlamati.yaml` / `--mcp-config` (un MCP en el repo de un tercero es
+    código ajeno que además EJECUTA UN PROCESO — mismo razonamiento que los
+    plugins, agravado).
+  - Cada tool remota se envuelve como `mcp_<server>_<tool>` con
+    `permission=ASK` SIEMPRE (policy puede endurecer a deny, nunca relajar)
+    y `produces_untrusted=True` SIEMPRE (tras consumir un resultado MCP, el
+    egreso escala a ASK — trifecta letal B4).
+  - Timeout por llamada (default 60s) y cierre terminate→wait→kill: un
+    servidor colgado nunca cuelga la corrida (fail-soft total, aviso
+    honesto + corrida sin él).
+  - Los resultados MCP NO entran a la microcompactación por default (pueden
+    no ser re-obtenibles: side-effects o servidor con estado).
+  - La auditoría los cubre sin trabajo extra: son Tools normales → el plugin
+    interno D2 registra cada llamada en el ledger.
 
 ## Reporting
 
