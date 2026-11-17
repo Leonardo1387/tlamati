@@ -142,13 +142,12 @@ e) DONORS D3:
 - SECURITY.md: actualizar §MCP con lo implementado (hoy dice "se tratarán").
 
 ### D3b (NO ES PARA ESTA SESIÓN) — exporter de talento (pool)
-Solo si el fundador lo pide explícitamente: plugin D2 que derive métricas de
-sesión (session store C1 + ledger B5) a un perfil exportable, CON
-consentimiento explícito (--talent-export opt-in, nunca por default).
-Diseño de negocio inicial entregado en el chat de la sesión 13 (qué medir:
-resolución efectiva, autonomía, juicio de verificación, economía de tokens,
-recuperación ante errores; formato: ficha de 1 pantalla con percentiles).
-NO codificar nada de esto en D3.
+Diseño completo en research/07_POOL_DE_TALENTO.md (5 señales a medir,
+mecánica de 3 capas, ficha de 1 pantalla, privacidad opt-in, anti-gaming,
+integración vía plugin D2). Solo si el fundador lo pide explícitamente:
+plugin D2 que derive métricas de sesión (session store C1 + ledger B5) a un
+perfil exportable, CON consentimiento explícito (--talent-export opt-in,
+nunca por default). NO codificar nada de esto en D3.
 
 ### ORDEN DE TRABAJO
 D3 es la unidad de ESTA sesión (cierra la FASE D). Después: Fase E (TUI,
