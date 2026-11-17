@@ -32,6 +32,8 @@ import jsonschema
 from jsonschema.exceptions import SchemaError
 
 from tlamati.core.messages import ToolResult
+from tlamati.plugins import HookRegistry
+from tlamati.plugins.internal.ledger_plugin import register_ledger_hooks
 from tlamati.providers.base import ToolSpec
 
 if TYPE_CHECKING:  # B4: policy.config importa Permission de aquí → ciclo evitado
@@ -112,11 +114,18 @@ class Registry:
         approver: Approver | None = None,
         policy: Policy | None = None,
         ledger: Ledger | None = None,
+        hooks: HookRegistry | None = None,
     ):
         self._tools: dict[str, Tool] = {}
         self.approver = approver
         self.policy = policy  # B4: overrides + patrones + trifecta
         self.ledger = ledger  # B5: auditoría append-only (None = off)
+        # D2: hooks (plugins). Con ledger, el plugin INTERNO de auditoría se
+        # registra SIEMPRE (B5 no es opcional; migración real de _log): el
+        # registro de tool_events ahora vive en after_tool de ese plugin.
+        self.hooks = hooks if hooks is not None else HookRegistry()
+        if ledger is not None:
+            register_ledger_hooks(self.hooks, ledger)
         for t in tools or []:
             self.register(t)
 
@@ -139,27 +148,21 @@ class Registry:
         return [t.as_spec() for t in self._tools.values()]
 
     async def execute(self, name: str, args: dict[str, Any], tool_call_id: str) -> ToolResult:
-        """Guarded execution: unknown → schema → permission → run.
+        """Guarded execution: unknown → schema → plugin veto → permission → run.
 
         EVERY failure mode becomes an honest ToolResult(is_error=True); this
-        method never raises (loop invariant from Fase A). B5: cada salida
-        queda en el ledger (si existe) con su decisión."""
+        method never raises (loop invariant from Fase A). B5/D2: cada salida
+        dispara ``after_tool`` (el plugin interno de auditoría la registra con
+        su decisión — migración real del viejo _log hardcoded)."""
 
         def _log(
             decision: str,
             result: ToolResult,
             logged_args: dict[str, Any] | None = None,
         ) -> ToolResult:
-            if self.ledger is not None:
-                self.ledger.record_tool_event(
-                    tool=name,
-                    args=logged_args if logged_args is not None else (args or {}),
-                    decision=decision,
-                    result_content=result.content,
-                    is_error=result.is_error,
-                    untrusted=result.untrusted,
-                    truncated=result.truncated,
-                )
+            self.hooks.fire_after_tool(
+                name, logged_args if logged_args is not None else (args or {}), decision, result
+            )
             return result
 
         tool = self._tools.get(name)
@@ -190,6 +193,20 @@ class Registry:
             return _log(
                 "schema_invalid",
                 ToolResult(tool_call_id=tool_call_id, content=schema_error, is_error=True),
+            )
+
+        # 1b. D2 plugin veto: ANTES del permission gate. Solo puede ENDURECER
+        # (invariante B4: policy nunca relaja) — devuelve un string de veto
+        # → ToolResult honesto con decisión NUEVA append-only "plugin_denied".
+        veto = self.hooks.fire_before_tool(name, args)
+        if veto is not None:
+            return _log(
+                "plugin_denied",
+                ToolResult(
+                    tool_call_id=tool_call_id,
+                    content=f"ERROR: tool {name!r} vetada por plugin: {veto}",
+                    is_error=True,
+                ),
             )
 
         # 2. Permission gate (B4: Policy resuelve override+patrones+trifecta;
@@ -258,6 +275,9 @@ class Registry:
             content = await tool.run(args)
             is_error = content.startswith("ERROR:")
         except Exception as e:
+            # D2: on_error OBSERVA (plugins), el comportamiento no cambia —
+            # la excepción sigue convirtiéndose en resultado honesto.
+            self.hooks.fire_on_error(name, args, e)
             content = f"ERROR: tool {name} raised {type(e).__name__}: {e}"
             is_error = True
         content, truncated = truncate(content)

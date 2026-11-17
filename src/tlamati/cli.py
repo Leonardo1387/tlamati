@@ -37,6 +37,7 @@ from tlamati.memory.store import MemoryStore, default_memory_dir, seed_if_empty
 from tlamati.memory.tools import make_memory_tools
 from tlamati.plan.mode import PLAN_MODE_PROMPT, PlanState
 from tlamati.plan.tools import make_plan_tools
+from tlamati.plugins import HookRegistry, load_plugins
 from tlamati.policy.config import Policy, PolicyConfig
 from tlamati.policy.ledger import Ledger
 from tlamati.providers.openai_compat import OpenAICompat
@@ -222,6 +223,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-subagents",
         action="store_true",
         help="disable the delegate_task tool (D1 subagents)",
+    )
+    p.add_argument(
+        "--plugins-dir",
+        metavar="PATH",
+        action="append",
+        default=[],
+        help="extra plugins directory (repeatable; *.py modules with register(hooks))",
+    )
+    p.add_argument(
+        "--no-plugins",
+        action="store_true",
+        help="disable plugin discovery (the internal audit plugin is NEVER disabled)",
     )
     p.add_argument("--quiet", action="store_true", help="suppress streaming output")
     p.add_argument(
@@ -506,6 +519,25 @@ async def _run_headless(args: argparse.Namespace) -> int:
     # AL FINAL del orden estable (append-only, cache sagrada).
     system_prompt += PLAN_MODE_PROMPT
     tool_list.extend(make_plan_tools(Path.cwd(), plan_state, plan_approver=None))
+    # D2 plugins: descubrimiento fail-soft (entry-points + usuario + proyecto +
+    # --plugins-dir). NO tocan el prefijo (invisibles al modelo, cache sagrada).
+    # El plugin INTERNO de auditoría se registra en el Registry (B5 no opcional).
+    # Se crean ANTES del bloque D1: el subagente HEREDA los hooks (la escalera
+    # solo endurece — un veto de plugin aplica también dentro del hijo).
+    hooks = HookRegistry()
+    if not args.no_plugins:
+        cfg_plugins = cfg.get("plugins") or {}
+        extra_plugin_dirs = [
+            Path(os.path.expanduser(str(d)))
+            for d in list(args.plugins_dir) + list(cfg_plugins.get("extra_dirs") or [])
+        ]
+        plugin_report = load_plugins(hooks, project_root=Path.cwd(), extra_dirs=extra_plugin_dirs)
+        print(
+            f"[plugins] {len(plugin_report.loaded)} cargado(s), "
+            f"{len(plugin_report.failed)} fallido(s)",
+            file=sys.stderr,
+        )
+
     # D1 subagentes: bloque de prompt ESTÁTICO tras el de plan-mode (prefijo
     # byte-estable) y tool AL FINAL del orden (append-only, cache sagrada).
     # En plan-mode la tool queda DENEGADA sola (fuera de la whitelist C5).
@@ -521,6 +553,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
                 tool_candidates=lambda: list(parent_tools),
                 config=sub_cfg,
                 ledger=ledger,
+                hooks=hooks,
             )
         )
     if plan_state.active:
@@ -535,6 +568,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
         approver=_headless_approver(args.approve_tool),
         policy=policy,
         ledger=ledger,
+        hooks=hooks,
     )
     budget = Budget(max_context_tokens=args.max_context)
 
