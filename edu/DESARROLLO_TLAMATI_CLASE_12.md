@@ -64,8 +64,9 @@ El runner aprendió un truco nuevo (15 líneas): tras copiar la fixture al works
 setup = workdir / "setup.sh"
 if setup.is_file():
     with contextlib.suppress(subprocess.TimeoutExpired, OSError):
-        subprocess.run(["bash", str(setup)], cwd=workdir,
-                       capture_output=True, text=True, timeout=120)
+        subprocess.run(
+            ["bash", str(setup)], cwd=workdir, capture_output=True, text=True, timeout=120
+        )
 ```
 
 ### La invariante de toda fixture: la semilla FALLA
