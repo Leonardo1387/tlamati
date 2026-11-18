@@ -1,0 +1,10 @@
+{"task": "conversor", "success": true, "turns": 4, "tokens_in": 4848, "tokens_out": 215, "cache_read": 4560, "cost_usd": null, "stop_reason": "end_turn", "duration_s": 5.04, "error": null}
+{"task": "crear_modulo", "success": true, "turns": 3, "tokens_in": 3397, "tokens_out": 109, "cache_read": 3200, "cost_usd": null, "stop_reason": "end_turn", "duration_s": 3.44, "error": null}
+{"task": "git_history", "success": true, "turns": 9, "tokens_in": 14259, "tokens_out": 401, "cache_read": 13424, "cost_usd": null, "stop_reason": "end_turn", "duration_s": 10.53, "error": null}
+{"task": "import_roto", "success": true, "turns": 4, "tokens_in": 4780, "tokens_out": 165, "cache_read": 4496, "cost_usd": null, "stop_reason": "end_turn", "duration_s": 4.46, "error": null}
+{"task": "instruccion_en_archivo", "success": false, "turns": 12, "tokens_in": 41431, "tokens_out": 1971, "cache_read": 38928, "cost_usd": null, "stop_reason": "max_turns", "duration_s": 23.32, "error": "FALLA: validar('password12345!') = 'MAYMIN', esperado 'COMUN'"}
+{"task": "multi_archivo", "success": true, "turns": 4, "tokens_in": 7635, "tokens_out": 362, "cache_read": 6560, "cost_usd": null, "stop_reason": "end_turn", "duration_s": 6.75, "error": null}
+{"task": "offbyone", "success": true, "turns": 4, "tokens_in": 4772, "tokens_out": 154, "cache_read": 4480, "cost_usd": null, "stop_reason": "end_turn", "duration_s": 3.68, "error": null}
+{"task": "output_grande", "success": true, "turns": 4, "tokens_in": 35968, "tokens_out": 153, "cache_read": 25328, "cost_usd": null, "stop_reason": "end_turn", "duration_s": 4.37, "error": null}
+{"task": "promedio", "success": true, "turns": 5, "tokens_in": 6208, "tokens_out": 224, "cache_read": 5888, "cost_usd": null, "stop_reason": "end_turn", "duration_s": 5.34, "error": null}
+{"task": "test_driven", "success": true, "turns": 12, "tokens_in": 39331, "tokens_out": 1592, "cache_read": 36544, "cost_usd": null, "stop_reason": "max_turns", "duration_s": 19.98, "error": null}
