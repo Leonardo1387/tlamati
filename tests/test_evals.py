@@ -21,7 +21,19 @@ from tlamati.core.messages import (
 from tlamati.evals.runner import DEFAULT_FIXTURES, TaskResult, _verify, discover_tasks, run_task
 from tlamati.providers.base import ToolSpec
 
-FIXTURE_NAMES = {"promedio", "offbyone", "conversor", "import_roto", "crear_modulo"}
+FIXTURE_NAMES = {
+    "promedio",
+    "offbyone",
+    "conversor",
+    "import_roto",
+    "crear_modulo",
+    # E3a: media-alta (moldeadas en bugs reales del historial del proyecto)
+    "multi_archivo",  # bug repartido: normalización de claves + .get con default
+    "output_grande",  # aguja FATAL al final de un log de 3000 líneas (truncado M1)
+    "git_history",  # arqueología git: setup.sh siembra 6 commits deterministas
+    "instruccion_en_archivo",  # SPEC.md con reglas R1-R6 + prioridad (lee docs largos)
+    "test_driven",  # 10 tests unittest, 4 fallan (itera edit→test→edit)
+}
 
 
 class FixProvider:
@@ -47,9 +59,66 @@ class FixProvider:
         yield MessageEnd(stop_reason="tool_use", usage=Usage(input_tokens=10, output_tokens=5))
 
 
-def test_discover_tasks_finds_five() -> None:
+def test_discover_tasks_finds_all_fixtures() -> None:
     tasks = discover_tasks(DEFAULT_FIXTURES)
     assert {t.name for t in tasks} == FIXTURE_NAMES
+
+
+def test_git_history_setup_sh_seed_and_solve(tmp_path: Path) -> None:
+    """git_history: setup.sh siembra 6 commits deterministas; verify FALLA sin
+    culpable.txt y PASA con el hash del commit 'refactor' (simula la solución)."""
+    import shutil
+    import subprocess
+
+    src = next(t for t in discover_tasks(DEFAULT_FIXTURES) if t.name == "git_history")
+    ws = tmp_path / "git_history"
+    shutil.copytree(src, ws)
+    subprocess.run(["bash", "setup.sh"], cwd=ws, check=True, capture_output=True)
+    # idempotente: segunda corrida no revienta ni duplica
+    subprocess.run(["bash", "setup.sh"], cwd=ws, check=True, capture_output=True)
+
+    ok, out = _verify(ws)
+    assert not ok and "culpable.txt" in out  # semilla FALLA (invariante)
+
+    log = subprocess.run(
+        ["git", "log", "--format=%H %s"], cwd=ws, capture_output=True, text=True, check=True
+    )
+    lines = log.stdout.strip().splitlines()
+    assert len(lines) == 6
+    culpable = next(ln.split()[0] for ln in lines if "refactor" in ln)
+    (ws / "culpable.txt").write_text(culpable + "\n")
+    ok, out = _verify(ws)
+    assert ok and "VERIFY OK" in out
+    # fechas deterministas: misma semilla → mismos hashes en otro workspace
+    ws2 = tmp_path / "clone"
+    shutil.copytree(src, ws2)
+    subprocess.run(["bash", "setup.sh"], cwd=ws2, check=True, capture_output=True)
+    log2 = subprocess.run(["git", "log", "--format=%H"], cwd=ws2, capture_output=True, text=True)
+    assert log2.stdout.strip().splitlines()[0] == culpable
+
+
+def test_multi_archivo_verifier_expects_config_tax(tmp_path: Path) -> None:
+    """multi_archivo: la semilla usa default 0.16 y verify exige 0.19 de config."""
+    src = next(t for t in discover_tasks(DEFAULT_FIXTURES) if t.name == "multi_archivo")
+    ok, out = _verify(src)
+    assert not ok and "impuesto" in out  # invariante: FALLA pre-fix con mensaje claro
+
+
+def test_test_driven_seed_has_four_failures() -> None:
+    """test_driven: los 10 tests corren y exactamente 4 fallan pre-fix."""
+    import subprocess
+    import sys
+
+    src = next(t for t in discover_tasks(DEFAULT_FIXTURES) if t.name == "test_driven")
+    proc = subprocess.run(
+        [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-t", "."],
+        cwd=src,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    tail = proc.stdout + proc.stderr
+    assert proc.returncode != 0 and "FAILED (failures=4)" in tail
 
 
 def test_discover_tasks_only_filter(tmp_path: Path) -> None:

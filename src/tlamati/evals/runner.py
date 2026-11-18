@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import shutil
 import subprocess
@@ -114,6 +115,19 @@ async def run_task(
     if workdir.exists():
         shutil.rmtree(workdir)
     shutil.copytree(task_dir, workdir)
+    setup = workdir / "setup.sh"
+    if setup.is_file():
+        # Semilla programática (p.ej. repo git con commits de fechas fijas):
+        # determinista e idempotente; si falla, la tarea corre igual y
+        # verify.py decide con su error honesto.
+        with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+            subprocess.run(
+                ["bash", str(setup)],
+                cwd=workdir,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
     instruction = (workdir / "instruction.md").read_text()
 
     t0 = time.monotonic()
