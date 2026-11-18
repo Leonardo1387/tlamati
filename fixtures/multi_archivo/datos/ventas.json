@@ -1,0 +1,17 @@
+[
+  {
+    "producto": "teclado",
+    "cantidad": 3,
+    "precio": 10.0
+  },
+  {
+    "producto": "raton",
+    "cantidad": 2,
+    "precio": 5.5
+  },
+  {
+    "producto": "monitor",
+    "cantidad": 1,
+    "precio": 100.25
+  }
+]
