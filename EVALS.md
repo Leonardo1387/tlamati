@@ -103,6 +103,60 @@ Notas de semántica (honestidad de la comparación):
     (`--safe-mode` = arnés default pelón: sin config/memoria/skills/plugins/MCP
     del usuario).
 
+## Tabla RÉPLICA run2 (19-nov-2026) — mismas circunstancias + tlamati --max-turns 50
+
+- Mismo runner, mismo modelo (`qwen/qwen3-coder` OR), mismas 10 fixtures,
+  upstream sano de principio a fin (watchdog: 2 sondas OK antes de arrancar;
+  0 errores 429/504 en los JSONL, verificado con grep).
+- JSONL crudos: `evals/benchmark_2026-11-18_run2/<arnés>.jsonl`.
+- Único cambio vs run1: tlamati `--max-turns 50` (principio de igualdad de
+  circunstancias del fundador: los demás arneses corren sin tope de turnos).
+
+| arnés | resueltas run1 | resueltas run2 | tokens_in run2 | cache run2 | duración run2 |
+|---|---|---|---|---|---|
+| codex | 10/10 | **10/10** | 1,088,716 | 87% | 475.6 s |
+| hermes | 10/10 | **10/10** | null | n/a | 1245.4 s |
+| opencode | 9/10 | 7/10 | 383,201 | 84% | 129.2 s |
+| tlamati | 7/10 | 8/10 | 735,322 | **98%** | 239.3 s |
+
+Fallos run2 (autopsia con ledger de auditoría, no especulación):
+
+- `tlamati/instruccion_en_archivo`: ASIMETRÍA EVAL-ARNÉS diagnosticada con el
+  ledger (sesión audit.db 20261119-120939): el modelo llama `enter_plan_mode`
+  solo; en headless NO hay aprobador humano y `exit_plan_mode` es fail-closed
+  por diseño (regla de oro C5: solo aprobación humana real sale del plan-mode).
+  El modelo quedó encerrado: 4 intentos de salida fallidos (turnos 6/9/15/22),
+  herramientas de escritura denegadas, 50 turnos quemados. En la TUI real
+  (E1) el aprobador existe → esto NO es un bug de producto, es el eval corriendo
+  sin la pieza humana que la feature asume. Fix pendiente (una línea): el runner
+  headless debe pasar `--no-plan-mode` para igualar circunstancias — los demás
+  arneses no ofrecen plan-mode al modelo en modo benchmark.
+- `tlamati/multi_archivo`: el modelo usó impuesto 0.16 (default) en vez del
+  0.19 de la config — MISMA falla que run1, aunque el re-test diagnóstico del
+  18-nov la pasó. 2 fallos idénticos de 3 corridas → fixture más difícil del
+  set para qwen3-coder con prefijo mínimo. Varianza del modelo, verify.py la
+  cazó con valores exactos.
+- `opencode`: crear_modulo (no creó el módulo), import_roto (no arregló el
+  import), instruccion_en_archivo (violó 2 reglas del SPEC) — varianza del
+  modelo; run1 había fallado SOLO promedio. N=1 por celda: la cifra por celda
+  se mueve ±3 entre corridas con el mismo arnés.
+
+Lectura run1-vs-run2 (regla: nunca promediar en silencio; ambas corridas
+fechadas y separadas):
+
+- codex y hermes: estables 10/10 las dos corridas.
+- opencode: 9→7. tlamati: 7→8. El orden del % resueltas NO es estable con
+  N=1; lo que SÍ se repite: tlamati mantiene cache_read más alto que todos
+  (92% run1 → 98% run2, el único arnés que sube con el prefijo caliente) y
+  codex es el más caro en tokens (1.1-1.5M por corrida).
+- El tope de turnos dejó de ser factor: con 50, test_driven pasó (11 turnos)
+  y ninguna tarea de tlamati murió por techo salvo la encerrona del plan-mode
+  (que es asimetría, no techo: 50 turnos atrapado sin poder escribir).
+- Duración hermes run2 (1245 s) vs run1 (206 s): hermes sin visibilidad de
+  tokens corre a su ritmo con sus propias heurísticas (multi_archivo 356 s,
+  output_grande 294 s); la duración de hermes NO es comparable entre corridas
+  y se reporta como dato crudo, sin narrativa.
+
 ## Fuera de la tabla (y por qué)
 
 - **claude code / grok**: atados a cerebros propietarios — el delta mediría el

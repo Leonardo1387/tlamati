@@ -1,0 +1,10 @@
+{"task": "conversor", "harness": "tlamati", "success": true, "turns": 4, "tokens_in": 11406, "tokens_out": 219, "cache_read": 11120, "duration_s": 4.85, "error": null}
+{"task": "crear_modulo", "harness": "tlamati", "success": true, "turns": 3, "tokens_in": 8317, "tokens_out": 116, "cache_read": 8128, "duration_s": 3.12, "error": null}
+{"task": "git_history", "harness": "tlamati", "success": true, "turns": 13, "tokens_in": 44390, "tokens_out": 551, "cache_read": 43216, "duration_s": 17.94, "error": null}
+{"task": "import_roto", "harness": "tlamati", "success": true, "turns": 4, "tokens_in": 11338, "tokens_out": 166, "cache_read": 11040, "duration_s": 4.06, "error": null}
+{"task": "instruccion_en_archivo", "harness": "tlamati", "success": false, "turns": 50, "tokens_in": 482767, "tokens_out": 8409, "cache_read": 476384, "duration_s": 111.85, "error": "harness rc=1: [plugins] 0 cargado(s), 0 fallido(s)\n[fin] stop=max_turns turnos=50 tokens: in=482767 out=8409 cache_read=476384"}
+{"task": "multi_archivo", "harness": "tlamati", "success": false, "turns": 20, "tokens_in": 86636, "tokens_out": 1487, "cache_read": 84080, "duration_s": 31.17, "error": "FALLA: impuesto 22.6 != 26.8375 (debe usar 0.19 de config)\nFALLA: total 163.85 != 168.0875"}
+{"task": "offbyone", "harness": "tlamati", "success": true, "turns": 4, "tokens_in": 11330, "tokens_out": 166, "cache_read": 11008, "duration_s": 4.11, "error": null}
+{"task": "output_grande", "harness": "tlamati", "success": true, "turns": 6, "tokens_in": 17931, "tokens_out": 219, "cache_read": 17440, "duration_s": 18.83, "error": null}
+{"task": "promedio", "harness": "tlamati", "success": true, "turns": 4, "tokens_in": 11300, "tokens_out": 185, "cache_read": 11040, "duration_s": 8.48, "error": null}
+{"task": "test_driven", "harness": "tlamati", "success": true, "turns": 11, "tokens_in": 49907, "tokens_out": 1043, "cache_read": 47472, "duration_s": 34.85, "error": null}

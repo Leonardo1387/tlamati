@@ -1,0 +1,10 @@
+{"task": "conversor", "harness": "hermes", "success": true, "turns": null, "tokens_in": null, "tokens_out": null, "cache_read": null, "duration_s": 38.18, "error": null}
+{"task": "crear_modulo", "harness": "hermes", "success": true, "turns": null, "tokens_in": null, "tokens_out": null, "cache_read": null, "duration_s": 15.47, "error": null}
+{"task": "git_history", "harness": "hermes", "success": true, "turns": null, "tokens_in": null, "tokens_out": null, "cache_read": null, "duration_s": 47.83, "error": null}
+{"task": "import_roto", "harness": "hermes", "success": true, "turns": null, "tokens_in": null, "tokens_out": null, "cache_read": null, "duration_s": 15.57, "error": null}
+{"task": "instruccion_en_archivo", "harness": "hermes", "success": true, "turns": null, "tokens_in": null, "tokens_out": null, "cache_read": null, "duration_s": 258.61, "error": null}
+{"task": "multi_archivo", "harness": "hermes", "success": true, "turns": null, "tokens_in": null, "tokens_out": null, "cache_read": null, "duration_s": 356.07, "error": null}
+{"task": "offbyone", "harness": "hermes", "success": true, "turns": null, "tokens_in": null, "tokens_out": null, "cache_read": null, "duration_s": 89.42, "error": null}
+{"task": "output_grande", "harness": "hermes", "success": true, "turns": null, "tokens_in": null, "tokens_out": null, "cache_read": null, "duration_s": 293.73, "error": null}
+{"task": "promedio", "harness": "hermes", "success": true, "turns": null, "tokens_in": null, "tokens_out": null, "cache_read": null, "duration_s": 67.08, "error": null}
+{"task": "test_driven", "harness": "hermes", "success": true, "turns": null, "tokens_in": null, "tokens_out": null, "cache_read": null, "duration_s": 63.44, "error": null}
