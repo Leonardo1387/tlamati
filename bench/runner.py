@@ -41,7 +41,9 @@ BENCH_ROOT = Path("/tmp/tlamati-bench")
 MODEL = "qwen/qwen3-coder"
 HARNESS_TIMEOUT_S = 600  # mismo techo para todos los arneses
 VERIFY_TIMEOUT_S = 60
-CODEX_HOME_DIR = Path("/tmp/tlamati-bench-codex-home")
+# CODEX_HOME NO puede estar bajo /tmp: codex rechaza crear helper binaries en
+# dirs temporales ("Refusing to create helper binaries under temporary dir").
+CODEX_HOME_DIR = Path.home() / ".cache" / "tlamati-bench-codex-home"
 
 HARNESSES = ("tlamati", "opencode", "codex", "hermes")
 # tarea de sonda: la más barata del corpus
@@ -107,7 +109,7 @@ def _cmd_tlamati(workdir: Path, instruction: str) -> list[str]:
         "--approve-tool",
         "*",
         "--max-turns",
-        "20",
+        "50",
         "--no-session",
     ]
 

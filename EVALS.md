@@ -87,11 +87,16 @@ Notas de semántica (honestidad de la comparación):
   Sus resultados miden SOLO % resueltas y duración.
 - codex no expone turnos de agente comparables → `turns: null`.
 - Configuración exacta por arnés:
-  - tlamati: `tlamati -p "$INSTR" --json --approve-tool '*' --max-turns 20 --no-session`
-    (sandbox bwrap ON por default, red OFF).
+  - tlamati: `tlamati -p "$INSTR" --json --approve-tool '*' --max-turns 50 --no-session`
+    (sandbox bwrap ON por default, red OFF). En la 1ª corrida (benchmark_2026-11-18/)
+    el tope era 20 — asimetría corregida para la réplica (benchmark_2026-11-18_run2/):
+    los demás arneses corren sin tope de turnos, así que tlamati lleva un techo
+    holgado (50 ≫ máx observado 23) para igualar circunstancias.
   - opencode: `opencode run "$INSTR" --dir WS --auto --format json -m openrouter/qwen/qwen3-coder`.
   - codex: `codex exec -C WS -s workspace-write --skip-git-repo-check --ephemeral --json "$INSTR"`
-    con `CODEX_HOME` aparte (`bench/runner.py` lo genera) y `config.toml`:
+    con `CODEX_HOME` aparte (`~/.cache/tlamati-bench-codex-home`, generado por
+    `bench/runner.py`; OJO: NO bajo /tmp — codex rechaza helper binaries en dirs
+    temporales) y `config.toml`:
     `model_provider="openrouter"`, `base_url="https://openrouter.ai/api/v1"`,
     `env_key="OPENROUTER_API_KEY"`, `wire_api="responses"`, `approval_policy="never"`.
   - hermes: `hermes -z "$INSTR" --safe-mode --yolo -m qwen/qwen3-coder --provider openrouter`
