@@ -27,3 +27,8 @@ sessions/
 # Study material (clones y evidencia REA: no se versionan)
 vendor/
 rea-out/*.json
+
+# Campañas de bench EN CURSO (parciales engañosos; al completar se versionan
+# los JSONL finales con git add -f junto a la tabla de EVALS.md)
+evals/campaign_*/
+evals/*.log
