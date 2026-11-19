@@ -142,12 +142,21 @@ class OpenAICompat:
                 return
             if chunk.get("usage"):
                 u = chunk["usage"]
+                # Bug 4 autopsia dogfooding #2: turn_costs.cost_usd quedaba NULL.
+                # Causa: OpenRouter SÍ reporta el costo real en el chunk final
+                # de usage (campo "cost", presente con stream_options
+                # include_usage), pero este parser lo ignoraba. Se usa el valor
+                # reportado cuando existe; si el gateway no lo trae, cost_usd
+                # sigue siendo None honesto (nunca inventado).
+                raw_cost = u.get("cost")
+                cost = float(raw_cost) if isinstance(raw_cost, (int, float)) else None
                 usage = Usage(
                     input_tokens=int(u.get("prompt_tokens", 0) or 0),
                     output_tokens=int(u.get("completion_tokens", 0) or 0),
                     cache_read_tokens=int(
                         (u.get("prompt_tokens_details") or {}).get("cached_tokens", 0) or 0
                     ),
+                    cost_usd=cost,
                 )
             for choice in chunk.get("choices") or []:
                 delta = choice.get("delta") or {}
