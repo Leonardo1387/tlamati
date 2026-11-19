@@ -1,0 +1,10 @@
+{"task": "conversor", "harness": "codex", "success": true, "turns": null, "tokens_in": 54195, "tokens_out": 467, "cache_read": 43328, "duration_s": 24.28, "error": null}
+{"task": "crear_modulo", "harness": "codex", "success": true, "turns": null, "tokens_in": 66926, "tokens_out": 446, "cache_read": 49472, "duration_s": 37.71, "error": null}
+{"task": "git_history", "harness": "codex", "success": true, "turns": null, "tokens_in": 93711, "tokens_out": 1045, "cache_read": 86176, "duration_s": 27.95, "error": null}
+{"task": "import_roto", "harness": "codex", "success": true, "turns": null, "tokens_in": 65400, "tokens_out": 442, "cache_read": 58912, "duration_s": 10.81, "error": null}
+{"task": "instruccion_en_archivo", "harness": "codex", "success": true, "turns": null, "tokens_in": 317283, "tokens_out": 4691, "cache_read": 288912, "duration_s": 181.76, "error": null}
+{"task": "multi_archivo", "harness": "codex", "success": true, "turns": null, "tokens_in": 153807, "tokens_out": 1482, "cache_read": 105984, "duration_s": 76.71, "error": null}
+{"task": "offbyone", "harness": "codex", "success": true, "turns": null, "tokens_in": 65806, "tokens_out": 674, "cache_read": 59312, "duration_s": 18.38, "error": null}
+{"task": "output_grande", "harness": "codex", "success": true, "turns": null, "tokens_in": 43269, "tokens_out": 261, "cache_read": 36912, "duration_s": 20.29, "error": null}
+{"task": "promedio", "harness": "codex", "success": true, "turns": null, "tokens_in": 100312, "tokens_out": 724, "cache_read": 93552, "duration_s": 24.55, "error": null}
+{"task": "test_driven", "harness": "codex", "success": true, "turns": null, "tokens_in": 128007, "tokens_out": 1918, "cache_read": 119536, "duration_s": 53.17, "error": null}

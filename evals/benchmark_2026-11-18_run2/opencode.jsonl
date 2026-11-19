@@ -1,0 +1,10 @@
+{"task": "conversor", "harness": "opencode", "success": true, "turns": 4, "tokens_in": 29704, "tokens_out": 225, "cache_read": 22112, "duration_s": 8.08, "error": null}
+{"task": "crear_modulo", "harness": "opencode", "success": false, "turns": 1, "tokens_in": 7227, "tokens_out": 12, "cache_read": 1808, "duration_s": 2.07, "error": "FALLA: no existe suma_lista.py usable — No module named 'suma_lista'"}
+{"task": "git_history", "harness": "opencode", "success": true, "turns": 10, "tokens_in": 77699, "tokens_out": 446, "cache_read": 71440, "duration_s": 18.35, "error": null}
+{"task": "import_roto", "harness": "opencode", "success": false, "turns": 1, "tokens_in": 7218, "tokens_out": 14, "cache_read": 1808, "duration_s": 2.25, "error": "FALLA: ImportError No module named 'json_loads'"}
+{"task": "instruccion_en_archivo", "harness": "opencode", "success": false, "turns": 1, "tokens_in": 7261, "tokens_out": 13, "cache_read": 1808, "duration_s": 2.4, "error": "FALLA: validar('TODOMAYUSCULAS12!') = 'OK', esperado 'MAYMIN'\nFALLA: validar('SinSimbolo12345') = 'OK', esperado 'SIMBOLO'"}
+{"task": "multi_archivo", "harness": "opencode", "success": true, "turns": 8, "tokens_in": 64596, "tokens_out": 371, "cache_read": 57856, "duration_s": 27.78, "error": null}
+{"task": "offbyone", "harness": "opencode", "success": true, "turns": 4, "tokens_in": 29715, "tokens_out": 259, "cache_read": 23920, "duration_s": 7.47, "error": null}
+{"task": "output_grande", "harness": "opencode", "success": true, "turns": 5, "tokens_in": 37649, "tokens_out": 142, "cache_read": 31744, "duration_s": 23.21, "error": null}
+{"task": "promedio", "harness": "opencode", "success": true, "turns": 4, "tokens_in": 29488, "tokens_out": 174, "cache_read": 23808, "duration_s": 8.18, "error": null}
+{"task": "test_driven", "harness": "opencode", "success": true, "turns": 10, "tokens_in": 92644, "tokens_out": 1207, "cache_read": 84624, "duration_s": 29.41, "error": null}
