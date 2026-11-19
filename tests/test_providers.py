@@ -483,3 +483,50 @@ class TestBase:
             async for _ in iter_sse(resp):
                 pass
         assert ei.value.kind == "stream"
+
+
+class TestOpenRouterCostCapture:
+    """Bug 4 autopsia dogfooding #2: turn_costs.cost_usd quedaba NULL.
+    Causa real: OpenRouter reporta el costo en el campo `cost` del chunk de
+    usage y el parser lo ignoraba (el runner externo del bench calculaba el
+    costo con su propia tabla PRICES, pero el arnés en vivo nunca lo hacía)."""
+
+    async def test_cost_captured_from_usage_chunk(self) -> None:
+        seen, transport = capture_request()
+        set_response(
+            seen,
+            sse_response(
+                [
+                    {"choices": [{"delta": {"content": "ok"}, "finish_reason": "stop"}]},
+                    {
+                        "usage": {
+                            "prompt_tokens": 100,
+                            "completion_tokens": 20,
+                            "cost": 0.000123,
+                        }
+                    },
+                ]
+            ),
+        )
+        p = OpenAICompat(model="m", base_url="https://x/api", api_key="***", transport=transport)
+        events = await collect(p, [Message(role="user", content="hi")], [])
+        end = events[-1]
+        assert isinstance(end, MessageEnd)
+        assert end.usage.cost_usd == 0.000123
+
+    async def test_cost_absent_stays_honest_none(self) -> None:
+        seen, transport = capture_request()
+        set_response(
+            seen,
+            sse_response(
+                [
+                    {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+                    {"usage": {"prompt_tokens": 10, "completion_tokens": 2}},
+                ]
+            ),
+        )
+        p = OpenAICompat(model="m", base_url="https://x/api", api_key="***", transport=transport)
+        events = await collect(p, [Message(role="user", content="hi")], [])
+        end = events[-1]
+        assert isinstance(end, MessageEnd)
+        assert end.usage.cost_usd is None  # nunca inventado
