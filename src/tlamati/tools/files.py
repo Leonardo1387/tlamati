@@ -246,7 +246,15 @@ def fuzzy_replace(text: str, old: str, new: str, replace_all: bool = False) -> t
 
 # ---------------------------------------------------------------- tools
 def _resolve(workdir: Path, path_str: str) -> Path:
-    p = Path(path_str).expanduser()
+    """Resolve a user/model-supplied path against workdir.
+
+    E3e PASO C: Windows paths (C:\\Users\\...) are normalized to their WSL
+    mount (/mnt/c/Users/...) first. WinPathError propagates — callers turn
+    it into an honest ERROR tool result.
+    """
+    from tlamati.tools.winpath import normalize_win_path
+
+    p = Path(normalize_win_path(path_str)).expanduser()
     if not p.is_absolute():
         p = workdir / p
     return p.resolve()
@@ -254,9 +262,13 @@ def _resolve(workdir: Path, path_str: str) -> Path:
 
 def make_file_tools(workdir: Path) -> list[Any]:
     from tlamati.tools.registry import Permission, Tool
+    from tlamati.tools.winpath import WinPathError
 
     async def read_file(args: dict[str, Any]) -> str:
-        path = _resolve(workdir, str(args.get("path", "")))
+        try:
+            path = _resolve(workdir, str(args.get("path", "")))
+        except WinPathError as e:
+            return f"ERROR: {e}"
         if not path.is_file():
             return f"ERROR: no such file: {path}"
         try:
@@ -268,7 +280,10 @@ def make_file_tools(workdir: Path) -> list[Any]:
         return render_lines(text, offset, limit)
 
     async def write_file(args: dict[str, Any]) -> str:
-        path = _resolve(workdir, str(args.get("path", "")))
+        try:
+            path = _resolve(workdir, str(args.get("path", "")))
+        except WinPathError as e:
+            return f"ERROR: {e}"
         content = str(args.get("content", ""))
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -278,7 +293,10 @@ def make_file_tools(workdir: Path) -> list[Any]:
         return f"wrote {len(content)} chars to {path}"
 
     async def edit(args: dict[str, Any]) -> str:
-        path = _resolve(workdir, str(args.get("path", "")))
+        try:
+            path = _resolve(workdir, str(args.get("path", "")))
+        except WinPathError as e:
+            return f"ERROR: {e}"
         if not path.is_file():
             return f"ERROR: no such file: {path}"
         old = str(args.get("old_string", ""))
