@@ -1,0 +1,16 @@
+# Configuración REAL del servicio de reportes.
+# Los módulos legacy/ y logs/ NO se leen; main.py sí lee este archivo.
+servicio: reportes-mx
+version: "3"
+
+impuesto:
+  tasa: 0.16          # <-- OBSOLETO: la tasa vigente 2026 es 0.19 (ver rules.py)
+  moneda: MXN
+
+formato:
+  decimales: 2
+  separador_miles: true
+
+rutas:
+  entrada: datos/ventas.csv
+  salida: reportes/
