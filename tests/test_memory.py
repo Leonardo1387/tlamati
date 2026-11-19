@@ -150,12 +150,12 @@ class TestMemoryTools:
 
     async def test_search_memory(self, mem: MemoryStore) -> None:
         seed_if_empty(mem)
-        mem.apply_batch("memory", [{"action": "add", "content": "El deploy usa Railway"}])
+        mem.apply_batch("memory", [{"action": "add", "content": "El deploy usa Acme"}])
         mem.apply_batch("user", [{"action": "add", "content": "Usuario prefiere terminal"}])
         tools = make_memory_tools(mem)
         search = next(t for t in tools if t.name == "search_memory")
-        out = await search.run({"query": "railway", "target": "all"})
-        assert "[memory]" in out and "Railway" in out
+        out = await search.run({"query": "acme", "target": "all"})
+        assert "[memory]" in out and "Acme" in out
         out2 = await search.run({"query": "zzz"})
         assert "sin coincidencias" in out2
 
@@ -183,7 +183,7 @@ def _session_messages() -> list[Message]:
         Message(
             role="user",
             content=(
-                "Recuerda que el deploy de este proyecto se hace con Railway "
+                "Recuerda que el deploy de este proyecto se hace con Acme "
                 "y el repo es privado. " * 3
             ),
         ),
@@ -201,11 +201,11 @@ class TestAutoDream:
         seed_if_empty(mem)
         fake = _FakeSummarizer(
             '{"operations": [{"target": "memory", "action": "add",'
-            ' "content": "Deploy del proyecto vía Railway"}]}'
+            ' "content": "Deploy del proyecto vía Acme"}]}'
         )
         report = await dream(mem, fake, _session_messages())
         assert report.applied == 1
-        assert "Railway" in mem.load("memory").entries[0]
+        assert "Acme" in mem.load("memory").entries[0]
 
     async def test_dream_replies_with_fences_and_prose(self, mem: MemoryStore) -> None:
         seed_if_empty(mem)

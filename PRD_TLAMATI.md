@@ -7,7 +7,7 @@ Licencia elegida: **Apache-2.0** (incluye concesión de patente; MIT aceptable, 
 ## 1. Problema y oportunidad
 Investigación del Paso 1 (research/01_HALLAZGOS_PASO1.md) demostró que, con modelos de capacidad similar, **el arnés —no el modelo— decide el desempeño**: Vercel +20 pts de éxito quitando herramientas (mismo modelo), LangChain 52.8→66.5% cambiando solo arnés, Letta 59.1% vs Claude Code 41.6% sobre el MISMO Claude Opus 4.5. Y Han Lee advierte la mitad del trabajo de arnés es desechable cuando sube el modelo — salvo lo PERMANENTE: sandbox, permisos, límites de gasto, auditoría, memoria, trazabilidad.
 
-Oportunidad: los mejores arneses abiertos (opencode 226k★, hermes 263k★, codex, gemini-cli, qwen-code) convergen en una receta conocida. Ninguno es *nuestro*: Tlamati es el arnés que corre en la máquina de Leonardo con sus modelos (OpenRouter/Anthropic vía OpenRouter, Enverge spark para pesos abiertos, Ollama local), sin fugas de datos por comodidad (anti-patrón OpenCode: session-titling con modelo hosted), que hereda las decisiones probadas y evita los costos no probados (no reinventar el sandbox de Windows de 24k LOC).
+Oportunidad: los mejores arneses abiertos (opencode 226k★, hermes 263k★, codex, gemini-cli, qwen-code) convergen en una receta conocida. Ninguno es *nuestro*: Tlamati es el arnés que corre en la máquina del desarrollador con sus modelos (OpenRouter/Anthropic vía OpenRouter, GPU alquilada por hora para pesos abiertos, Ollama local), sin fugas de datos por comodidad (anti-patrón OpenCode: session-titling con modelo hosted), que hereda las decisiones probadas y evita los costos no probados (no reinventar el sandbox de Windows de 24k LOC).
 
 ## 2. Usuarios
 - **Primario:** Leonardo, power user en WSL/Ubuntu; CLI + TUI; un humano aprueba acciones peligrosas.
@@ -55,7 +55,7 @@ F1 Loop+adapters [MUST] · F2 Herramientas core+permisos [MUST] · F3 Contexto: 
 ```
 tlamati/
   core/        loop, mensajes, turnos (≈500 LOC, estable)
-  providers/   adapters: anthropic, openai_compat, ollama (+ OpenRouter/Enverge como configs)
+  providers/   adapters: anthropic, openai_compat, ollama (+ OpenRouter/GPU-alquilada como configs)
   tools/       registro declarativo: name, schema, permission, sandbox_policy, run()
   policy/      permisos, aprobaciones, reglas trifecta, allowlists red
   context/     budget, compaction, prompt-cache estable, snippets

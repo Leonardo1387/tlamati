@@ -126,7 +126,7 @@ El fundador propuso: rentar un DGX Spark ($0.90/h) y correr las pruebas contra l
 
 La aritmética que hace esto posible: el costo del leaderboard ($2k-16k) es del cerebro frontier. Con modelos locales en caja rentada, el costo por token es $0 marginal; pagas solo la renta. Una campaña completa (3 modelos × 10 fixtures) cabe en decenas de dólares de alquiler, no miles de dólares de API.
 
-Se construyeron dos scripts (en `~/code/enverge-pruebas/`, verificados con `bash -n`):
+Se construyeron dos scripts (en `~/code/gpu-pruebas/`, verificados con `bash -n`):
 
 ```bash
 # 1. startup_1spark_bench.sh — se PEGA en el panel "+ startup script" al rentar:
@@ -134,7 +134,7 @@ Se construyeron dos scripts (en `~/code/enverge-pruebas/`, verificados con `bash
 #    el helper serve_model.sh {stop|supervl|coder|q35|status}
 
 # 2. bench_spark_from_wsl.sh — orquestador desde WSL (túnel SSH vivo):
-bash bench_spark_from_wsl.sh user@<host>.spark-NN.ssh.enverge.dev
+bash bench_spark_from_wsl.sh user@<host>.<servidor-gpu>
 #    rsync del repo → por cada modelo EN ORDEN (120B→80B→35B):
 #      stop anterior → serve → esperar endpoint (hasta 60 min por descargas
 #      de 24-78 GB primera vez) → tlamati-eval --base-url http://localhost:8000/v1
@@ -149,7 +149,7 @@ Detalles que vienen de la experiencia acumulada (esto ES el valor de documentar 
 - `OPENROUTER_API_KEY=*** en la corrida local: vLLM no valida keys, así que NINGÚN secreto real viaja a la caja rentada.
 - Clocks limitados 300-2200 MHz ANTES de servir (thermal shutdown documentado en foro NVIDIA para el 120B).
 - Recipes de serving copiadas del `startup_4spark_supervl.sh` probado (speculative decoding dflash para el 120B, tool-call-parser qwen3_coder).
-- Idempotencia como diseño, no como parche: los túneles Enverge MUEREN (lección de spark-26), así que el orquestador asume que lo van a relanzar a medias.
+- Idempotencia como diseño, no como parche: los túneles SSH al proveedor de GPU MUEREN (lección aprendida en la primera renta), así que el orquestador asume que lo van a relanzar a medias.
 
 Sobre "¿puedo rentar cualquier pod, no solo Spark?": sí en principio — lo que ata el diseño no es la marca sino (a) GPU con ~125 GB+ de memoria unificada/VRAM para los modelos FP4, y (b) que acepte nuestro startup script. Un pod genérico con la RAM suficiente sirve igual; si cuesta más por hora, la cuenta sigue siendo buena porque el gasto grande (API frontier) desaparece. Queda anotado como opción de la campaña.
 
@@ -159,7 +159,7 @@ E3a está fusionada en main (33e8ca9, CI verde). Falta:
 
 1. **E3b en OpenRouter** (centavos, de madrugada cuando respira): la tabla ARNÉS — Tlamati vs opencode vs codex vs hermes, mismo qwen3-coder, las 10 fixtures. Es el delta publicable estilo dirac, versión nuestra.
 2. **Campaña Spark** cuando haya caja: la tabla MODELO — mismo Tlamati, cerebros 120B/80B/35B locales, y (nivel 2) el corpus oficial de Terminal-Bench auto-corrido.
-3. **Dogfooding** (decisión nueva del fundador esta sesión): empezar a CONSTRUIR COSAS con Tlamati — los features de la plataforma edtech (NeoNubeInt) hechos por Tlamati, con Hermes auditando. El mejor benchmark de un arnés es que su dueño lo use para trabajar de verdad. Los bugs que aparezcan así valen más que cualquier fixture sintética.
+3. **Dogfooding** (decisión nueva del fundador esta sesión): empezar a CONSTRUIR COSAS con Tlamati — los features de la plataforma edtech (caso real de uso) hechos por Tlamati, con Hermes auditando. El mejor benchmark de un arnés es que su dueño lo use para trabajar de verdad. Los bugs que aparezcan así valen más que cualquier fixture sintética.
 4. **E4**: docs OSS, SECURITY.md completo, auditoría de seguridad FINAL y el botón de público v0.1 (el gatillo es del fundador).
 
 Serie: clase 11 (las dos caras del agente) → **clase 12 (cómo se mide un arnés)** → clase 13 (el delta como argumento: la tabla arnés×modelo con números nuestros).
