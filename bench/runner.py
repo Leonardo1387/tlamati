@@ -1,13 +1,14 @@
 """bench/runner.py — E3b: tabla ARNÉS (mismo modelo, distinto arnés).
 
-Corre las 10 fixtures de fixtures/ con cada arnés headless contra OpenRouter
-(qwen/qwen3-coder, MISMO modelo para todos) y deja que verify.py decida el
-éxito. Schema JSONL congelado (mismo espíritu que evals/runner.py):
+Corre las fixtures de fixtures/ con cada arnés headless contra OpenRouter
+(MISMO modelo para todos los arneses, default qwen/qwen3-coder) y deja que
+verify.py decida el éxito. Schema JSONL (E3c añade run + cost_usd, aditivo):
 
-{task, harness, success, turns, tokens_in, tokens_out, cache_read,
- duration_s, error}
+{task, harness, run, success, turns, tokens_in, tokens_out, cache_read,
+ duration_s, cost_usd, error}
 
-Campos que un arnés no expone = null honesto, NUNCA inventados.
+Campos que un arnés no expone = null honesto, NUNCA inventados (hermes -z no
+expone tokens → cost_usd null, jamás estimado).
 
 Reglas de integridad (anti-cheating, debugml.github.io):
 - instruction única (contenido de instruction.md, sin ayudas añadidas);
@@ -19,6 +20,7 @@ Uso:
   python3 bench/runner.py --probe                 # 1 tarea barata por arnés (salud)
   python3 bench/runner.py --out evals/benchmark_2026-11-18/
   python3 bench/runner.py --harnesses tlamati,codex --tasks promedio,offbyone
+  python3 bench/runner.py --runs 3 --model qwen/qwen3-coder --out evals/x/
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ import contextlib
 import json
 import os
 import shutil
+import statistics
 import subprocess
 import sys
 import time
@@ -38,7 +41,7 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[1]
 FIXTURES = REPO / "fixtures"
 BENCH_ROOT = Path("/tmp/tlamati-bench")
-MODEL = "qwen/qwen3-coder"
+DEFAULT_MODEL = "qwen/qwen3-coder"
 HARNESS_TIMEOUT_S = 600  # mismo techo para todos los arneses
 VERIFY_TIMEOUT_S = 60
 # CODEX_HOME NO puede estar bajo /tmp: codex rechaza crear helper binaries en
@@ -48,6 +51,30 @@ CODEX_HOME_DIR = Path.home() / ".cache" / "tlamati-bench-codex-home"
 HARNESSES = ("tlamati", "opencode", "codex", "hermes")
 # tarea de sonda: la más barata del corpus
 PROBE_TASK = "promedio"
+
+# Precios OpenRouter VERIFICADOS EN VIVO el 19-nov-2026 (USD por token).
+# cache_read se descuenta de tokens_in (misma semántica acumulativa del schema).
+# Modelo sin precios conocidos → cost_usd null honesto, NUNCA inventado.
+PRICES: dict[str, tuple[float, float, float]] = {  # (in, out, cache_read)
+    "qwen/qwen3-coder": (0.30e-6, 1.00e-6, 0.10e-6),
+    "qwen/qwen3.8-flash": (0.15e-6, 0.47e-6, 0.016e-6),
+    "deepseek/deepseek-v3.2": (0.26e-6, 0.38e-6, 0.13e-6),
+    "moonshotai/kimi-k2.7-code": (0.65e-6, 3.50e-6, 0.16e-6),
+}
+
+
+def cost_usd(
+    model: str, tokens_in: int | None, tokens_out: int | None, cache_read: int | None
+) -> float | None:
+    """Costo estimado USD. None si el arnés no expone tokens o el modelo no
+    está en la tabla de precios (honesto, nunca inventado)."""
+    prices = PRICES.get(model)
+    if prices is None or tokens_in is None or tokens_out is None:
+        return None
+    p_in, p_out, p_cache = prices
+    cread = cache_read or 0
+    fresh_in = max(tokens_in - cread, 0)
+    return round(fresh_in * p_in + cread * p_cache + tokens_out * p_out, 6)
 
 
 def resolve_api_key() -> str:
@@ -88,13 +115,20 @@ wire_api = "responses"
 class BenchResult:
     task: str
     harness: str
+    run: int
     success: bool
     turns: int | None = None
     tokens_in: int | None = None
     tokens_out: int | None = None
     cache_read: int | None = None
     duration_s: float = 0.0
+    cost_usd: float | None = None
     error: str | None = None
+
+
+# Modelo activo de la corrida (lo fija main(); los constructores de comando lo
+# leen — bench/runner.py es un script externo, no parte del paquete).
+MODEL = DEFAULT_MODEL
 
 
 # ---------------------------------------------------------------- arneses
@@ -106,6 +140,8 @@ def _cmd_tlamati(workdir: Path, instruction: str) -> list[str]:
         "-p",
         instruction,
         "--json",
+        "--model",
+        MODEL,
         "--approve-tool",
         "*",
         "--max-turns",
@@ -291,12 +327,12 @@ def verify(workdir: Path) -> tuple[bool, str]:
     return proc.returncode == 0 and "VERIFY OK" in proc.stdout, out[-500:]
 
 
-def run_one(harness: str, task_dir: Path, api_key: str) -> BenchResult:
+def run_one(harness: str, task_dir: Path, api_key: str, run: int = 1) -> BenchResult:
     workdir = BENCH_ROOT / harness / task_dir.name
     if workdir.exists():
         shutil.rmtree(workdir)
     workdir.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(task_dir, workdir)
+    shutil.copytree(task_dir, workdir, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     setup = workdir / "setup.sh"
     if setup.is_file():
         with contextlib.suppress(subprocess.TimeoutExpired, OSError):
@@ -339,15 +375,19 @@ def run_one(harness: str, task_dir: Path, api_key: str) -> BenchResult:
 
     ok, verify_out = verify(workdir)
     metrics = EXTRACTORS[harness](stdout)
+    tin, tout = metrics.get("tokens_in"), metrics.get("tokens_out")
+    cread = metrics.get("cache_read")
     return BenchResult(
         task=task_dir.name,
         harness=harness,
+        run=run,
         success=ok,
         turns=metrics.get("turns"),
-        tokens_in=metrics.get("tokens_in"),
-        tokens_out=metrics.get("tokens_out"),
-        cache_read=metrics.get("cache_read"),
+        tokens_in=tin,
+        tokens_out=tout,
+        cache_read=cread,
         duration_s=round(duration, 2),
+        cost_usd=cost_usd(MODEL, tin, tout, cread),
         error=error or metrics.get("error") or (None if ok else verify_out),
     )
 
@@ -383,10 +423,22 @@ def is_upstream_error(err: str | None) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global MODEL
     p = argparse.ArgumentParser(prog="bench-runner", description="E3b harness benchmark")
     p.add_argument("--harnesses", default=",".join(HARNESSES))
     p.add_argument("--tasks", help="coma-separada; default: todas")
     p.add_argument("--out", metavar="DIR", help="directorio de salida JSONL por arnés")
+    p.add_argument(
+        "--runs",
+        type=int,
+        default=1,
+        help="réplicas por (arnés, tarea) para tasa de éxito y desviación (E3c)",
+    )
+    p.add_argument(
+        "--model",
+        default=DEFAULT_MODEL,
+        help="modelo OpenRouter para TODOS los arneses (campaña de modelos E3c)",
+    )
     p.add_argument(
         "--probe",
         action="store_true",
@@ -403,7 +455,15 @@ def main(argv: list[str] | None = None) -> int:
         if h not in HARNESSES:
             print(f"bench: arnés desconocido {h}", file=sys.stderr)
             return 2
+    MODEL = args.model
+    if args.model not in PRICES and not args.probe:
+        print(
+            f"bench: aviso — modelo {args.model} sin precios en la tabla; "
+            "cost_usd quedará null (honesto)",
+            file=sys.stderr,
+        )
     ensure_codex_home(api_key)
+    runs = max(1, args.runs) if not args.probe else 1
     tasks = discover_tasks(
         [PROBE_TASK] if args.probe else (args.tasks.split(",") if args.tasks else None)
     )
@@ -419,23 +479,50 @@ def main(argv: list[str] | None = None) -> int:
     for harness in harnesses:
         results: list[BenchResult] = []
         for task_dir in tasks:
-            print(f"== {harness} / {task_dir.name} ==", file=sys.stderr, flush=True)
-            r = run_one(harness, task_dir, api_key)
-            results.append(r)
-            print(json.dumps(asdict(r), ensure_ascii=False), file=sys.stderr, flush=True)
-            if is_upstream_error(r.error):
-                upstream_fail = True
+            for run_idx in range(1, runs + 1):
+                tag = f" run {run_idx}/{runs}" if runs > 1 else ""
+                print(f"== {harness} / {task_dir.name}{tag} ==", file=sys.stderr, flush=True)
+                r = run_one(harness, task_dir, api_key, run=run_idx)
+                results.append(r)
+                print(json.dumps(asdict(r), ensure_ascii=False), file=sys.stderr, flush=True)
+                if is_upstream_error(r.error):
+                    upstream_fail = True
         if out_dir:
             fp = out_dir / f"{harness}.jsonl"
             with open(fp, "w") as fh:
                 for r in results:
                     fh.write(json.dumps(asdict(r), ensure_ascii=False) + "\n")
-        ok_n = sum(1 for r in results if r.success)
-        print(f"[bench] {harness}: {ok_n}/{len(results)} OK", file=sys.stderr)
+        _print_summary(harness, results, runs)
 
     if args.probe:
         return 1 if upstream_fail else 0
     return 0
+
+
+def _print_summary(harness: str, results: list[BenchResult], runs: int) -> None:
+    """Resumen por arnés: éxitos, pass@1 (todo run OK), costo y desviaciones."""
+    n = len(results)
+    ok_n = sum(1 for r in results if r.success)
+    costo = sum(r.cost_usd for r in results if r.cost_usd is not None)
+    dur = [r.duration_s for r in results]
+    std_dur = statistics.stdev(dur) if len(dur) > 1 else 0.0
+    print(
+        f"[bench] {harness}: {ok_n}/{n} OK · costo ${costo:.4f} · "
+        f"duración {sum(dur):.0f}s±{std_dur:.0f}",
+        file=sys.stderr,
+    )
+    if runs > 1:
+        # pass@1 conservador: la tarea cuenta solo si TODAS sus réplicas pasaron
+        por_tarea: dict[str, list[bool]] = {}
+        for r in results:
+            por_tarea.setdefault(r.task, []).append(r.success)
+        todas = sum(1 for v in por_tarea.values() if all(v))
+        alguna = sum(1 for v in por_tarea.values() if any(v))
+        print(
+            f"[bench] {harness}: tareas {todas}/{len(por_tarea)} todas-las-réplicas "
+            f"({alguna}/{len(por_tarea)} al menos una)",
+            file=sys.stderr,
+        )
 
 
 if __name__ == "__main__":

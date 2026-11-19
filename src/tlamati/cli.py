@@ -569,11 +569,25 @@ async def _run_headless(args: argparse.Namespace) -> int:
         except OSError as e:
             print(f"[skills] aviso: {e} — corrida SIN skills", file=sys.stderr)
 
-    # C5 plan-mode: bloque de prompt ESTÁTICO (siempre presente — el prefijo
-    # cacheable no varía por corrida; decisión #3 del handoff) + tools de plan
-    # AL FINAL del orden estable (append-only, cache sagrada).
-    system_prompt += PLAN_MODE_PROMPT
-    tool_list.extend(make_plan_tools(Path.cwd(), plan_state, plan_approver=None))
+    # C5+E3c plan-mode: las plan tools SOLO se ofrecen cuando un humano pidió
+    # plan-mode explícito (--plan-mode). En headless sin plan-mode, exit_plan_mode
+    # es fail-closed por diseño (regla de oro C5: no hay aprobador humano) → la
+    # puerta es un callejón sin salida: en la run2 del bench el modelo entró SOLO
+    # a plan-mode, quedó encerrado y quemó los 50 turnos (trampa plan-mode,
+    # EVALS.md). Fix E3c: no ofrecer una puerta sin salida — el arnés deja de
+    # anunciar las tools cuando nadie puede aprobar. Con --plan-mode explícito,
+    # exit sigue fail-closed (la regla de oro NO se relaja: solo se retira la
+    # oferta, nunca la protección). El bloque de prompt va condicionado con las
+    # tools para que el prefijo no mienta; dentro del MISMO modo el prefijo
+    # sigue siendo byte-estable (cache sagrada intacta).
+    if args.plan_mode:
+        system_prompt += PLAN_MODE_PROMPT
+        tool_list.extend(make_plan_tools(Path.cwd(), plan_state, plan_approver=None))
+    else:
+        print(
+            "[plan] tools de plan no ofrecidas: corrida headless sin aprobador humano",
+            file=sys.stderr,
+        )
     # D2 plugins: descubrimiento fail-soft (entry-points + usuario + proyecto +
     # --plugins-dir). NO tocan el prefijo (invisibles al modelo, cache sagrada).
     # El plugin INTERNO de auditoría se registra en el Registry (B5 no opcional).

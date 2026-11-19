@@ -33,6 +33,12 @@ FIXTURE_NAMES = {
     "git_history",  # arqueología git: setup.sh siembra 6 commits deterministas
     "instruccion_en_archivo",  # SPEC.md con reglas R1-R6 + prioridad (lee docs largos)
     "test_driven",  # 10 tests unittest, 4 fallan (itera edit→test→edit)
+    # E3c: robustez del arnés (propuestas del fundador, 19-nov)
+    "anti_bucle_imposible",  # tarea imposible: debe abortar limpio, no quemar turnos
+    "context_rot_20_archivos",  # 20 archivos ruido + 3 reales interdependientes
+    "recuperacion_test_roto",  # suite rota por env-var: autocorrección tras traceback
+    "edicion_quirurgica_grande",  # 600 líneas, 2 funciones: patch vs sobrescritura
+    "rollback_o_regresion",  # 5 tests pasan + 1 falla: arreglar sin regresión
 }
 
 
@@ -119,6 +125,75 @@ def test_test_driven_seed_has_four_failures() -> None:
     )
     tail = proc.stdout + proc.stderr
     assert proc.returncode != 0 and "FAILED (failures=4)" in tail
+
+
+def test_rollback_seed_exactly_one_failure() -> None:
+    """rollback_o_regresion: 6 tests corren y EXACTAMENTE 1 falla pre-fix
+    (los otros 5 ya pasan — eso es lo que protege contra regresiones)."""
+    import subprocess
+    import sys
+
+    src = next(t for t in discover_tasks(DEFAULT_FIXTURES) if t.name == "rollback_o_regresion")
+    proc = subprocess.run(
+        [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-t", "."],
+        cwd=src,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    tail = proc.stdout + proc.stderr
+    assert "Ran 6 tests" in tail
+    assert proc.returncode != 0 and "FAILED (failures=1)" in tail
+
+
+def test_recuperacion_seed_fails_without_env(tmp_path: Path) -> None:
+    """recuperacion_test_roto: sin APP_REGION la suite truena al importar
+    (RuntimeError honesto) — el traceback es la pista que el arnés debe leer."""
+    import os
+    import subprocess
+    import sys
+
+    src = next(t for t in discover_tasks(DEFAULT_FIXTURES) if t.name == "recuperacion_test_roto")
+    env = {k: v for k, v in os.environ.items() if k != "APP_REGION"}
+    proc = subprocess.run(
+        [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-t", "."],
+        cwd=src,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+    )
+    tail = proc.stdout + proc.stderr
+    assert proc.returncode != 0 and "APP_REGION" in tail
+
+
+def test_anti_bucle_config_has_no_key() -> None:
+    """anti_bucle_imposible: el binario sembrado NO contiene la clave (la
+    tarea es imposible de verdad — inventar cuenta como fallo)."""
+    src = next(t for t in discover_tasks(DEFAULT_FIXTURES) if t.name == "anti_bucle_imposible")
+    data = (src / "config.dat").read_bytes()
+    assert b"TLAMATI-" not in data
+
+
+def test_context_rot_seed_noise_ratio() -> None:
+    """context_rot: los 20 archivos de ruido existen y los 3 reales también
+    (la proporción ruido/señal es el punto de la fixture)."""
+    src = next(t for t in discover_tasks(DEFAULT_FIXTURES) if t.name == "context_rot_20_archivos")
+    ruido = list((src / "logs").glob("*.log")) + list((src / "legacy").glob("*.py"))
+    assert len(ruido) == 20
+    for real in ("config.yaml", "rules.py", "main.py"):
+        assert (src / real).is_file()
+
+
+def test_edicion_quirurgica_hash_seals_file() -> None:
+    """edicion_quirurgica: el verify tiene sellado el hash de todo el archivo
+    fuera de las 2 funciones objetivo (cualquier reescritura se detecta)."""
+    src = next(t for t in discover_tasks(DEFAULT_FIXTURES) if t.name == "edicion_quirurgica_grande")
+    verify_src = (src / "verify.py").read_text()
+    assert 'ESPERADO = "' in verify_src
+    pedidos = (src / "pedidos.py").read_text()
+    assert len(pedidos.splitlines()) >= 550  # archivo grande de verdad
+    assert pedidos.count("def ") >= 90  # mucho código que NO debe tocarse
 
 
 def test_discover_tasks_only_filter(tmp_path: Path) -> None:
