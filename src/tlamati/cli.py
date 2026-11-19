@@ -101,6 +101,22 @@ def _resolve_api_key(cfg_provider: dict[str, Any]) -> str:
     return value
 
 
+def resolve_turn_limits(cfg: dict[str, Any], args: argparse.Namespace) -> tuple[int, int]:
+    """E3d PASO B: flag > config general.* > default (60 turnos, 3 repeticiones).
+    Mismos límites para headless Y TUI (pitfall #5 sesión 20)."""
+    cfg_general = cfg.get("general") or {}
+
+    def _int(flag: int | None, key: str, default: int) -> int:
+        if flag is not None:
+            return flag
+        try:
+            return int(cfg_general.get(key, default))
+        except (TypeError, ValueError):
+            return default
+
+    return _int(args.max_turns, "max_turns", 60), _int(args.stall_repeats, "stall_repeats", 3)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tlamati",
@@ -115,7 +131,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--model", metavar="ID", help=f"model id (default: {DEFAULT_MODEL})")
     p.add_argument("--base-url", metavar="URL", help="provider base URL (default: OpenRouter)")
-    p.add_argument("--max-turns", type=int, default=20, help="turn budget (default: 20)")
+    p.add_argument(
+        "--max-turns",
+        type=int,
+        default=None,
+        metavar="N",
+        help="turn budget (default: config general.max_turns or 60; "
+        "<=0 = yolo, sin muro — el presupuesto de contexto sigue siendo el techo)",
+    )
+    p.add_argument(
+        "--stall-repeats",
+        type=int,
+        default=None,
+        metavar="N",
+        help="same tool call (identical args) N turns in a row = dead loop, "
+        "hard stop with stop_reason=stall (default: config general.stall_repeats "
+        "or 3; 0 disables)",
+    )
     p.add_argument(
         "--max-context",
         type=int,
@@ -406,6 +438,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
     model = args.model or cfg_provider.get("model") or DEFAULT_MODEL
     base_url = args.base_url or cfg_provider.get("base_url") or DEFAULT_BASE_URL
     api_key = _resolve_api_key(cfg_provider)
+    max_turns, stall_repeats = resolve_turn_limits(cfg, args)
     if emitter is not None:
         # Primer evento del stream: qué corrida es esta (consumidor de CI).
         emitter.emit(
@@ -414,7 +447,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
                 "model": model,
                 "base_url": base_url,
                 "cwd": str(Path.cwd()),
-                "max_turns": args.max_turns,
+                "max_turns": max_turns,
                 "max_context": args.max_context,
                 "version": __version__,
             },
@@ -703,7 +736,8 @@ async def _run_headless(args: argparse.Namespace) -> int:
         ),
         tools=tools,
         budget=budget,
-        max_turns=args.max_turns,
+        max_turns=max_turns,
+        stall_repeats=stall_repeats,
         on_event=_ledger_wrapper(ledger, args.quiet, emitter),
         compactor=compactor,
         history=resumed_history or None,
@@ -818,7 +852,14 @@ def main(argv: list[str] | None = None) -> int:
         # E3d PASO A: la TUI recibe --skills-dir igual que headless (antes lo
         # ignoraba — causa madre del dogfooding reprobado, sesión 20).
         skills_extra = [Path(os.path.expanduser(d)) for d in list(args.skills_dir)]
-        return run_tui(session_db=args.session_db, skills_extra_dirs=skills_extra)
+        # E3d PASO B: mismos límites de turnos que headless (pitfall #5).
+        tui_max_turns, tui_stall = resolve_turn_limits(load_config(), args)
+        return run_tui(
+            session_db=args.session_db,
+            skills_extra_dirs=skills_extra,
+            max_turns=tui_max_turns,
+            stall_repeats=tui_stall,
+        )
     build_parser().print_help()
     return 0
 

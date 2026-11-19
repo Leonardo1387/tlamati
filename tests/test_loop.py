@@ -142,7 +142,12 @@ class TestRunLoop:
         assert result.stop_reason == "end_turn"
 
     async def test_max_turns_stops(self, workdir: Path) -> None:
-        forever = [[("tool", f"c{i}", "read_file", {"path": "buggy.py"})] for i in range(10)]
+        # offset variable = avance real por turno (sin firma repetida → el
+        # detector de estancamiento E3d no se mete: este test mide el MURO).
+        forever = [
+            [("tool", f"c{i}", "read_file", {"path": "buggy.py", "offset": i + 1})]
+            for i in range(10)
+        ]
         p = FakeProvider(forever)
         result = await run_loop(
             p,
