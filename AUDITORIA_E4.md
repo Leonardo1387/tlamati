@@ -50,7 +50,7 @@ ruff format --check + mypy --strict limpios.
 ## Puertas restantes ANTES de hacer público el repo
 
 - [ ] **REESCRIBIR HISTORIA GIT**: el user_id de OpenRouter
-      (user_3IgaofK4...) vive en el commit 81c5235 (evals/b5_check.jsonl
+      (el user_id de OpenRouter) vive en el commit 81c5235 (evals/b5_check.jsonl
       original). El working tree ya está sanitizado (commit 83e734e) pero la
       historia NO. Antes de `gh repo edit --visibility public`:
       `pip install git-filter-repo` + filtro de cadena + force-push. El repo

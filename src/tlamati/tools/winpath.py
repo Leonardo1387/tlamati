@@ -1,7 +1,7 @@
 """E3e PASO C — normalización de rutas Windows a puntos de montaje WSL.
 
 Problema real (autopsia dogfooding sesión 20, seq 21-22): el fundador pegó
-``C:\\Users\\Admin\\Desktop\\...`` tal cual y read_file falló con "no such
+``C:\\Users\\usuario\\Desktop\\...`` tal cual y read_file falló con "no such
 file: /home/usuario/C:\\Users\\..." — Path() trató la ruta Windows como
 relativa. El fundador espera que tlamati "tenga ojos sobre mis archivos en
 la computadora" (Hermes WSL resuelve esto de facto vía /mnt/<letra>).

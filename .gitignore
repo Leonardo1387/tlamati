@@ -32,3 +32,10 @@ rea-out/*.json
 # los JSONL finales con git add -f junto a la tabla de EVALS.md)
 evals/campaign_*/
 evals/*.log
+
+# Baselines con user_id OpenRouter dentro de errores 429 — NUNCA commitear
+evals/b5_check2.jsonl
+evals/b5_check3.jsonl
+
+# Salidas de dogfooding (video_build contiene narration.mp3 = voz del fundador)
+video_build*/
