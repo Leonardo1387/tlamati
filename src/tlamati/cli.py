@@ -815,7 +815,10 @@ def main(argv: list[str] | None = None) -> int:
     if sys.stdin.isatty() and sys.stdout.isatty():
         from tlamati.tui.app import run_tui  # import perezoso: el extra [tui]
 
-        return run_tui(session_db=args.session_db)
+        # E3d PASO A: la TUI recibe --skills-dir igual que headless (antes lo
+        # ignoraba — causa madre del dogfooding reprobado, sesión 20).
+        skills_extra = [Path(os.path.expanduser(d)) for d in list(args.skills_dir)]
+        return run_tui(session_db=args.session_db, skills_extra_dirs=skills_extra)
     build_parser().print_help()
     return 0
 

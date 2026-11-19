@@ -142,6 +142,13 @@ def make_skill_tools(library: SkillLibrary) -> list[Tool]:
         sk = library.get(name)
         if sk is None:
             known = ", ".join(s.name for s in library.catalog()[:20])
+            if not known:
+                return (
+                    f"ERROR: skill {name!r} no existe y NO hay ninguna skill "
+                    "cargada. Las raíces de skills están vacías — verifica el "
+                    "flag --skills-dir (ej. --skills-dir ~/.hermes/skills) o "
+                    "config skills.extra_dirs."
+                )
             return f"ERROR: skill {name!r} no existe. Disponibles: {known}"
         file_path = str(args.get("file_path", "")).strip()
         if file_path:
@@ -194,13 +201,26 @@ def make_skill_tools(library: SkillLibrary) -> list[Tool]:
     ]
 
 
+def hermes_skill_root() -> Path:
+    """The hermes library location (E3d P1: zero-ceremony migration — an
+    existing hermes install is reused as-is, no flag, no copy)."""
+    return Path.home() / ".hermes" / "skills"
+
+
 def default_skill_roots(cwd: Path, extra: list[Path] | None = None) -> list[Path]:
-    """Project first (overrides), then user, then any extra dirs (e.g. the
-    hermes library — the 1-flag migration)."""
+    """Project first (overrides), then user, then extra dirs, then hermes.
+
+    E3d: ``~/.hermes/skills`` is appended ALWAYS-LAST whenever it exists
+    (founder decision 19-nov, option A: zero commands — `tlamati` bare sees
+    the hermes library). Last position means an explicit project/user/extra
+    root still wins on name collisions (first root wins dedupe)."""
     roots = [
         cwd / ".tlamati" / "skills",
         Path.home() / ".local" / "share" / "tlamati" / "skills",
     ]
     if extra:
         roots.extend(extra)
+    hermes = hermes_skill_root()
+    if hermes.is_dir() and hermes not in roots:
+        roots.append(hermes)
     return roots

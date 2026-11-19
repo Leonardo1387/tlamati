@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import difflib
 import json
+import os
 import sqlite3
 import sys
 import time
@@ -188,10 +189,19 @@ class TlamatiApp(App[None]):
         Binding("ctrl+s", "toggle_sessions", "Sesiones"),
     ]
 
-    def __init__(self, workdir: Path | None = None, session_db: str | None = None) -> None:
+    def __init__(
+        self,
+        workdir: Path | None = None,
+        session_db: str | None = None,
+        skills_extra_dirs: list[Path] | None = None,
+    ) -> None:
         super().__init__()
         self.workdir = workdir or Path.cwd()
         self._session_db_arg = session_db
+        # E3d PASO A: la TUI recibe --skills-dir / config skills.extra_dirs
+        # IGUAL que headless (pitfall #5 sesión 20: el flag existía en cli.py
+        # desde C3 y la TUI lo ignoró — el fundador lo descubrió usándola).
+        self._skills_extra_dirs = list(skills_extra_dirs or [])
         self._always_allow: set[str] = set()
         self._history: list[Message] = []
         self._turn_text: list[str] = []
@@ -300,7 +310,14 @@ class TlamatiApp(App[None]):
             except OSError:
                 pass
             try:
-                library = SkillLibrary(default_skill_roots(self.workdir, []))
+                # E3d PASO A: mismas raíces que headless — extra dirs (flag/
+                # config) + ~/.hermes/skills al final SI existe (ceremonia
+                # cero, decisión del fundador opción A).
+                cfg_skills = cfg.get("skills") or {}
+                extra = list(self._skills_extra_dirs) + [
+                    Path(os.path.expanduser(str(d))) for d in cfg_skills.get("extra_dirs") or []
+                ]
+                library = SkillLibrary(default_skill_roots(self.workdir, extra))
                 if library.catalog():
                     self._system_prompt += "\n\n# SKILLS\n" + library.catalog_text()
                 tool_list.extend(make_skill_tools(library))
@@ -498,7 +515,11 @@ class TlamatiApp(App[None]):
         t.scroll_end(animate=False)
 
 
-def run_tui(workdir: Path | None = None, session_db: str | None = None) -> int:
+def run_tui(
+    workdir: Path | None = None,
+    session_db: str | None = None,
+    skills_extra_dirs: list[Path] | None = None,
+) -> int:
     """Entry point del CLI. `textual` es extra opcional (decisión #4)."""
     try:
         import textual  # noqa: F401
@@ -508,6 +529,6 @@ def run_tui(workdir: Path | None = None, session_db: str | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    app = TlamatiApp(workdir=workdir, session_db=session_db)
+    app = TlamatiApp(workdir=workdir, session_db=session_db, skills_extra_dirs=skills_extra_dirs)
     app.run()
     return 0
