@@ -11,6 +11,7 @@ from tlamati.memory.skills import (
     Skill,
     SkillLibrary,
     default_skill_roots,
+    hermes_skill_root,
     make_skill_tools,
     parse_skill,
 )
@@ -134,6 +135,16 @@ class TestSkillTools:
         assert out.startswith("ERROR")
         assert "deploy" in out  # suggests what exists
 
+    async def test_skill_view_empty_library_is_honest(self, tmp_path: Path) -> None:
+        """E3d bug menor: con la librería vacía el error decía 'Disponibles: '
+        (nada). Ahora explica que no hay raíces configuradas + hint del flag."""
+        lib = SkillLibrary([tmp_path / "inexistente"])
+        view = next(t for t in make_skill_tools(lib) if t.name == "skill_view")
+        out = await view.run({"name": "cualquiera"})
+        assert out.startswith("ERROR")
+        assert "Disponibles: " not in out
+        assert "--skills-dir" in out  # hint accionable
+
     async def test_skill_view_path_escape_blocked(self, lib_root: Path, tmp_path: Path) -> None:
         secret = tmp_path / "secret.txt"
         secret.write_text("TOP SECRET", encoding="utf-8")
@@ -164,7 +175,33 @@ class TestRootsAndHermesCompat:
     def test_default_roots_order(self, tmp_path: Path) -> None:
         roots = default_skill_roots(tmp_path, [Path("/extra")])
         assert roots[0] == tmp_path / ".tlamati" / "skills"
-        assert roots[-1] == Path("/extra")
+        assert Path("/extra") in roots
+        # E3d: extra va ANTES de hermes; hermes (si existe) siempre al final.
+        if hermes_skill_root().is_dir():
+            assert roots[-1] == hermes_skill_root()
+            assert roots.index(Path("/extra")) < len(roots) - 1
+        else:
+            assert roots[-1] == Path("/extra")
+
+    def test_hermes_root_appended_when_present(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_home = tmp_path / "home"
+        hermes_dir = fake_home / ".hermes" / "skills"
+        hermes_dir.mkdir(parents=True)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        roots = default_skill_roots(tmp_path / "proj")
+        assert roots[-1] == hermes_dir  # ceremonia cero: siempre al final
+
+    def test_hermes_root_absent_when_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_home = tmp_path / "home-sin-hermes"
+        fake_home.mkdir()
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        roots = default_skill_roots(tmp_path / "proj", [Path("/extra")])
+        assert (fake_home / ".hermes" / "skills") not in roots
+        assert roots[-1] == Path("/extra")  # orden pre-E3d intacto
 
     def test_reads_real_hermes_library_format(self, lib_root: Path) -> None:
         """Compat proof: a skill written EXACTLY like hermes writes them

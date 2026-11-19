@@ -266,3 +266,63 @@ class TestCliGate:
         monkeypatch.setattr(builtins, "__import__", _no_textual)
         assert run_tui() == 2
         assert "tlamati[tui]" in capsys.readouterr().err
+
+
+class TestTuiSkillsE3d:
+    """E3d PASO A: la TUI ve las skills (antes ignoraba --skills-dir —
+    causa madre del dogfooding reprobado, sesión 20)."""
+
+    def _make_skill(self, root: Path, name: str) -> None:
+        d = root / name
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "SKILL.md").write_text(
+            f"---\nname: {name}\ndescription: skill de prueba {name}\n---\n\n# {name}\n",
+            encoding="utf-8",
+        )
+
+    async def test_extra_skills_dir_visible_in_prompt(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+        extra = tmp_path / "mis-skills"
+        self._make_skill(extra, "deploy-extra")
+        app = TlamatiApp(
+            workdir=tmp_path,
+            session_db=str(tmp_path / "s.db"),
+            skills_extra_dirs=[extra],
+        )
+        async with app.run_test():
+            assert app.setup_error is None
+            assert "# SKILLS" in app._system_prompt
+            assert "deploy-extra" in app._system_prompt
+
+    async def test_hermes_root_zero_ceremony(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Ceremonia cero (opción A del fundador): ~/.hermes/skills existe →
+        la TUI la ve SIN ningún flag."""
+        monkeypatch.chdir(tmp_path)
+        fake_home = tmp_path / "home"
+        self._make_skill(fake_home / ".hermes" / "skills", "hermes-auto")
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+        app = TlamatiApp(workdir=tmp_path, session_db=str(tmp_path / "s.db"))
+        async with app.run_test():
+            assert app.setup_error is None
+            assert "hermes-auto" in app._system_prompt
+
+    async def test_sin_raices_prefijo_sin_bloque_skills(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Sin flag y sin ~/.hermes/skills → prefijo sin # SKILLS (invariante
+        pre-E3d: la corrida no cambia cuando no hay nada que cargar)."""
+        monkeypatch.chdir(tmp_path)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+        app = TlamatiApp(workdir=tmp_path, session_db=str(tmp_path / "s.db"))
+        async with app.run_test():
+            assert app.setup_error is None
+            assert "# SKILLS" not in app._system_prompt
