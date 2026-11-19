@@ -270,7 +270,9 @@ def make_file_tools(workdir: Path) -> list[Any]:
         except WinPathError as e:
             return f"ERROR: {e}"
         if not path.is_file():
-            return f"ERROR: no such file: {path}"
+            from tlamati.tools.winpath import windows_dir_hint
+
+            return f"ERROR: no such file: {path}{windows_dir_hint(path)}"
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError as e:
@@ -298,7 +300,9 @@ def make_file_tools(workdir: Path) -> list[Any]:
         except WinPathError as e:
             return f"ERROR: {e}"
         if not path.is_file():
-            return f"ERROR: no such file: {path}"
+            from tlamati.tools.winpath import windows_dir_hint
+
+            return f"ERROR: no such file: {path}{windows_dir_hint(path)}"
         old = str(args.get("old_string", ""))
         new = str(args.get("new_string", ""))
         replace_all = bool(args.get("replace_all", False))
