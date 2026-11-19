@@ -55,6 +55,29 @@ Lectura honesta (lo que SÍ dice y lo que NO dice esta tabla):
   La cifra publicable debe decir "corrida única, <fecha>" — NUNCA promediar
   silencio. Réplicas futuras: mismo runner, nueva fecha de dir.
 
+- tlamati fue el ÚNICO arnés con tope de turnos (--max-turns 20, decisión
+  sesión 16); codex/opencode/hermes corrieron sin tope explícito. Asimetría
+  documentada: las 2 fallas por max_turns ocurrieron BAJO ese techo. Réplica
+  futura sugerida: subir el tope (p.ej. 50) o quitarlo para igualdad estricta.
+
+### Diagnóstico post-tabla (misma noche): los 3 fallos de tlamati NO son sistemáticos
+
+Re-corrida inmediata de las 3 tareas fallidas (`tlamati-eval --task X --max-turns 30`,
+mismo arnés, mismo modelo, mismo prompt ligero):
+
+| tarea | bench (1ª corrida) | diagnóstico (2ª corrida) |
+|---|---|---|
+| instruccion_en_archivo | agotó 20 turnos | PASÓ end_turn, 12 turnos |
+| multi_archivo | impuesto default incorrecto | PASÓ end_turn, 8 turnos |
+| test_driven | agotó 20 turnos | PASÓ end_turn, 9 turnos |
+
+Lectura: las 3 fallas fueron VARIANZA del modelo (qwen3-coder no es determinista
+en tareas largas), no consecuencia del prefijo mínimo. La hipótesis "arnés barato
+→ resuelve menos" NO se sostuvo: el mismo contexto ligero resolvió las 3 al
+segundo intento. Lección metodológica: con N=1 un 7/10 y un 10/10 pueden ser el
+mismo arnés con distinta suerte — benchmarks serios corren réplicas y promedian;
+aquí publicamos corrida única fechada + este diagnóstico de no-sistematicidad.
+
 Notas de semántica (honestidad de la comparación):
 
 - `tokens_in` de tlamati y codex INCLUYE cache_read (convención OpenRouter);
