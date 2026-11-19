@@ -1,0 +1,10 @@
+{"task": "conversor", "harness": "opencode", "success": true, "turns": 4, "tokens_in": 29679, "tokens_out": 227, "cache_read": 22112, "duration_s": 5.95, "error": null}
+{"task": "crear_modulo", "harness": "opencode", "success": true, "turns": 6, "tokens_in": 45585, "tokens_out": 481, "cache_read": 39680, "duration_s": 11.83, "error": null}
+{"task": "git_history", "harness": "opencode", "success": true, "turns": 5, "tokens_in": 38138, "tokens_out": 218, "cache_read": 32160, "duration_s": 7.7, "error": null}
+{"task": "import_roto", "harness": "opencode", "success": true, "turns": 5, "tokens_in": 37867, "tokens_out": 286, "cache_read": 31952, "duration_s": 6.73, "error": null}
+{"task": "instruccion_en_archivo", "harness": "opencode", "success": true, "turns": 23, "tokens_in": 279783, "tokens_out": 6633, "cache_read": 270704, "duration_s": 72.31, "error": null}
+{"task": "multi_archivo", "harness": "opencode", "success": true, "turns": 9, "tokens_in": 73327, "tokens_out": 418, "cache_read": 66336, "duration_s": 13.62, "error": null}
+{"task": "offbyone", "harness": "opencode", "success": true, "turns": 4, "tokens_in": 29697, "tokens_out": 237, "cache_read": 23920, "duration_s": 5.14, "error": null}
+{"task": "output_grande", "harness": "opencode", "success": true, "turns": 5, "tokens_in": 37649, "tokens_out": 142, "cache_read": 31744, "duration_s": 5.17, "error": null}
+{"task": "promedio", "harness": "opencode", "success": false, "turns": 1, "tokens_in": 7214, "tokens_out": 54, "cache_read": 1808, "duration_s": 3.15, "error": "FALLA: promedio([2, 4]) = 2.0, esperado 3.0"}
+{"task": "test_driven", "harness": "opencode", "success": true, "turns": 12, "tokens_in": 114719, "tokens_out": 1437, "cache_read": 106272, "duration_s": 22.62, "error": null}
