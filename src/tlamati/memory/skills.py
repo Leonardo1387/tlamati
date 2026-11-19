@@ -110,7 +110,15 @@ class SkillLibrary:
         return sorted(self._skills.values(), key=lambda s: (s.category, s.name))
 
     def get(self, name: str) -> Skill | None:
-        return self._skills.get(name)
+        """Acepta el nombre pelado Y la forma publicada por catalog_text
+        ("categoria/nombre") — bug real dogfooding #2: el catálogo mostraba
+        el prefijo pero get() lo rechazaba (4 errores is_error en sesión)."""
+        sk = self._skills.get(name)
+        if sk is not None:
+            return sk
+        if "/" in name:
+            return self._skills.get(name.rpartition("/")[2])
+        return None
 
     def catalog_text(self, only: Collection[str] | None = None) -> str:
         """The block injected into the system prompt. Stable order → the

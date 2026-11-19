@@ -215,6 +215,7 @@ class TlamatiApp(App[None]):
         self._stream_dirty = False
         self._busy = False
         self._last_result: LoopResult | None = None
+        self._total_turns = 0  # turnos acumulados de TODA la sesión TUI
         # Componentes de corrida (se construyen en on_mount).
         self.registry: Registry | None = None
         self.provider: OpenAICompat | None = None
@@ -245,6 +246,16 @@ class TlamatiApp(App[None]):
         yield Static("ctx: —", id="ctxbar")
         yield TextArea(id="prompt")
         yield Footer()
+
+    def on_unmount(self) -> None:
+        """Cierre honesto de la sesión al salir de la TUI (ctrl+q / exit)."""
+        if self.store is not None:
+            if self.session_id is not None:
+                stop = self._last_result.stop_reason if self._last_result else "closed"
+                self.store.finish_session(
+                    self.session_id, stop_reason=stop, turns=self._total_turns
+                )
+            self.store.close()
 
     def on_mount(self) -> None:
         self._setup_run()
@@ -432,6 +443,16 @@ class TlamatiApp(App[None]):
             self._busy = False
             return
         self._last_result = result
+        # Bug 2 dogfooding #2: la TUI NUNCA llamaba finish_session → sessions.db
+        # quedaba con stop_reason='' y turns=0 (forensia post-sesión rota; cli.py
+        # sí lo hace). Fix: actualizar tras CADA corrida (crash-safe: si la app
+        # muere, la última corrida ya quedó registrada) + cierre en on_unmount.
+        self._total_turns += result.turns
+        if self.store is not None and self.session_id is not None:
+            self.store.record_usage(self.session_id, self._total_turns, result.usage)
+            self.store.finish_session(
+                self.session_id, stop_reason=result.stop_reason, turns=self._total_turns
+            )
         u = result.usage
         status_cls = "" if result.stop_reason == "end_turn" else "tool-error"
         self._note(
