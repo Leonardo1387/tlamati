@@ -326,3 +326,60 @@ class TestTuiSkillsE3d:
         async with app.run_test():
             assert app.setup_error is None
             assert "# SKILLS" not in app._system_prompt
+
+
+class TestTuiFinishSession:
+    """Bug 2 autopsia dogfooding #2: la TUI NUNCA llamaba finish_session →
+    sessions.db quedaba con stop_reason='' y turns=0 (forensia rota)."""
+
+    async def test_finish_session_on_exit(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        _FakeOpenAICompat._script = [[("text", "respuesta")]]
+        db = str(tmp_path / "s.db")
+        app = TlamatiApp(workdir=tmp_path, session_db=db)
+        async with app.run_test() as pilot:
+            assert app.setup_error is None
+            ta = app.query_one("#prompt")
+            ta.focus()
+            await pilot.press(*"hola")
+            await pilot.press("ctrl+enter")
+            await pilot.pause(0.3)
+            sid = app.session_id
+            assert sid is not None
+        # tras salir del run_test (unmount) la sesión debe estar CERRADA
+        from tlamati.session.store import SessionStore
+
+        store = SessionStore(db)
+        sessions = store.list_sessions(limit=5)
+        store.close()
+        mine = next(s for s in sessions if s.id == sid)
+        assert mine.stop_reason == "end_turn"  # antes quedaba ''
+        assert mine.turns >= 1  # antes quedaba 0
+
+    async def test_finish_session_after_each_run_crash_safe(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Crash-safe: tras CADA corrida la sesión ya queda actualizada (si la
+        app muere de golpe, la forensia tiene el último estado real)."""
+        monkeypatch.chdir(tmp_path)
+        _FakeOpenAICompat._script = [[("text", "uno")], [("text", "dos")]]
+        db = str(tmp_path / "s.db")
+        app = TlamatiApp(workdir=tmp_path, session_db=db)
+        async with app.run_test() as pilot:
+            for msg in ("a", "b"):
+                ta = app.query_one("#prompt")
+                ta.focus()
+                await pilot.press(*msg)
+                await pilot.press("ctrl+enter")
+                await pilot.pause(0.3)
+            # SIN cerrar la app: leer la db ya debe mostrar estado real
+            from tlamati.session.store import SessionStore
+
+            store = SessionStore(db)
+            sessions = store.list_sessions(limit=5)
+            store.close()
+            mine = next(s for s in sessions if s.id == app.session_id)
+            assert mine.stop_reason == "end_turn"
+            assert mine.turns >= 2  # turnos ACUMULADOS de las 2 corridas

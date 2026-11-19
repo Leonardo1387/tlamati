@@ -113,6 +113,25 @@ class TestLibrary:
         lib.rescan()
         assert [s.name for s in lib.catalog()] == ["nueva"]
 
+    def test_get_accepts_category_prefixed_name(self, lib_root: Path) -> None:
+        """Bug real dogfooding #2: catalog_text publica "creative/x" (con
+        prefijo de categoría) pero get() solo aceptaba el nombre pelado →
+        4 errores is_error en la sesión. get() debe aceptar ambas formas."""
+        _make_skill(lib_root, "doodle", category="creative")
+        lib = SkillLibrary([lib_root])
+        # el catálogo publica el nombre con prefijo…
+        assert "creative/doodle" in lib.catalog_text()
+        # …y get() acepta AMBAS formas
+        assert lib.get("doodle") is not None
+        assert lib.get("creative/doodle") is not None
+        prefixed = lib.get("creative/doodle")
+        assert prefixed is not None
+        assert prefixed.name == "doodle"
+        # categoría equivocada también resuelve (el prefijo es informativo)
+        assert lib.get("otra-categoria/doodle") is not None
+        # inexistente sigue siendo None honesto
+        assert lib.get("creative/nope") is None
+
 
 class TestSkillTools:
     async def test_skill_view_body_and_linked(self, lib_root: Path) -> None:
