@@ -1,0 +1,10 @@
+{"task": "conversor", "harness": "tlamati", "success": true, "turns": 4, "tokens_in": 11406, "tokens_out": 205, "cache_read": 8496, "duration_s": 3.75, "error": null}
+{"task": "crear_modulo", "harness": "tlamati", "success": true, "turns": 3, "tokens_in": 8317, "tokens_out": 107, "cache_read": 8128, "duration_s": 2.71, "error": null}
+{"task": "git_history", "harness": "tlamati", "success": true, "turns": 11, "tokens_in": 35891, "tokens_out": 481, "cache_read": 34928, "duration_s": 9.72, "error": null}
+{"task": "import_roto", "harness": "tlamati", "success": true, "turns": 4, "tokens_in": 11338, "tokens_out": 164, "cache_read": 11040, "duration_s": 4.31, "error": null}
+{"task": "instruccion_en_archivo", "harness": "tlamati", "success": false, "turns": 20, "tokens_in": 125773, "tokens_out": 3104, "cache_read": 121568, "duration_s": 37.8, "error": "harness rc=1: [plugins] 0 cargado(s), 0 fallido(s)\n[fin] stop=max_turns turnos=20 tokens: in=125773 out=3104 cache_read=121568"}
+{"task": "multi_archivo", "harness": "tlamati", "success": false, "turns": 11, "tokens_in": 40066, "tokens_out": 842, "cache_read": 38592, "duration_s": 16.67, "error": "FALLA: impuesto 22.6 != 26.8375 (debe usar 0.19 de config)\nFALLA: total 163.85 != 168.0875"}
+{"task": "offbyone", "harness": "tlamati", "success": true, "turns": 5, "tokens_in": 14920, "tokens_out": 296, "cache_read": 14432, "duration_s": 10.29, "error": null}
+{"task": "output_grande", "harness": "tlamati", "success": true, "turns": 5, "tokens_in": 120881, "tokens_out": 190, "cache_read": 93632, "duration_s": 7.59, "error": null}
+{"task": "promedio", "harness": "tlamati", "success": true, "turns": 5, "tokens_in": 14598, "tokens_out": 217, "cache_read": 14160, "duration_s": 5.61, "error": null}
+{"task": "test_driven", "harness": "tlamati", "success": false, "turns": 20, "tokens_in": 102704, "tokens_out": 2932, "cache_read": 99680, "duration_s": 38.93, "error": "harness rc=1: [plugins] 0 cargado(s), 0 fallido(s)\n[fin] stop=max_turns turnos=20 tokens: in=102704 out=2932 cache_read=99680"}
