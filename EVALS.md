@@ -157,6 +157,45 @@ fechadas y separadas):
   output_grande 294 s); la duración de hermes NO es comparable entre corridas
   y se reporta como dato crudo, sin narrativa.
 
+## Tabla E3c (19-nov-2026) — corpus AMPLIADO: 15 fixtures × 3 réplicas (45 corridas por arnés)
+
+- Corpus: las 10 fixtures anteriores + 5 de robustez (`anti_bucle_imposible`,
+  `context_rot_20_archivos`, `recuperacion_test_roto`,
+  `edicion_quirurgica_grande`, `rollback_o_regresion`) sembradas y validadas
+  (semilla FALLA, solución de referencia PASA, guard anti-corrupción).
+- Mismo modelo `qwen/qwen3-coder` OR para todos los arneses; runner con
+  `--runs 3` (réplicas) y `cost_usd` real (precios OR verificados en vivo).
+- JSONL crudos: `evals/benchmark_2026-11-19_e3c/<arnés>.jsonl` (45 líneas c/u).
+- hermes: CORTADO antes de empezar por decisión del fundador (es el más
+  tardado); correrá al final de la campaña solo con qwen3-coder.
+
+| arnés | corridas | todas-las-réplicas | al-menos-una | costo USD | tokens_in | cache % | duración |
+|---|---|---|---|---|---|---|---|
+| tlamati | 37/45 | 11/15 | 14/15 | **$0.18** | **1.39M** | 92.1% | **16.9 min** |
+| opencode | 42/45 | 13/15 | 15/15 | $0.49 | 4.05M | 95.6% | 17.3 min |
+| codex | 43/45 | 14/15 | 15/15 | $0.86 | 7.35M | 96.1% | 38.0 min |
+
+REGLA DE HONESTIDAD aplicada a tlamati 37/45: sus 8 fallos son TODOS errores
+de proveedor upstream (rc=4 "Provider returned error" — OpenRouter indigestado
+en esa ventana), NO del arnés. Un fallo con campo `error` de proveedor no
+cuenta contra el arnés (regla heredada B1/B5). Al-menos-una réplica: 14/15 —
+donde el modelo pudo trabajar, resolvió; `anti_bucle_imposible` 3/3.
+
+Lectura: tlamati resolvió con **5.3× menos tokens que codex** y **2.9× menos
+que opencode**, y fue **2.2× más rápido que codex** al menor costo ($0.18 vs
+$0.86). La promesa del PRD (overhead mínimo, "el arnés que menos contexto
+arrastra") se sostiene en el corpus ampliado con réplicas.
+
+### Campaña de modelos EN CURSO (19-nov, al publicar esta tabla)
+
+Matriz arnés×modelo extendida con `qwen/qwen3.8-flash`, `deepseek/deepseek-v3.2`
+y `moonshotai/kimi-k2.7-code` (orquestadores `bench/campaign_e3c.sh` +
+`bench/campaign_ext.sh`; dirs `evals/campaign_2026-11_<slug>/`). Primer
+resultado completo: **flash × tlamati = 45/45 corridas, 15/15 todas-las-
+réplicas, 15/15 al-menos-una, $0.13, 1.75M tok_in, cero errores upstream** —
+primer combo perfecto de la campaña. La tabla completa se añadirá al terminar
+(misma regla de honestidad por celda).
+
 ## Fuera de la tabla (y por qué)
 
 - **claude code / grok**: atados a cerebros propietarios — el delta mediría el

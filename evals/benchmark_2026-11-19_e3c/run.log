@@ -1,0 +1,277 @@
+== tlamati / anti_bucle_imposible run 1/3 ==
+{"task": "anti_bucle_imposible", "harness": "tlamati", "run": 1, "success": true, "turns": 4, "tokens_in": 20803, "tokens_out": 180, "cache_read": 14704, "duration_s": 5.85, "cost_usd": 0.00348, "error": null}
+== tlamati / anti_bucle_imposible run 2/3 ==
+{"task": "anti_bucle_imposible", "harness": "tlamati", "run": 2, "success": true, "turns": 4, "tokens_in": 20803, "tokens_out": 191, "cache_read": 20704, "duration_s": 8.14, "cost_usd": 0.002291, "error": null}
+== tlamati / anti_bucle_imposible run 3/3 ==
+{"task": "anti_bucle_imposible", "harness": "tlamati", "run": 3, "success": true, "turns": 4, "tokens_in": 20803, "tokens_out": 178, "cache_read": 20704, "duration_s": 7.76, "cost_usd": 0.002278, "error": null}
+== tlamati / context_rot_20_archivos run 1/3 ==
+{"task": "context_rot_20_archivos", "harness": "tlamati", "run": 1, "success": true, "turns": 7, "tokens_in": 27317, "tokens_out": 599, "cache_read": 25040, "duration_s": 22.41, "cost_usd": 0.003786, "error": null}
+== tlamati / context_rot_20_archivos run 2/3 ==
+{"task": "context_rot_20_archivos", "harness": "tlamati", "run": 2, "success": true, "turns": 7, "tokens_in": 27295, "tokens_out": 615, "cache_read": 27072, "duration_s": 24.65, "cost_usd": 0.003389, "error": null}
+== tlamati / context_rot_20_archivos run 3/3 ==
+{"task": "context_rot_20_archivos", "harness": "tlamati", "run": 3, "success": true, "turns": 7, "tokens_in": 27317, "tokens_out": 608, "cache_read": 25520, "duration_s": 21.33, "cost_usd": 0.003699, "error": null}
+== tlamati / conversor run 1/3 ==
+{"task": "conversor", "harness": "tlamati", "run": 1, "success": true, "turns": 4, "tokens_in": 10266, "tokens_out": 192, "cache_read": 9968, "duration_s": 10.91, "cost_usd": 0.001278, "error": null}
+== tlamati / conversor run 2/3 ==
+{"task": "conversor", "harness": "tlamati", "run": 2, "success": true, "turns": 4, "tokens_in": 10252, "tokens_out": 183, "cache_read": 10080, "duration_s": 9.3, "cost_usd": 0.001243, "error": null}
+== tlamati / conversor run 3/3 ==
+{"task": "conversor", "harness": "tlamati", "run": 3, "success": true, "turns": 4, "tokens_in": 10252, "tokens_out": 188, "cache_read": 10160, "duration_s": 11.35, "cost_usd": 0.001232, "error": null}
+== tlamati / crear_modulo run 1/3 ==
+{"task": "crear_modulo", "harness": "tlamati", "run": 1, "success": true, "turns": 3, "tokens_in": 7453, "tokens_out": 119, "cache_read": 7264, "duration_s": 11.79, "cost_usd": 0.000902, "error": null}
+== tlamati / crear_modulo run 2/3 ==
+{"task": "crear_modulo", "harness": "tlamati", "run": 2, "success": true, "turns": 3, "tokens_in": 7453, "tokens_out": 124, "cache_read": 7360, "duration_s": 5.04, "cost_usd": 0.000888, "error": null}
+== tlamati / crear_modulo run 3/3 ==
+{"task": "crear_modulo", "harness": "tlamati", "run": 3, "success": true, "turns": 3, "tokens_in": 7453, "tokens_out": 121, "cache_read": 7360, "duration_s": 8.68, "cost_usd": 0.000885, "error": null}
+== tlamati / edicion_quirurgica_grande run 1/3 ==
+{"task": "edicion_quirurgica_grande", "harness": "tlamati", "run": 1, "success": true, "turns": 25, "tokens_in": 337853, "tokens_out": 4472, "cache_read": 326720, "duration_s": 119.03, "cost_usd": 0.040484, "error": null}
+== tlamati / edicion_quirurgica_grande run 2/3 ==
+{"task": "edicion_quirurgica_grande", "harness": "tlamati", "run": 2, "success": true, "turns": 18, "tokens_in": 205346, "tokens_out": 1786, "cache_read": 175216, "duration_s": 102.58, "cost_usd": 0.028347, "error": "harness rc=4: [plan] tools de plan no ofrecidas: corrida headless sin aprobador humano\n[plugins] 0 cargado(s), 0 fallido(s)\n[fin] stop=error turnos=18 tokens: in=205346 out=1786 cache_read=175216\n[error] The operation was aborted"}
+== tlamati / edicion_quirurgica_grande run 3/3 ==
+{"task": "edicion_quirurgica_grande", "harness": "tlamati", "run": 3, "success": false, "turns": 0, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "duration_s": 7.51, "cost_usd": 0.0, "error": "harness rc=4: 29,\"message\":\"Provider returned error\",\"provider_name\":\"DeepInfra\",\"raw\":\"qwen/qwen3-coder is temporarily rate-limited upstream. Please retry shortly, or add your own provider key to use your own limits: https://openrouter.ai/workspaces/default/byok\"}]}},\"user_id\":\"REDACTED\"}"}
+== tlamati / git_history run 1/3 ==
+{"task": "git_history", "harness": "tlamati", "run": 1, "success": false, "turns": 1, "tokens_in": 2511, "tokens_out": 26, "cache_read": 2320, "duration_s": 12.94, "cost_usd": 0.000315, "error": "harness rc=4: 29,\"message\":\"Provider returned error\",\"provider_name\":\"DeepInfra\",\"raw\":\"qwen/qwen3-coder is temporarily rate-limited upstream. Please retry shortly, or add your own provider key to use your own limits: https://openrouter.ai/workspaces/default/byok\"}]}},\"user_id\":\"REDACTED\"}"}
+== tlamati / git_history run 2/3 ==
+{"task": "git_history", "harness": "tlamati", "run": 2, "success": false, "turns": 1, "tokens_in": 2511, "tokens_out": 26, "cache_read": 0, "duration_s": 30.53, "cost_usd": 0.000779, "error": "harness rc=4: 29,\"message\":\"Provider returned error\",\"provider_name\":\"DeepInfra\",\"raw\":\"qwen/qwen3-coder is temporarily rate-limited upstream. Please retry shortly, or add your own provider key to use your own limits: https://openrouter.ai/workspaces/default/byok\"}]}},\"user_id\":\"REDACTED\"}"}
+== tlamati / git_history run 3/3 ==
+{"task": "git_history", "harness": "tlamati", "run": 3, "success": false, "turns": 0, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "duration_s": 7.43, "cost_usd": 0.0, "error": "harness rc=4: 29,\"message\":\"Provider returned error\",\"provider_name\":\"DeepInfra\",\"raw\":\"qwen/qwen3-coder is temporarily rate-limited upstream. Please retry shortly, or add your own provider key to use your own limits: https://openrouter.ai/workspaces/default/byok\"}]}},\"user_id\":\"REDACTED\"}"}
+== tlamati / import_roto run 1/3 ==
+{"task": "import_roto", "harness": "tlamati", "run": 1, "success": false, "turns": 0, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "duration_s": 7.5, "cost_usd": 0.0, "error": "harness rc=4: 29,\"message\":\"Provider returned error\",\"provider_name\":\"DeepInfra\",\"raw\":\"qwen/qwen3-coder is temporarily rate-limited upstream. Please retry shortly, or add your own provider key to use your own limits: https://openrouter.ai/workspaces/default/byok\"}]}},\"user_id\":\"REDACTED\"}"}
+== tlamati / import_roto run 2/3 ==
+{"task": "import_roto", "harness": "tlamati", "run": 2, "success": false, "turns": 0, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "duration_s": 7.37, "cost_usd": 0.0, "error": "harness rc=4: 29,\"message\":\"Provider returned error\",\"provider_name\":\"DeepInfra\",\"raw\":\"qwen/qwen3-coder is temporarily rate-limited upstream. Please retry shortly, or add your own provider key to use your own limits: https://openrouter.ai/workspaces/default/byok\"}]}},\"user_id\":\"REDACTED\"}"}
+== tlamati / import_roto run 3/3 ==
+{"task": "import_roto", "harness": "tlamati", "run": 3, "success": true, "turns": 2, "tokens_in": 4916, "tokens_out": 86, "cache_read": 4864, "duration_s": 31.82, "cost_usd": 0.000588, "error": "harness rc=4: 29,\"message\":\"Provider returned error\",\"provider_name\":\"DeepInfra\",\"raw\":\"qwen/qwen3-coder is temporarily rate-limited upstream. Please retry shortly, or add your own provider key to use your own limits: https://openrouter.ai/workspaces/default/byok\"}]}},\"user_id\":\"REDACTED\"}"}
+== tlamati / instruccion_en_archivo run 1/3 ==
+{"task": "instruccion_en_archivo", "harness": "tlamati", "run": 1, "success": false, "turns": 0, "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "duration_s": 7.44, "cost_usd": 0.0, "error": "harness rc=4: 29,\"message\":\"Provider returned error\",\"provider_name\":\"DeepInfra\",\"raw\":\"qwen/qwen3-coder is temporarily rate-limited upstream. Please retry shortly, or add your own provider key to use your own limits: https://openrouter.ai/workspaces/default/byok\"}]}},\"user_id\":\"REDACTED\"}"}
+== tlamati / instruccion_en_archivo run 2/3 ==
+{"task": "instruccion_en_archivo", "harness": "tlamati", "run": 2, "success": false, "turns": 6, "tokens_in": 23541, "tokens_out": 661, "cache_read": 7184, "duration_s": 72.63, "cost_usd": 0.006287, "error": "harness rc=4: 29,\"message\":\"Provider returned error\",\"provider_name\":\"DeepInfra\",\"raw\":\"qwen/qwen3-coder is temporarily rate-limited upstream. Please retry shortly, or add your own provider key to use your own limits: https://openrouter.ai/workspaces/default/byok\"}]}},\"user_id\":\"REDACTED\"}"}
+== tlamati / instruccion_en_archivo run 3/3 ==
+{"task": "instruccion_en_archivo", "harness": "tlamati", "run": 3, "success": true, "turns": 16, "tokens_in": 99587, "tokens_out": 2926, "cache_read": 84112, "duration_s": 227.3, "cost_usd": 0.01598, "error": null}
+== tlamati / multi_archivo run 1/3 ==
+{"task": "multi_archivo", "harness": "tlamati", "run": 1, "success": true, "turns": 8, "tokens_in": 23671, "tokens_out": 361, "cache_read": 22672, "duration_s": 12.74, "cost_usd": 0.002928, "error": null}
+== tlamati / multi_archivo run 2/3 ==
+{"task": "multi_archivo", "harness": "tlamati", "run": 2, "success": true, "turns": 7, "tokens_in": 21032, "tokens_out": 362, "cache_read": 20208, "duration_s": 11.25, "cost_usd": 0.00263, "error": null}
+== tlamati / multi_archivo run 3/3 ==
+{"task": "multi_archivo", "harness": "tlamati", "run": 3, "success": true, "turns": 8, "tokens_in": 23713, "tokens_out": 393, "cache_read": 23472, "duration_s": 13.19, "cost_usd": 0.002812, "error": null}
+== tlamati / offbyone run 1/3 ==
+{"task": "offbyone", "harness": "tlamati", "run": 1, "success": true, "turns": 4, "tokens_in": 10200, "tokens_out": 165, "cache_read": 9888, "duration_s": 5.79, "cost_usd": 0.001247, "error": null}
+== tlamati / offbyone run 2/3 ==
+{"task": "offbyone", "harness": "tlamati", "run": 2, "success": true, "turns": 4, "tokens_in": 10178, "tokens_out": 170, "cache_read": 10000, "duration_s": 5.53, "cost_usd": 0.001223, "error": null}
+== tlamati / offbyone run 3/3 ==
+{"task": "offbyone", "harness": "tlamati", "run": 3, "success": true, "turns": 4, "tokens_in": 10192, "tokens_out": 175, "cache_read": 10032, "duration_s": 6.67, "cost_usd": 0.001226, "error": null}
+== tlamati / output_grande run 1/3 ==
+{"task": "output_grande", "harness": "tlamati", "run": 1, "success": true, "turns": 6, "tokens_in": 16113, "tokens_out": 215, "cache_read": 15616, "duration_s": 6.77, "cost_usd": 0.001926, "error": null}
+== tlamati / output_grande run 2/3 ==
+{"task": "output_grande", "harness": "tlamati", "run": 2, "success": true, "turns": 5, "tokens_in": 13276, "tokens_out": 189, "cache_read": 12976, "duration_s": 5.21, "cost_usd": 0.001577, "error": null}
+== tlamati / output_grande run 3/3 ==
+{"task": "output_grande", "harness": "tlamati", "run": 3, "success": true, "turns": 6, "tokens_in": 31628, "tokens_out": 325, "cache_read": 26256, "duration_s": 9.02, "cost_usd": 0.004562, "error": null}
+== tlamati / promedio run 1/3 ==
+{"task": "promedio", "harness": "tlamati", "run": 1, "success": true, "turns": 4, "tokens_in": 10148, "tokens_out": 205, "cache_read": 9888, "duration_s": 5.17, "cost_usd": 0.001272, "error": null}
+== tlamati / promedio run 2/3 ==
+{"task": "promedio", "harness": "tlamati", "run": 2, "success": true, "turns": 4, "tokens_in": 10148, "tokens_out": 188, "cache_read": 10064, "duration_s": 4.73, "cost_usd": 0.00122, "error": null}
+== tlamati / promedio run 3/3 ==
+{"task": "promedio", "harness": "tlamati", "run": 3, "success": true, "turns": 4, "tokens_in": 10148, "tokens_out": 188, "cache_read": 10064, "duration_s": 4.39, "cost_usd": 0.00122, "error": null}
+== tlamati / recuperacion_test_roto run 1/3 ==
+{"task": "recuperacion_test_roto", "harness": "tlamati", "run": 1, "success": true, "turns": 11, "tokens_in": 44895, "tokens_out": 511, "cache_read": 42192, "duration_s": 13.92, "cost_usd": 0.005541, "error": null}
+== tlamati / recuperacion_test_roto run 2/3 ==
+{"task": "recuperacion_test_roto", "harness": "tlamati", "run": 2, "success": true, "turns": 12, "tokens_in": 48722, "tokens_out": 590, "cache_read": 46256, "duration_s": 19.71, "cost_usd": 0.005955, "error": null}
+== tlamati / recuperacion_test_roto run 3/3 ==
+{"task": "recuperacion_test_roto", "harness": "tlamati", "run": 3, "success": true, "turns": 9, "tokens_in": 33336, "tokens_out": 344, "cache_read": 31520, "duration_s": 11.05, "cost_usd": 0.004041, "error": null}
+== tlamati / rollback_o_regresion run 1/3 ==
+{"task": "rollback_o_regresion", "harness": "tlamati", "run": 1, "success": true, "turns": 7, "tokens_in": 24069, "tokens_out": 300, "cache_read": 22480, "duration_s": 8.33, "cost_usd": 0.003025, "error": null}
+== tlamati / rollback_o_regresion run 2/3 ==
+{"task": "rollback_o_regresion", "harness": "tlamati", "run": 2, "success": true, "turns": 7, "tokens_in": 24069, "tokens_out": 286, "cache_read": 23904, "duration_s": 9.48, "cost_usd": 0.002726, "error": null}
+== tlamati / rollback_o_regresion run 3/3 ==
+{"task": "rollback_o_regresion", "harness": "tlamati", "run": 3, "success": true, "turns": 7, "tokens_in": 24069, "tokens_out": 291, "cache_read": 23904, "duration_s": 8.95, "cost_usd": 0.002731, "error": null}
+== tlamati / test_driven run 1/3 ==
+{"task": "test_driven", "harness": "tlamati", "run": 1, "success": true, "turns": 10, "tokens_in": 41905, "tokens_out": 1233, "cache_read": 39888, "duration_s": 23.13, "cost_usd": 0.005827, "error": null}
+== tlamati / test_driven run 2/3 ==
+{"task": "test_driven", "harness": "tlamati", "run": 2, "success": true, "turns": 10, "tokens_in": 41706, "tokens_out": 1183, "cache_read": 41024, "duration_s": 26.23, "cost_usd": 0.00549, "error": null}
+== tlamati / test_driven run 3/3 ==
+{"task": "test_driven", "harness": "tlamati", "run": 3, "success": true, "turns": 10, "tokens_in": 39750, "tokens_out": 776, "cache_read": 39056, "duration_s": 21.68, "cost_usd": 0.00489, "error": null}
+[bench] tlamati: 37/45 OK · costo $0.1822 · duración 1014s±39
+[bench] tlamati: tareas 11/15 todas-las-réplicas (14/15 al menos una)
+== opencode / anti_bucle_imposible run 1/3 ==
+{"task": "anti_bucle_imposible", "harness": "opencode", "run": 1, "success": true, "turns": 8, "tokens_in": 66018, "tokens_out": 432, "cache_read": 56816, "duration_s": 13.35, "cost_usd": 0.008874, "error": null}
+== opencode / anti_bucle_imposible run 2/3 ==
+{"task": "anti_bucle_imposible", "harness": "opencode", "run": 2, "success": true, "turns": 7, "tokens_in": 52906, "tokens_out": 309, "cache_read": 52544, "duration_s": 11.23, "cost_usd": 0.005672, "error": null}
+== opencode / anti_bucle_imposible run 3/3 ==
+{"task": "anti_bucle_imposible", "harness": "opencode", "run": 3, "success": true, "turns": 7, "tokens_in": 56985, "tokens_out": 358, "cache_read": 55184, "duration_s": 11.06, "cost_usd": 0.006417, "error": null}
+== opencode / context_rot_20_archivos run 1/3 ==
+{"task": "context_rot_20_archivos", "harness": "opencode", "run": 1, "success": true, "turns": 4, "tokens_in": 35690, "tokens_out": 587, "cache_read": 27984, "duration_s": 14.47, "cost_usd": 0.005697, "error": null}
+== opencode / context_rot_20_archivos run 2/3 ==
+{"task": "context_rot_20_archivos", "harness": "opencode", "run": 2, "success": true, "turns": 6, "tokens_in": 50469, "tokens_out": 535, "cache_read": 48512, "duration_s": 14.6, "cost_usd": 0.005973, "error": null}
+== opencode / context_rot_20_archivos run 3/3 ==
+{"task": "context_rot_20_archivos", "harness": "opencode", "run": 3, "success": true, "turns": 6, "tokens_in": 50439, "tokens_out": 520, "cache_read": 49904, "duration_s": 12.15, "cost_usd": 0.005671, "error": null}
+== opencode / conversor run 1/3 ==
+{"task": "conversor", "harness": "opencode", "run": 1, "success": true, "turns": 4, "tokens_in": 29614, "tokens_out": 186, "cache_read": 23888, "duration_s": 6.09, "cost_usd": 0.004293, "error": null}
+== opencode / conversor run 2/3 ==
+{"task": "conversor", "harness": "opencode", "run": 2, "success": false, "turns": 1, "tokens_in": 7215, "tokens_out": 19, "cache_read": 7184, "duration_s": 2.49, "cost_usd": 0.000747, "error": "FALLA: fahrenheit_a_celsius(212) = 101.0, esperado 100.0"}
+== opencode / conversor run 3/3 ==
+{"task": "conversor", "harness": "opencode", "run": 3, "success": false, "turns": 1, "tokens_in": 7215, "tokens_out": 8, "cache_read": 7184, "duration_s": 1.97, "cost_usd": 0.000736, "error": "FALLA: fahrenheit_a_celsius(212) = 101.0, esperado 100.0"}
+== opencode / crear_modulo run 1/3 ==
+{"task": "crear_modulo", "harness": "opencode", "run": 1, "success": false, "turns": 1, "tokens_in": 7227, "tokens_out": 61, "cache_read": 1808, "duration_s": 3.18, "cost_usd": 0.001868, "error": "FALLA: no existe suma_lista.py usable — No module named 'suma_lista'"}
+== opencode / crear_modulo run 2/3 ==
+{"task": "crear_modulo", "harness": "opencode", "run": 2, "success": true, "turns": 6, "tokens_in": 45548, "tokens_out": 433, "cache_read": 45040, "duration_s": 14.44, "cost_usd": 0.005089, "error": null}
+== opencode / crear_modulo run 3/3 ==
+{"task": "crear_modulo", "harness": "opencode", "run": 3, "success": true, "turns": 3, "tokens_in": 22050, "tokens_out": 219, "cache_read": 21872, "duration_s": 6.86, "cost_usd": 0.00246, "error": null}
+== opencode / edicion_quirurgica_grande run 1/3 ==
+{"task": "edicion_quirurgica_grande", "harness": "opencode", "run": 1, "success": true, "turns": 13, "tokens_in": 230921, "tokens_out": 3438, "cache_read": 214544, "duration_s": 54.51, "cost_usd": 0.029805, "error": null}
+== opencode / edicion_quirurgica_grande run 2/3 ==
+{"task": "edicion_quirurgica_grande", "harness": "opencode", "run": 2, "success": true, "turns": 43, "tokens_in": 1044514, "tokens_out": 13801, "cache_read": 1031184, "duration_s": 213.8, "cost_usd": 0.120918, "error": null}
+== opencode / edicion_quirurgica_grande run 3/3 ==
+{"task": "edicion_quirurgica_grande", "harness": "opencode", "run": 3, "success": true, "turns": 11, "tokens_in": 188542, "tokens_out": 2383, "cache_read": 187296, "duration_s": 38.97, "cost_usd": 0.021486, "error": null}
+== opencode / git_history run 1/3 ==
+{"task": "git_history", "harness": "opencode", "run": 1, "success": true, "turns": 5, "tokens_in": 38138, "tokens_out": 224, "cache_read": 32160, "duration_s": 6.96, "cost_usd": 0.005233, "error": null}
+== opencode / git_history run 2/3 ==
+{"task": "git_history", "harness": "opencode", "run": 2, "success": true, "turns": 9, "tokens_in": 70133, "tokens_out": 389, "cache_read": 69424, "duration_s": 16.9, "cost_usd": 0.007544, "error": null}
+== opencode / git_history run 3/3 ==
+{"task": "git_history", "harness": "opencode", "run": 3, "success": true, "turns": 5, "tokens_in": 38138, "tokens_out": 224, "cache_read": 38000, "duration_s": 8.54, "cost_usd": 0.004065, "error": null}
+== opencode / import_roto run 1/3 ==
+{"task": "import_roto", "harness": "opencode", "run": 1, "success": true, "turns": 4, "tokens_in": 29710, "tokens_out": 224, "cache_read": 24016, "duration_s": 10.23, "cost_usd": 0.004334, "error": null}
+== opencode / import_roto run 2/3 ==
+{"task": "import_roto", "harness": "opencode", "run": 2, "success": true, "turns": 4, "tokens_in": 29515, "tokens_out": 136, "cache_read": 29216, "duration_s": 5.97, "cost_usd": 0.003147, "error": null}
+== opencode / import_roto run 3/3 ==
+{"task": "import_roto", "harness": "opencode", "run": 3, "success": true, "turns": 4, "tokens_in": 29539, "tokens_out": 155, "cache_read": 29376, "duration_s": 6.71, "cost_usd": 0.003142, "error": null}
+== opencode / instruccion_en_archivo run 1/3 ==
+{"task": "instruccion_en_archivo", "harness": "opencode", "run": 1, "success": true, "turns": 11, "tokens_in": 107545, "tokens_out": 2172, "cache_read": 99104, "duration_s": 36.7, "cost_usd": 0.014615, "error": null}
+== opencode / instruccion_en_archivo run 2/3 ==
+{"task": "instruccion_en_archivo", "harness": "opencode", "run": 2, "success": true, "turns": 24, "tokens_in": 335980, "tokens_out": 12891, "cache_read": 330848, "duration_s": 236.18, "cost_usd": 0.047515, "error": null}
+== opencode / instruccion_en_archivo run 3/3 ==
+{"task": "instruccion_en_archivo", "harness": "opencode", "run": 3, "success": true, "turns": 11, "tokens_in": 106999, "tokens_out": 1903, "cache_read": 106064, "duration_s": 27.91, "cost_usd": 0.01279, "error": null}
+== opencode / multi_archivo run 1/3 ==
+{"task": "multi_archivo", "harness": "opencode", "run": 1, "success": true, "turns": 10, "tokens_in": 80653, "tokens_out": 693, "cache_read": 73760, "duration_s": 14.54, "cost_usd": 0.010137, "error": null}
+== opencode / multi_archivo run 2/3 ==
+{"task": "multi_archivo", "harness": "opencode", "run": 2, "success": true, "turns": 8, "tokens_in": 64319, "tokens_out": 317, "cache_read": 62992, "duration_s": 14.92, "cost_usd": 0.007014, "error": null}
+== opencode / multi_archivo run 3/3 ==
+{"task": "multi_archivo", "harness": "opencode", "run": 3, "success": true, "turns": 9, "tokens_in": 73327, "tokens_out": 396, "cache_read": 72560, "duration_s": 10.54, "cost_usd": 0.007882, "error": null}
+== opencode / offbyone run 1/3 ==
+{"task": "offbyone", "harness": "opencode", "run": 1, "success": true, "turns": 4, "tokens_in": 29752, "tokens_out": 275, "cache_read": 23968, "duration_s": 5.96, "cost_usd": 0.004407, "error": null}
+== opencode / offbyone run 2/3 ==
+{"task": "offbyone", "harness": "opencode", "run": 2, "success": true, "turns": 5, "tokens_in": 38250, "tokens_out": 485, "cache_read": 37600, "duration_s": 8.77, "cost_usd": 0.00444, "error": null}
+== opencode / offbyone run 3/3 ==
+{"task": "offbyone", "harness": "opencode", "run": 3, "success": true, "turns": 4, "tokens_in": 29735, "tokens_out": 265, "cache_read": 29328, "duration_s": 16.92, "cost_usd": 0.00332, "error": null}
+== opencode / output_grande run 1/3 ==
+{"task": "output_grande", "harness": "opencode", "run": 1, "success": true, "turns": 5, "tokens_in": 37649, "tokens_out": 142, "cache_read": 31744, "duration_s": 5.03, "cost_usd": 0.005088, "error": null}
+== opencode / output_grande run 2/3 ==
+{"task": "output_grande", "harness": "opencode", "run": 2, "success": true, "turns": 5, "tokens_in": 148493, "tokens_out": 156, "cache_read": 120304, "duration_s": 8.14, "cost_usd": 0.020643, "error": null}
+== opencode / output_grande run 3/3 ==
+{"task": "output_grande", "harness": "opencode", "run": 3, "success": true, "turns": 5, "tokens_in": 37649, "tokens_out": 169, "cache_read": 37520, "duration_s": 5.64, "cost_usd": 0.00396, "error": null}
+== opencode / promedio run 1/3 ==
+{"task": "promedio", "harness": "opencode", "run": 1, "success": true, "turns": 4, "tokens_in": 29488, "tokens_out": 177, "cache_read": 23808, "duration_s": 5.78, "cost_usd": 0.004262, "error": null}
+== opencode / promedio run 2/3 ==
+{"task": "promedio", "harness": "opencode", "run": 2, "success": true, "turns": 4, "tokens_in": 29521, "tokens_out": 185, "cache_read": 29216, "duration_s": 6.65, "cost_usd": 0.003198, "error": null}
+== opencode / promedio run 3/3 ==
+{"task": "promedio", "harness": "opencode", "run": 3, "success": true, "turns": 5, "tokens_in": 37555, "tokens_out": 219, "cache_read": 37120, "duration_s": 6.28, "cost_usd": 0.004062, "error": null}
+== opencode / recuperacion_test_roto run 1/3 ==
+{"task": "recuperacion_test_roto", "harness": "opencode", "run": 1, "success": true, "turns": 10, "tokens_in": 84178, "tokens_out": 477, "cache_read": 77056, "duration_s": 12.71, "cost_usd": 0.010319, "error": null}
+== opencode / recuperacion_test_roto run 2/3 ==
+{"task": "recuperacion_test_roto", "harness": "opencode", "run": 2, "success": true, "turns": 10, "tokens_in": 84157, "tokens_out": 464, "cache_read": 83456, "duration_s": 11.52, "cost_usd": 0.00902, "error": null}
+== opencode / recuperacion_test_roto run 3/3 ==
+{"task": "recuperacion_test_roto", "harness": "opencode", "run": 3, "success": true, "turns": 10, "tokens_in": 82289, "tokens_out": 600, "cache_read": 80848, "duration_s": 12.27, "cost_usd": 0.009117, "error": null}
+== opencode / rollback_o_regresion run 1/3 ==
+{"task": "rollback_o_regresion", "harness": "opencode", "run": 1, "success": true, "turns": 7, "tokens_in": 58476, "tokens_out": 332, "cache_read": 51488, "duration_s": 9.06, "cost_usd": 0.007577, "error": null}
+== opencode / rollback_o_regresion run 2/3 ==
+{"task": "rollback_o_regresion", "harness": "opencode", "run": 2, "success": true, "turns": 7, "tokens_in": 58978, "tokens_out": 557, "cache_read": 57168, "duration_s": 13.35, "cost_usd": 0.006817, "error": null}
+== opencode / rollback_o_regresion run 3/3 ==
+{"task": "rollback_o_regresion", "harness": "opencode", "run": 3, "success": true, "turns": 7, "tokens_in": 58476, "tokens_out": 333, "cache_read": 58288, "duration_s": 10.77, "cost_usd": 0.006218, "error": null}
+== opencode / test_driven run 1/3 ==
+{"task": "test_driven", "harness": "opencode", "run": 1, "success": true, "turns": 10, "tokens_in": 93221, "tokens_out": 1355, "cache_read": 85248, "duration_s": 32.15, "cost_usd": 0.012272, "error": null}
+== opencode / test_driven run 2/3 ==
+{"task": "test_driven", "harness": "opencode", "run": 2, "success": true, "turns": 12, "tokens_in": 108997, "tokens_out": 1282, "cache_read": 106368, "duration_s": 29.51, "cost_usd": 0.012708, "error": null}
+== opencode / test_driven run 3/3 ==
+{"task": "test_driven", "harness": "opencode", "run": 3, "success": true, "turns": 11, "tokens_in": 101924, "tokens_out": 1245, "cache_read": 99376, "duration_s": 22.23, "cost_usd": 0.011947, "error": null}
+[bench] opencode: 42/45 OK · costo $0.4925 · duración 1038s±45
+[bench] opencode: tareas 13/15 todas-las-réplicas (15/15 al menos una)
+== codex / anti_bucle_imposible run 1/3 ==
+{"task": "anti_bucle_imposible", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 141488, "tokens_out": 764, "cache_read": 126656, "duration_s": 25.94, "cost_usd": 0.017879, "error": null}
+== codex / anti_bucle_imposible run 2/3 ==
+{"task": "anti_bucle_imposible", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 147270, "tokens_out": 804, "cache_read": 141888, "duration_s": 19.18, "cost_usd": 0.016607, "error": null}
+== codex / anti_bucle_imposible run 3/3 ==
+{"task": "anti_bucle_imposible", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 167584, "tokens_out": 854, "cache_read": 160528, "duration_s": 19.36, "cost_usd": 0.019024, "error": null}
+== codex / context_rot_20_archivos run 1/3 ==
+{"task": "context_rot_20_archivos", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 183432, "tokens_out": 1560, "cache_read": 174112, "duration_s": 32.13, "cost_usd": 0.021767, "error": null}
+== codex / context_rot_20_archivos run 2/3 ==
+{"task": "context_rot_20_archivos", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 169792, "tokens_out": 1705, "cache_read": 166608, "duration_s": 38.92, "cost_usd": 0.019321, "error": null}
+== codex / context_rot_20_archivos run 3/3 ==
+{"task": "context_rot_20_archivos", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 274498, "tokens_out": 1646, "cache_read": 269952, "duration_s": 42.23, "cost_usd": 0.030005, "error": null}
+== codex / conversor run 1/3 ==
+{"task": "conversor", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 65666, "tokens_out": 526, "cache_read": 59168, "duration_s": 11.52, "cost_usd": 0.008392, "error": null}
+== codex / conversor run 2/3 ==
+{"task": "conversor", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 54334, "tokens_out": 517, "cache_read": 53968, "duration_s": 9.79, "cost_usd": 0.006024, "error": null}
+== codex / conversor run 3/3 ==
+{"task": "conversor", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 89287, "tokens_out": 715, "cache_read": 88512, "duration_s": 28.24, "cost_usd": 0.009799, "error": null}
+== codex / crear_modulo run 1/3 ==
+{"task": "crear_modulo", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 78502, "tokens_out": 528, "cache_read": 71536, "duration_s": 14.81, "cost_usd": 0.009771, "error": null}
+== codex / crear_modulo run 2/3 ==
+{"task": "crear_modulo", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 55230, "tokens_out": 362, "cache_read": 54512, "duration_s": 8.35, "cost_usd": 0.006029, "error": null}
+== codex / crear_modulo run 3/3 ==
+{"task": "crear_modulo", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 66832, "tokens_out": 466, "cache_read": 66000, "duration_s": 13.62, "cost_usd": 0.007316, "error": null}
+== codex / edicion_quirurgica_grande run 1/3 ==
+{"task": "edicion_quirurgica_grande", "harness": "codex", "run": 1, "success": false, "turns": null, "tokens_in": null, "tokens_out": null, "cache_read": null, "duration_s": 600.03, "cost_usd": null, "error": "harness timeout >600s"}
+== codex / edicion_quirurgica_grande run 2/3 ==
+{"task": "edicion_quirurgica_grande", "harness": "codex", "run": 2, "success": false, "turns": null, "tokens_in": null, "tokens_out": null, "cache_read": null, "duration_s": 600.01, "cost_usd": null, "error": "harness timeout >600s"}
+== codex / edicion_quirurgica_grande run 3/3 ==
+{"task": "edicion_quirurgica_grande", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 1833917, "tokens_out": 7371, "cache_read": 1820320, "duration_s": 166.14, "cost_usd": 0.193482, "error": null}
+== codex / git_history run 1/3 ==
+{"task": "git_history", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 126315, "tokens_out": 888, "cache_read": 119040, "duration_s": 22.06, "cost_usd": 0.014974, "error": null}
+== codex / git_history run 2/3 ==
+{"task": "git_history", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 67618, "tokens_out": 828, "cache_read": 66848, "duration_s": 15.78, "cost_usd": 0.007744, "error": null}
+== codex / git_history run 3/3 ==
+{"task": "git_history", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 55738, "tokens_out": 622, "cache_read": 55104, "duration_s": 12.05, "cost_usd": 0.006323, "error": null}
+== codex / import_roto run 1/3 ==
+{"task": "import_roto", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 65283, "tokens_out": 418, "cache_read": 58800, "duration_s": 8.4, "cost_usd": 0.008243, "error": null}
+== codex / import_roto run 2/3 ==
+{"task": "import_roto", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 54081, "tokens_out": 401, "cache_read": 53728, "duration_s": 8.22, "cost_usd": 0.00588, "error": null}
+== codex / import_roto run 3/3 ==
+{"task": "import_roto", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 53911, "tokens_out": 355, "cache_read": 53584, "duration_s": 6.83, "cost_usd": 0.005812, "error": null}
+== codex / instruccion_en_archivo run 1/3 ==
+{"task": "instruccion_en_archivo", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 339767, "tokens_out": 8111, "cache_read": 330080, "duration_s": 92.36, "cost_usd": 0.044025, "error": null}
+== codex / instruccion_en_archivo run 2/3 ==
+{"task": "instruccion_en_archivo", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 313848, "tokens_out": 5337, "cache_read": 292128, "duration_s": 83.16, "cost_usd": 0.041066, "error": null}
+== codex / instruccion_en_archivo run 3/3 ==
+{"task": "instruccion_en_archivo", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 213034, "tokens_out": 5370, "cache_read": 202816, "duration_s": 48.92, "cost_usd": 0.028717, "error": null}
+== codex / multi_archivo run 1/3 ==
+{"task": "multi_archivo", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 156520, "tokens_out": 1310, "cache_read": 141200, "duration_s": 33.16, "cost_usd": 0.020026, "error": null}
+== codex / multi_archivo run 2/3 ==
+{"task": "multi_archivo", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 244527, "tokens_out": 1411, "cache_read": 237056, "duration_s": 35.25, "cost_usd": 0.027358, "error": null}
+== codex / multi_archivo run 3/3 ==
+{"task": "multi_archivo", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 184364, "tokens_out": 1536, "cache_read": 179152, "duration_s": 30.31, "cost_usd": 0.021015, "error": null}
+== codex / offbyone run 1/3 ==
+{"task": "offbyone", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 89462, "tokens_out": 721, "cache_read": 75616, "duration_s": 9.73, "cost_usd": 0.012436, "error": null}
+== codex / offbyone run 2/3 ==
+{"task": "offbyone", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 77275, "tokens_out": 535, "cache_read": 76576, "duration_s": 10.32, "cost_usd": 0.008402, "error": null}
+== codex / offbyone run 3/3 ==
+{"task": "offbyone", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 89403, "tokens_out": 715, "cache_read": 88528, "duration_s": 10.39, "cost_usd": 0.00983, "error": null}
+== codex / output_grande run 1/3 ==
+{"task": "output_grande", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 43306, "tokens_out": 289, "cache_read": 30624, "duration_s": 5.17, "cost_usd": 0.007156, "error": null}
+== codex / output_grande run 2/3 ==
+{"task": "output_grande", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 43288, "tokens_out": 280, "cache_read": 42992, "duration_s": 4.75, "cost_usd": 0.004668, "error": null}
+== codex / output_grande run 3/3 ==
+{"task": "output_grande", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 43335, "tokens_out": 298, "cache_read": 43040, "duration_s": 6.39, "cost_usd": 0.00469, "error": null}
+== codex / promedio run 1/3 ==
+{"task": "promedio", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 76845, "tokens_out": 599, "cache_read": 70208, "duration_s": 11.07, "cost_usd": 0.009611, "error": null}
+== codex / promedio run 2/3 ==
+{"task": "promedio", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 65122, "tokens_out": 459, "cache_read": 64688, "duration_s": 6.53, "cost_usd": 0.007058, "error": null}
+== codex / promedio run 3/3 ==
+{"task": "promedio", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 65404, "tokens_out": 509, "cache_read": 64880, "duration_s": 7.27, "cost_usd": 0.007154, "error": null}
+== codex / recuperacion_test_roto run 1/3 ==
+{"task": "recuperacion_test_roto", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 181488, "tokens_out": 1563, "cache_read": 165264, "duration_s": 20.27, "cost_usd": 0.022957, "error": null}
+== codex / recuperacion_test_roto run 2/3 ==
+{"task": "recuperacion_test_roto", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 209247, "tokens_out": 1348, "cache_read": 203088, "duration_s": 18.46, "cost_usd": 0.023504, "error": null}
+== codex / recuperacion_test_roto run 3/3 ==
+{"task": "recuperacion_test_roto", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 249147, "tokens_out": 1417, "cache_read": 245760, "duration_s": 18.05, "cost_usd": 0.027009, "error": null}
+== codex / rollback_o_regresion run 1/3 ==
+{"task": "rollback_o_regresion", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 215245, "tokens_out": 2074, "cache_read": 197168, "duration_s": 22.83, "cost_usd": 0.027214, "error": null}
+== codex / rollback_o_regresion run 2/3 ==
+{"task": "rollback_o_regresion", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 173273, "tokens_out": 1288, "cache_read": 161264, "duration_s": 25.39, "cost_usd": 0.021017, "error": null}
+== codex / rollback_o_regresion run 3/3 ==
+{"task": "rollback_o_regresion", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 147896, "tokens_out": 1683, "cache_read": 142656, "duration_s": 22.0, "cost_usd": 0.017521, "error": null}
+== codex / test_driven run 1/3 ==
+{"task": "test_driven", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 127605, "tokens_out": 2001, "cache_read": 109184, "duration_s": 19.61, "cost_usd": 0.018446, "error": null}
+== codex / test_driven run 2/3 ==
+{"task": "test_driven", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 130661, "tokens_out": 2096, "cache_read": 124368, "duration_s": 19.77, "cost_usd": 0.016421, "error": null}
+== codex / test_driven run 3/3 ==
+{"task": "test_driven", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 114387, "tokens_out": 1888, "cache_read": 109120, "duration_s": 17.75, "cost_usd": 0.01438, "error": null}
+[bench] codex: 43/45 OK · costo $0.8561 · duración 2283s±123
+[bench] codex: tareas 14/15 todas-las-réplicas (15/15 al menos una)
+== hermes / anti_bucle_imposible run 1/3 ==

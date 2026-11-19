@@ -49,4 +49,18 @@
 
 ## Reporting
 
-(Pendiente E4: canal de reporte de vulnerabilidades.)
+Report vulnerabilities PRIVATELY — do not open a public issue.
+
+- **GitHub Private Vulnerability Reporting** (preferred): on the repo page,
+  Security → Report a vulnerability.
+- **Email**: [PENDIENTE: el dueño del proyecto debe poner aquí un correo
+  real antes de publicar — ver checklist E4] — include "tlamati security"
+  in the subject.
+
+Scope we care most about: sandbox escapes from the bwrap jail, permission
+escalation paths (anything that turns ASK/DENY into silent AUTO), audit-ledger
+tampering, plugin/MCP trust-boundary violations, and prompt-cache poisoning
+(history edits before the last breakpoint).
+
+We follow a 90-day disclosure window: we ask for a private report first and
+coordinate a fix + advisory; credit to reporters who want it.
