@@ -187,3 +187,49 @@ class TestSandboxSeesMntC:
         proc = subprocess.run(wrapped, shell=True, capture_output=True, text=True, timeout=30)
         assert "MNT_C_VISIBLE" in proc.stdout
         assert proc.returncode == 0
+
+
+class TestWindowsDirHint:
+    """Bug 3 autopsia dogfooding #2: ~/Desktop no existe en WSL y ningún tool
+    sugería /mnt/c/Users/<usuario>/Desktop — el modelo vagó 8 turnos."""
+
+    def test_hint_on_missing_desktop(self, fake_mnt: Path) -> None:
+        from tlamati.tools.winpath import windows_dir_hint
+
+        missing = Path.home() / "Desktop" / "notas.txt"
+        if missing.exists():
+            pytest.skip("~/Desktop existe de verdad en esta máquina")
+        hint = windows_dir_hint(missing)
+        assert "PISTA" in hint
+        assert str(fake_mnt / "c/Users/Admin/Desktop/notas.txt") in hint
+
+    def test_no_hint_for_plain_missing_path(self, fake_mnt: Path) -> None:
+        from tlamati.tools.winpath import windows_dir_hint
+
+        assert windows_dir_hint(Path("/tmp/seguro-no-existe/archivo.txt")) == ""
+
+    def test_no_hint_when_existing(self, fake_mnt: Path) -> None:
+        from tlamati.tools.winpath import windows_dir_hint
+
+        real = fake_mnt / "c/Users/Admin/Desktop/notas.txt"
+        assert windows_dir_hint(real) == ""
+
+    def test_no_hint_without_windows_users(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from tlamati.tools.winpath import windows_dir_hint
+
+        empty = tmp_path / "mnt-vacio"
+        empty.mkdir()
+        monkeypatch.setattr(winpath, "MOUNT_ROOT", empty)
+        assert windows_dir_hint(Path("/no/monta/Desktop/x.txt")) == ""
+
+    async def test_read_file_error_includes_hint(self, fake_mnt: Path, tmp_path: Path) -> None:
+        tools = {t.name: t for t in make_file_tools(tmp_path)}
+        missing = Path.home() / "Desktop" / "notas.txt"
+        if missing.exists():
+            pytest.skip("~/Desktop existe de verdad en esta máquina")
+        out = await tools["read_file"].run({"path": str(missing)})
+        assert out.startswith("ERROR: no such file")  # fallo honesto intacto
+        assert "PISTA" in out
+        assert "c/Users/Admin/Desktop/notas.txt" in out

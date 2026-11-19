@@ -92,3 +92,37 @@ def normalize_win_in_command(cmd: str) -> str:
             return token
 
     return _CMD_TOKEN_RE.sub(_sub, cmd)
+
+
+# Bug 3 autopsia dogfooding #2: el modelo gastó 8 turnos vagando porque
+# ~/Desktop NO existe en WSL y NINGÚN tool le sugirió /mnt/c/Users/<usuario>/.
+_WINDOWS_DIR_NAMES = frozenset(
+    {"Desktop", "Documents", "Downloads", "Escritorio", "Documentos", "Descargas"}
+)
+
+
+def windows_dir_hint(path: Path) -> str:
+    """Si ``path`` no existe y contiene una carpeta típica de usuario Windows
+    (Desktop/Documents/Downloads, o su nombre en español), devuelve una pista
+    honesta con candidatos REALES encontrados bajo /mnt/*/Users/*/.
+
+    NO auto-resuelve (el fallo sigue siendo honesto): solo sugiere. Devuelve
+    "" si no aplica (la ruta existe, no hay carpeta típica, no hay usuarios
+    Windows visibles, o no es WSL)."""
+    if path.exists():
+        return ""
+    idx = next((i for i, part in enumerate(path.parts) if part in _WINDOWS_DIR_NAMES), None)
+    if idx is None:
+        return ""
+    tail = path.parts[idx:]
+    try:
+        users = sorted(p for p in MOUNT_ROOT.glob("*/Users/*") if p.is_dir())
+    except OSError:
+        return ""
+    if not users:
+        return ""
+    cands = ", ".join(str(u.joinpath(*tail)) for u in users[:3])
+    return (
+        " PISTA: en WSL ~/Desktop no existe — tus archivos de Windows están"
+        f" bajo /mnt/<letra>/Users/. Candidatos encontrados: {cands}"
+    )

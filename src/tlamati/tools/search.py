@@ -35,7 +35,9 @@ def make_search_tools(workdir: Path) -> list[Any]:
         except WinPathError as e:
             return f"ERROR: {e}"
         if not base.exists():
-            return f"ERROR: path does not exist: {base}"
+            from tlamati.tools.winpath import windows_dir_hint
+
+            return f"ERROR: path does not exist: {base}{windows_dir_hint(base)}"
 
         rg = shutil.which("rg")
         if rg is None:
