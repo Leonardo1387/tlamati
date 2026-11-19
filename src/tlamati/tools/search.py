@@ -25,10 +25,15 @@ def make_search_tools(workdir: Path) -> list[Any]:
     from tlamati.tools.registry import Permission, Tool
 
     async def search_files(args: dict[str, Any]) -> str:
+        from tlamati.tools.winpath import WinPathError
+
         pattern = str(args.get("pattern", ""))
         target = str(args.get("target", "content"))
         path_arg = str(args.get("path", "."))
-        base = _resolve(workdir, path_arg)
+        try:
+            base = _resolve(workdir, path_arg)
+        except WinPathError as e:
+            return f"ERROR: {e}"
         if not base.exists():
             return f"ERROR: path does not exist: {base}"
 
@@ -134,7 +139,9 @@ def make_search_tools(workdir: Path) -> list[Any]:
 
 
 def _resolve(workdir: Path, path_str: str) -> Path:
-    p = Path(path_str).expanduser()
+    from tlamati.tools.winpath import normalize_win_path
+
+    p = Path(normalize_win_path(path_str)).expanduser()
     if not p.is_absolute():
         p = workdir / p
     return p.resolve()

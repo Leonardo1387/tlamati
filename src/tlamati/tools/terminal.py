@@ -35,7 +35,9 @@ def make_terminal_tools(
     profile = SandboxProfile(workdir=workdir, net=sandbox_net)
 
     async def terminal(args: dict[str, Any]) -> str:
-        cmd = str(args.get("command", ""))
+        from tlamati.tools.winpath import normalize_win_in_command
+
+        cmd = normalize_win_in_command(str(args.get("command", "")))
         effective = cmd
         no_jail = False
         if sandbox:
