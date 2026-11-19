@@ -194,6 +194,8 @@ class TlamatiApp(App[None]):
         workdir: Path | None = None,
         session_db: str | None = None,
         skills_extra_dirs: list[Path] | None = None,
+        max_turns: int = 60,
+        stall_repeats: int = 3,
     ) -> None:
         super().__init__()
         self.workdir = workdir or Path.cwd()
@@ -202,6 +204,10 @@ class TlamatiApp(App[None]):
         # IGUAL que headless (pitfall #5 sesión 20: el flag existía en cli.py
         # desde C3 y la TUI lo ignoró — el fundador lo descubrió usándola).
         self._skills_extra_dirs = list(skills_extra_dirs or [])
+        # E3d PASO B: límites configurables (antes 20 hardcodeado = muro con
+        # frenazo seco). max_turns <= 0 = yolo; stall_repeats = detector de
+        # bucles muertos (mismo tool call N turnos seguidos → corte + aviso).
+        self._stall_repeats = stall_repeats
         self._always_allow: set[str] = set()
         self._history: list[Message] = []
         self._turn_text: list[str] = []
@@ -217,7 +223,10 @@ class TlamatiApp(App[None]):
         self.store: SessionStore | None = None
         self.session_id: str | None = None
         self.ledger: Ledger | None = None
-        self.max_turns = 20
+        self.max_turns = max_turns
+        # E3d PASO B: al topar el muro NO hay frenazo seco — se ofrece
+        # continuar ("continúa") o pedir un resumen ("resumen").
+        self._awaiting_wall_choice = False
         self.setup_error: str | None = None
 
     # ------------------------------------------------------------------ UI
@@ -371,6 +380,18 @@ class TlamatiApp(App[None]):
         if not text or self._busy or self.registry is None:
             return
         ta.clear()
+        # E3d PASO B: tras topar el muro, el siguiente mensaje del usuario
+        # decide — "continúa" reanuda con la historia intacta, "resumen" pide
+        # un resumen de lo hecho (donor: Hermes lo fuerza a los 90 turnos;
+        # aquí se OFRECE, nunca se fuerza). Cualquier otro texto = mensaje
+        # normal (igual reanuda, la sesión C1 persiste).
+        if self._awaiting_wall_choice and text.lower().startswith("resumen"):
+            self._busy = True
+            self._add_user(text)
+            self.run_worker(self._make_summary(), exclusive=True)
+            return
+        if self._awaiting_wall_choice:
+            self._awaiting_wall_choice = False
         self._busy = True
         self._add_user(text)
         self.run_worker(self._run_prompt(text), exclusive=True)
@@ -400,6 +421,7 @@ class TlamatiApp(App[None]):
                 tools=self.registry,
                 budget=self.budget,
                 max_turns=self.max_turns,
+                stall_repeats=self._stall_repeats,
                 on_event=self._handle_event,
                 compactor=self.compactor,
                 history=list(self._history) or None,
@@ -419,9 +441,62 @@ class TlamatiApp(App[None]):
             + (f" · error={result.error}" if result.error else ""),
             cls=status_cls,
         )
+        # E3d PASO B: al topar un límite NO hay frenazo seco — se explica y se
+        # ofrece elegir. stall = bucle muerto (el aviso ya viene en result.error).
+        if result.stop_reason == "max_turns":
+            self._awaiting_wall_choice = True
+            self._note(
+                f"Límite de {self.max_turns} turnos alcanzado. Escribe 'continúa' "
+                "para seguir donde quedamos (la historia está intacta), o "
+                "'resumen' para un resumen de lo hecho.",
+            )
+        elif result.stop_reason == "stall":
+            self._note(
+                "Bucle detectado y cortado automáticamente (misma llamada, "
+                "mismos argumentos, sin avance). Escribe qué ajustar, o "
+                "'resumen' para un resumen de lo hecho.",
+                cls="tool-error",
+            )
+            self._awaiting_wall_choice = True
         self._flush_stream(force=True)
         self._turn_md = None
         self._turn_text = []
+        self._busy = False
+
+    async def _make_summary(self) -> None:
+        """E3d PASO B (donor Hermes, que lo fuerza a los 90 turnos; aquí se
+        OFRECE): resumen del transcript con el ModelSummarizer de A6 (modelo
+        barato + cadena de fallback). Gasto real, contado en la sesión."""
+        self._awaiting_wall_choice = False
+        summarizer = self.compactor.summarizer if self.compactor else None
+        if summarizer is None:
+            self._note("[resumen] sin summarizer disponible", cls="tool-error")
+            self._busy = False
+            return
+        transcript = "\n".join(f"{m.role}: {m.content}" for m in self._history if m.content)[
+            -60_000:
+        ]
+        summary, summary_usage = await summarizer.summarize(
+            "Resume en cristiano qué se ha hecho en esta sesión, qué falta y "
+            "dónde quedó el trabajo:\n\n" + transcript
+        )
+        # Contabilidad honesta: el resumen es gasto real → al ledger.
+        if self.ledger is not None and summary_usage.input_tokens:
+            self.ledger.record_turn_cost(
+                turn=-1,  # fuera de la corrida (evento de cierre)
+                input_tokens=summary_usage.input_tokens,
+                output_tokens=summary_usage.output_tokens,
+                cache_read=summary_usage.cache_read_tokens,
+                cost_usd=summary_usage.cost_usd,
+            )
+        if summary is None:
+            self._note("[resumen] el modelo de resumen falló (cadena agotada)", cls="tool-error")
+        else:
+            self._note("[resumen] de lo hecho hasta ahora:", cls="")
+            self._turn_text = [summary]
+            self._flush_stream(force=True)
+            self._turn_md = None
+            self._turn_text = []
         self._busy = False
 
     def _persist_message(self, m: Message) -> None:
@@ -519,6 +594,8 @@ def run_tui(
     workdir: Path | None = None,
     session_db: str | None = None,
     skills_extra_dirs: list[Path] | None = None,
+    max_turns: int = 60,
+    stall_repeats: int = 3,
 ) -> int:
     """Entry point del CLI. `textual` es extra opcional (decisión #4)."""
     try:
@@ -529,6 +606,12 @@ def run_tui(
             file=sys.stderr,
         )
         return 2
-    app = TlamatiApp(workdir=workdir, session_db=session_db, skills_extra_dirs=skills_extra_dirs)
+    app = TlamatiApp(
+        workdir=workdir,
+        session_db=session_db,
+        skills_extra_dirs=skills_extra_dirs,
+        max_turns=max_turns,
+        stall_repeats=stall_repeats,
+    )
     app.run()
     return 0

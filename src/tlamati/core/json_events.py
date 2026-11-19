@@ -35,10 +35,12 @@ EXIT_ERROR = 4  # error de provider o del loop
 EXIT_ABORTED = 5  # abortado por el usuario (SIGINT x2)
 EXIT_REFUSAL = 6  # el modelo se rehusó
 EXIT_MAX_TOKENS = 7  # tope de tokens de salida alcanzado
+EXIT_STALL = 8  # E3d: bucle detectado (mismos tool calls N turnos seguidos)
 
 _EXIT_BY_REASON: dict[str, int] = {
     "end_turn": EXIT_OK,
     "max_turns": EXIT_MAX_TURNS,
+    "stall": EXIT_STALL,
     "budget_exceeded": EXIT_BUDGET,
     "error": EXIT_ERROR,
     "aborted": EXIT_ABORTED,

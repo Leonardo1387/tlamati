@@ -191,8 +191,12 @@ class TestDelegateTool:
         assert len(child_p.calls) == 1  # el 2do turno se bloqueó ANTES de gastar
 
     async def test_max_turns_cap_se_respeta(self, workdir: Path) -> None:
+        # offset variable: progreso real → mide el CAP, no el detector E3d.
         child_p = FakeProvider(
-            [[("tool", f"s{i}", "read_file", {"path": "nota.txt"})] for i in range(50)]
+            [
+                [("tool", f"s{i}", "read_file", {"path": "nota.txt", "offset": i + 1})]
+                for i in range(50)
+            ]
         )
         cfg = SubagentConfig(max_turns_cap=3, max_turns_default=2)
         tool = _delegate(child_p, workdir, cfg=cfg)

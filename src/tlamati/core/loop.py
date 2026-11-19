@@ -60,7 +60,7 @@ class LoopResult:
     """Terminal accounting of one run — feeds evals JSONL (A7) and the TUI."""
 
     final_text: str
-    stop_reason: str  # end_turn | max_turns | budget_exceeded | aborted | error | refusal
+    stop_reason: str  # end_turn | max_turns | stall | budget_exceeded | aborted | error | refusal
     turns: int
     usage: Usage
     error: str | None = None
@@ -162,13 +162,20 @@ async def run_loop(
     user_prompt: str,
     tools: Registry,
     budget: Budget,
-    max_turns: int = 20,
+    max_turns: int = 60,
+    stall_repeats: int = 3,
     on_event: LoopEvent | None = None,
     compactor: Compactor | None = None,
     history: list[Message] | None = None,
     on_message: Callable[[Message], None] | None = None,
 ) -> LoopResult:
-    """Run the agent until end_turn, budget, max_turns, abort, or error.
+    """Run the agent until end_turn, budget, max_turns, stall, abort, or error.
+
+    E3d PASO B (diseño del fundador): max_turns <= 0 = "yolo" (sin muro global;
+    el presupuesto de contexto sigue siendo el techo sagrado). El detector de
+    estancamiento es INDEPENDIENTE: misma herramienta + mismos argumentos
+    ``stall_repeats`` turnos seguidos = bucle muerto → corte duro con
+    stop_reason="stall" (0 lo desactiva).
 
     C1 (session store): ``history`` seeds a RESUMED conversation (messages are
     replayed as-is; the loop stays provider-blind). ``on_message`` is called
@@ -190,7 +197,15 @@ async def run_loop(
 
     try:
         return await _run_inner(
-            provider, state, tools, budget, max_turns, on_event, compactor, on_message
+            provider,
+            state,
+            tools,
+            budget,
+            max_turns,
+            on_event,
+            compactor,
+            on_message,
+            stall_repeats=stall_repeats,
         )
     except _Abort:
         return LoopResult(
@@ -212,6 +227,21 @@ async def run_loop(
             signal.signal(signal.SIGINT, prev_handler)
 
 
+def _calls_signature(assistant: Message) -> str | None:
+    """Firma de avance del turno: herramientas + argumentos exactos (json
+    canónico). Sin tool calls = None (el turno de texto nunca "repite").
+    Editar el mismo archivo con contenido DISTINTO cambia la firma → no cuenta
+    como bucle; reintentar lo IDÉNTICO esperando otro resultado, sí."""
+    if not assistant.tool_calls:
+        return None
+    return json.dumps(
+        [(tc.name, tc.arguments) for tc in assistant.tool_calls],
+        ensure_ascii=False,
+        sort_keys=True,
+        default=str,
+    )
+
+
 async def _run_inner(
     provider: Provider,
     state: LoopState,
@@ -221,10 +251,18 @@ async def _run_inner(
     on_event: LoopEvent,
     compactor: Compactor | None = None,
     on_message: Callable[[Message], None] | None = None,
+    *,
+    stall_repeats: int = 3,
 ) -> LoopResult:
     last_text = ""
     tool_specs = tools.specs()
-    while state.turns < max_turns:
+    # Detector de estancamiento (E3d PASO B, diseño del fundador): la misma
+    # firma de tool calls N turnos seguidos = bucle muerto → corte duro y
+    # AVISO explícito (nada de loops interminables en silencio). stall_repeats
+    # <= 0 desactiva el detector.
+    prev_signature: str | None = None
+    repeat_count = 0
+    while max_turns <= 0 or state.turns < max_turns:
         # Interjection v1: pending user message enters at turn start.
         if state.pending_interjection:
             interj = Message(role="user", content=state.pending_interjection)
@@ -327,6 +365,33 @@ async def _run_inner(
             state.history.append(tool_msg)
             if on_message is not None:
                 on_message(tool_msg)
+
+        # Detector de estancamiento: firma idéntica N turnos seguidos = corte.
+        if stall_repeats > 0 and assistant.tool_calls:
+            signature = _calls_signature(assistant)
+            if signature == prev_signature:
+                repeat_count += 1
+            else:
+                repeat_count = 1
+            prev_signature = signature
+            if repeat_count >= stall_repeats:
+                nombres = ", ".join(sorted({tc.name for tc in assistant.tool_calls}))
+                msg = (
+                    f"bucle detectado: {repeat_count} turnos seguidos llamando "
+                    f"{nombres} con los MISMOS argumentos, sin avance. "
+                    "Corrida detenida (stop_reason=stall)."
+                )
+                on_event("stall", {"repeats": repeat_count, "tools": nombres})
+                return LoopResult(
+                    final_text=last_text,
+                    stop_reason="stall",
+                    turns=state.turns,
+                    usage=state.usage,
+                    error=msg,
+                )
+        elif stall_repeats > 0:
+            prev_signature = None
+            repeat_count = 0
 
         await asyncio.sleep(0)  # yield to event loop (signal delivery)
 

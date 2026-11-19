@@ -255,7 +255,12 @@ class LoopFakeProvider:
             self.turns_left -= 1
             tid = f"c{len(self.calls)}"
             yield ToolCallStart(id=tid, name="read_file")
-            yield ToolCallArgsDelta(id=tid, args_json=json.dumps({"path": "big.txt"}))
+            # _tick variable: campo inerte que cambia la firma del turno (el
+            # detector de estancamiento E3d ve progreso) SIN alterar la salida
+            # de read_file (la intención del test es llenar contexto idéntico).
+            yield ToolCallArgsDelta(
+                id=tid, args_json=json.dumps({"path": "big.txt", "_tick": len(self.calls)})
+            )
             yield MessageEnd(stop_reason="tool_use", usage=Usage(input_tokens=10, output_tokens=5))
         else:
             yield TextDelta(text="TERMINADO")
