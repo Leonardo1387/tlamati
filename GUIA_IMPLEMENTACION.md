@@ -16,17 +16,17 @@ v0.1 · 14-nov-2026 · Compañera de PRD_TLAMATI.md
 | Claude Code 2.1.92 instalado npm (cli.js 59MB minificado) — blanco REA conductual | OK |
 | Codex 0.133 instalado + fuente Rust vendor/codex (Apache-2.0) | OK |
 | Clones en vendor/: codex, opencode, qwen-code, gemini-cli, grok-build, DeepSeek-Reasonix, harness2, claude-code + hermes local — 8 sustratos de estudio | OK |
-| LLM acceso: OpenRouter (Anthropic claude-sonnet-4-6 vía base_url), Enverge spark-26 (coder 80B + q35b), Ollama configurable | OK |
+| LLM acceso: OpenRouter (Anthropic claude-sonnet-4-6 vía base_url), GPU alquilada por hora (coder 80B + q35b), Ollama configurable | OK |
 | Regla de negocio: latencia ≤30s, calidad intocable, $0 de dependencias de pago | OK |
 
 ### Falta descargar (pocos; TODO gratis/open-source)
 1. `sudo apt install ripgrep bubblewrap sqlite3` ← ESTO REQUIERE TU CLAVE SUDO (intenté: "a password is required"). 3 pkgs: ~6MB.
 2. `uv venv + uv add` en tlamati/: textual (TUI), rich, jsonschema, httpx, aiosqlite, pytest, ruff, mypy. (0 deps de pago)
 3. Opcional v2: `npm i -g @zed-industries/agent-client-protocol` no — ACP es protocolo, se implementa sobre stdio JSON-RPC, sin pkg. Tree-sitter (`pip tree-sitter + grammars`, Apache) solo cuando toque búsqueda semántica.
-4. gh repo: crear leonardoGH/tlamati (privado → público al v0.1).
+4. gh repo: crear <usuario>/tlamati (privado → público al v0.1).
 
 ### NO se necesita ni se usará
-- Ningún SDK de Anthropic/OpenAI pago adicional; todo por HTTP contra OpenRouter/Ollama/Enverge.
+- Ningún SDK de Anthropic/OpenAI pago adicional; todo por HTTP contra OpenRouter/Ollama/GPU-alquilada.
 - Docker no es requisito (sandbox = bwrap; docker como backend opcional v2).
 
 ---
@@ -77,7 +77,7 @@ D3. MCP client stdio mínimo: initialize → tools/list → mapear a Tool regist
 ## FASE E — Superficies + eval completo + pulido OSS (F7+F10). ~1 jornada
 E1. TUI Textual: input multilínea, stream con markdown, diff viewer con approve/reject, barra de costo/tokens por turno (context_breakdown visible), panel de sesiones.
 E2. Headless: `tlamati -p "..." --json` (JSONL events) para CI; exit codes honestos.
-E3. Suite eval: ≥20 tareas (terminal/file/git/reasoning/latencia), 3 modelos objetivo (sonnet-4 vía OR, coder80B Enverge, qwen3-ollama). Matriz ARNÉS×modelo documentada en EVALS.md — nuestro argumento del Paso 1: muestra el delta de arnés.
+E3. Suite eval: ≥20 tareas (terminal/file/git/reasoning/latencia), 3 modelos objetivo (sonnet-4 vía OR, coder80B en GPU alquilada, qwen3-ollama). Matriz ARNÉS×modelo documentada en EVALS.md — nuestro argumento del Paso 1: muestra el delta de arnés.
 E4. Docs: README (por qué/qué NO es), ARCHITECTURE.md (narrow waist + invariantes), CONTRIBUTING.md, SECURITY.md (trifecta + reporting), CHANGELOG + release-please.
 E5. Publicar: `gh repo create tlamati --public`, tag v0.1.0, post HN/foros.
 

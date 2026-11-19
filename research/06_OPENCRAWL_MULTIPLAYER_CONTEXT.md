@@ -74,7 +74,7 @@ Antigravity, Grok Bot y "cualquier cliente MCP"). Dos capacidades:
 
 3. ¿CONSTRUIR ALGO ASÍ = otro proyecto? SÍ, completamente distinto: es
    infraestructura de equipo (servidor + índices + conectores + consola),
-   no un harness. Si en el futuro el programa/B2B pidiera "memoria de
+   no un harness. Si en el futuro el modelo de negocio B2B pidiera "memoria de
    equipo para abogados", la respuesta correcta sería self-hostear
    OpenCrawl (Apache-2.0, permiso de uso comercial con atribución) y
    conectar nuestros agentes por MCP — NO reescribirlo.

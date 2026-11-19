@@ -1,6 +1,6 @@
 """OpenAI-compatible chat/completions adapter.
 
-Covers OpenRouter, Ollama, vLLM, Enverge — anything exposing
+Covers OpenRouter, Ollama, vLLM — anything exposing
 POST {base_url}/chat/completions with SSE streaming. Config = base_url +
 api_key + model (PRD §3 #2: the model is a plug-in).
 

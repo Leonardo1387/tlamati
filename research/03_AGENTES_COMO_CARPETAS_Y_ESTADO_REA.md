@@ -1,6 +1,6 @@
 # PASO 2.5 — "Agentes como carpetas" (video, 14-nov-2026) + estado real de REA
 
-## 1. Video revisado: /mnt/c/Users/Admin/Desktop/agents as folders.txt (transcripción, 22:55)
+## 1. Video revisado: /mnt/c/Users/<usuario>/Desktop/agents as folders.txt (transcripción, 22:55)
 
 Tesis del autor: el "archivo de trabajo" (workspace) como sistema operativo del agente —
  folders + markdown + routing en lenguaje natural, sin base de datos ni código.

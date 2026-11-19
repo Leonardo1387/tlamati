@@ -81,7 +81,7 @@ SÍ, con dos reglas:
    27% en Terminal-Bench con Claude Code (tbench.ai, 17-nov-2026)" da marco a
    qué esperar de modelos de esa familia en tareas duras.
 
-## 4. COMPARAR CON LOS MODELOS DEL ENJAMBRE (Enverge spark-26) vs FRONTIER
+## 4. COMPARAR CON LOS MODELOS DEL ENJAMBRE (GPU alquilada por hora) vs FRONTIER
 
 Lo que hay: node0=Super-VL (nemotron), w1=coder80B+q35b, w2/w3=q35b. Túneles
 SSH frágiles (mueren, reconectar desde WSL). ¿Versión API? El enjambre es
@@ -101,7 +101,7 @@ Opinión honesta (Hermes):
   sonnet (OR). En fixtures MEDIA-ALTAS (las 5 nuevas) el techo no se toca: si
   qwen3-coder hace 6/10 y sonnet 9/10, hay delta real. Esto prueba además que
   Tlamati es model-agnostic (argumento de adopción OSS) y le da uso al enjambre
-  como "proveedor local barato" — narrativa programa (costo $0 marginal).
+  como "proveedor local barato" — narrativa de cómputo propio (costo $0 marginal).
 
 ## 5. PROPUESTA CONCRETA PARA E3 (para decisión del fundador)
 
@@ -111,7 +111,7 @@ Opinión honesta (Hermes):
    gemini-cli si instala) — mismo modelo qwen3-coder vía OR. 10 fixtures.
 3. E3b-tabla2 (eje MODELO, nueva y barata): Tlamati + {qwen3-coder OR,
    coder80B enjambre, sonnet OR} en las 5 fixtures duras. Requiere túnel
-   Enverge vivo en el momento de la corrida.
+   el proveedor de GPU vivo en el momento de la corrida.
 4. EVALS.md: nuestras tablas + sección "contexto público" citando tbench.ai
    (con fecha) y el caso dirac. NUNCA números inventados.
 5. Terminal-Bench oficial = campaña post-v0.1 opcional (presupuesto aparte).
@@ -124,7 +124,7 @@ gasto es sonnet (caro por tarea). Total probable: <$5-10. Enjambre: $0 marginal.
 
 Idea del fundador (verbatim): "rentamos 1 DGX Spark de 90 centavos la hora, le
 integramos los modelos de código abierto y los evals... probar el 120b, coder
-80b y 35b". Ya existen scripts de instalación del enjambre Enverge spark-26
+80b y 35b". Ya existen scripts de instalación del enjambre de GPU alquilada
 (los modelos van FP4/cuantizados 4-bit para CUDA del Spark — decisión previa
 del fundador, no re-cuantizar).
 
@@ -136,7 +136,7 @@ a $0/token marginal; la corrida completa = solo la renta ($0.90/h × horas).
 Tablas que se persiguen:
 - TABLA MODELO (arnés constante Tlamati): qwen3-coder OR vs 35B vs 80B vs
   120B locales vs sonnet frontier, en las 5 fixtures duras. Prueba
-  model-agnostic + narrativa programa (cómputo propio vs paga).
+  model-agnostic + narrativa de cómputo propio vs paga.
 - TABLA ARNÉS con modelo LOCAL (el dato estrella estilo dirac): "Nemotron
   120B con Claude Code = X%, con Tlamati = Y%". Claude Code acepta apuntar
   fuera de Anthropic vía ANTHROPIC_BASE_URL / claude-code-router; codex vía

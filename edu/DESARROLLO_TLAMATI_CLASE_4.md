@@ -10,7 +10,7 @@ el grano. Está en /etc/shadow y ni root puede leer la original; solo puede
 comparar huellas. Por eso buscar la contraseña en archivos es imposible, y por
 eso la solución fue otra: **resetear**. WSL tiene una puerta trasera legítima:
 desde PowerShell de Windows, `wsl -u root` te da un root sin contraseña (porque
-Windows ya te autenticó al arrancar). Desde ahí, `passwd usuario` y listo.
+Windows ya te autenticó al arrancar). Desde ahí, `passwd <usuario>` y listo.
 
 El segundo tropiezo fue más mundano y más instructivo: `apt` dijo "Could not get
 lock... held by process 166644". Un **lock** (candado) es un archivo que usa un
@@ -73,11 +73,11 @@ uv run tlamati-eval --model qwen/qwen3-coder --out evals/check.jsonl  # → 5/5 
 ```
 Git/GitHub (hoy estrenamos remoto):
 ```bash
-gh repo create leonardoGH/tlamati --private --source=. --remote=origin --push
+gh repo create <usuario>/tlamati --private --source=. --remote=origin --push
 git push -u origin main
-gh repo edit leonardoGH/tlamati --default-branch main
+gh repo edit <usuario>/tlamati --default-branch main
 ```
-Estado final: main = commit 7b0a36e (B2), subido a github.com/leonardoGH/tlamati
+Estado final: main = commit 7b0a36e (B2), subido a github.com/<usuario>/tlamati
 (privado hasta v0.1, como manda el plan).
 
 ### Qué decidimos NO construir
