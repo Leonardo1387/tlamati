@@ -37,5 +37,10 @@ evals/*.log
 evals/b5_check2.jsonl
 evals/b5_check3.jsonl
 
+# Handoffs de sesión y docs internos de negocio — FUERA del repo
+# (decisión fundador sesión 23; viven en disco local)
+HANDOFF_*.md
+research/07_POOL_DE_TALENTO.md
+
 # Salidas de dogfooding (video_build contiene narration.mp3 = voz del fundador)
 video_build*/
