@@ -52,6 +52,22 @@ def test_user_dirs_wsl_encuentra_desktop_en_mounts(
     assert win_desktop in dirs["desktop"]
 
 
+def test_user_dirs_wsl_excluye_perfiles_sistema(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """All Users/Default/Default User/Public NO son usuarios reales."""
+    fake_mnt = tmp_path / "mnt"
+    for user in ("jane", "All Users", "Default", "Default User", "Public"):
+        (fake_mnt / "c" / "Users" / user / "Desktop").mkdir(parents=True)
+    import tlamati.tools.winpath as winpath_mod
+
+    monkeypatch.setattr(winpath_mod, "MOUNT_ROOT", fake_mnt)
+    home = tmp_path / "home"
+    home.mkdir()
+    dirs = user_dirs(home, wsl=True)
+    assert dirs["desktop"] == [fake_mnt / "c" / "Users" / "jane" / "Desktop"]
+
+
 def test_user_dirs_linux_nativo_sin_wsl(tmp_path: Path) -> None:
     home = tmp_path / "home"
     (home / "Documentos").mkdir(parents=True)  # nombre español (Linux ES)
