@@ -1,0 +1,1 @@
+{"task": "ducto_cascada_l3", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 1317629, "tokens_out": 5696, "cache_read": 1275218, "duration_s": 118.11, "cost_usd": 0.538608, "error": null}

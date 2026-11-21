@@ -1,0 +1,10 @@
+== tlamati / cadena_defectos_l1 ==
+{"task": "cadena_defectos_l1", "harness": "tlamati", "run": 1, "success": true, "turns": 4, "tokens_in": 35993, "tokens_out": 573, "cache_read": 26811, "duration_s": 6.4, "cost_usd": 0.026775, "error": null}
+== tlamati / ducto_reglas_l2 ==
+{"task": "ducto_reglas_l2", "harness": "tlamati", "run": 1, "success": true, "turns": 5, "tokens_in": 68565, "tokens_out": 2181, "cache_read": 59065, "duration_s": 17.36, "cost_usd": 0.046717, "error": null}
+[bench] tlamati: 2/2 OK · costo $0.0735 · duración 24s±8
+== codex / cadena_defectos_l1 ==
+{"task": "cadena_defectos_l1", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 160472, "tokens_out": 2351, "cache_read": 105095, "duration_s": 46.19, "cost_usd": 0.144773, "error": null}
+== codex / ducto_reglas_l2 ==
+{"task": "ducto_reglas_l2", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 209147, "tokens_out": 3637, "cache_read": 144309, "duration_s": 63.87, "cost_usd": 0.180477, "error": null}
+[bench] codex: 2/2 OK · costo $0.3253 · duración 110s±13

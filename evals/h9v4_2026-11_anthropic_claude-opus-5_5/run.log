@@ -1,0 +1,6 @@
+== tlamati / ducto_cascada_l3 ==
+{"task": "ducto_cascada_l3", "harness": "tlamati", "run": 1, "success": true, "turns": 37, "tokens_in": 459585, "tokens_out": 5426, "cache_read": 440229, "duration_s": 101.62, "cost_usd": 0.27399, "error": null}
+[bench] tlamati: 1/1 OK · costo $0.2740 · duración 102s±0
+== codex / ducto_cascada_l3 ==
+{"task": "ducto_cascada_l3", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 1317629, "tokens_out": 5696, "cache_read": 1275218, "duration_s": 118.11, "cost_usd": 0.538608, "error": null}
+[bench] codex: 1/1 OK · costo $0.5386 · duración 118s±0

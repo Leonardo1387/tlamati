@@ -37,6 +37,10 @@ evals/*.log
 evals/b5_check2.jsonl
 evals/b5_check3.jsonl
 
+# Evidencia de contaminación v3 en CLARO (respuestas de fixtures = acordeón).
+# Los tarballs cifrados sí se versionan; el bak plaintext queda local.
+evals/_abortado_v3/MEMORY.md.contaminado.bak
+
 # Handoffs de sesión y docs internos de negocio — FUERA del repo
 # (decisión fundador sesión 23; viven en disco local)
 HANDOFF_*.md

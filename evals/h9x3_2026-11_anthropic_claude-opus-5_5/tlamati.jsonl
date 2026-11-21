@@ -1,0 +1,6 @@
+{"task": "cadena_defectos_l1", "harness": "tlamati", "run": 1, "success": true, "turns": 5, "tokens_in": 86598, "tokens_out": 2246, "cache_read": 81944, "duration_s": 32.15, "cost_usd": 0.079925, "error": null}
+{"task": "cadena_defectos_l1", "harness": "tlamati", "run": 2, "success": true, "turns": 8, "tokens_in": 185215, "tokens_out": 4203, "cache_read": 156124, "duration_s": 43.51, "cost_usd": 0.231649, "error": null}
+{"task": "cadena_defectos_l1", "harness": "tlamati", "run": 3, "success": true, "turns": 5, "tokens_in": 87551, "tokens_out": 2056, "cache_read": 68418, "duration_s": 30.51, "cost_usd": 0.131336, "error": null}
+{"task": "ducto_reglas_l2", "harness": "tlamati", "run": 1, "success": true, "turns": 6, "tokens_in": 121778, "tokens_out": 4619, "cache_read": 97340, "duration_s": 53.6, "cost_usd": 0.2096, "error": null}
+{"task": "ducto_reglas_l2", "harness": "tlamati", "run": 2, "success": true, "turns": 7, "tokens_in": 146493, "tokens_out": 4672, "cache_read": 120600, "duration_s": 56.38, "cost_usd": 0.221132, "error": null}
+{"task": "ducto_reglas_l2", "harness": "tlamati", "run": 3, "success": true, "turns": 8, "tokens_in": 169460, "tokens_out": 4426, "cache_read": 143312, "duration_s": 66.12, "cost_usd": 0.221774, "error": null}

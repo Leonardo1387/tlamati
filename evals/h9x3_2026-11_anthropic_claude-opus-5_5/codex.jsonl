@@ -1,0 +1,6 @@
+{"task": "cadena_defectos_l1", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 58831, "tokens_out": 1749, "cache_read": 37752, "duration_s": 22.61, "cost_usd": 0.126846, "error": null}
+{"task": "cadena_defectos_l1", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 58961, "tokens_out": 1771, "cache_read": 55354, "duration_s": 20.55, "cost_usd": 0.060919, "error": null}
+{"task": "cadena_defectos_l1", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 58910, "tokens_out": 1887, "cache_read": 55355, "duration_s": 27.87, "cost_usd": 0.063031, "error": null}
+{"task": "ducto_reglas_l2", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 120973, "tokens_out": 4396, "cache_read": 89627, "duration_s": 54.6, "cost_usd": 0.231229, "error": null}
+{"task": "ducto_reglas_l2", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 122736, "tokens_out": 4872, "cache_read": 108456, "duration_s": 52.24, "cost_usd": 0.176251, "error": null}
+{"task": "ducto_reglas_l2", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 123564, "tokens_out": 4340, "cache_read": 109406, "duration_s": 50.85, "cost_usd": 0.165313, "error": null}

@@ -1,0 +1,6 @@
+[2026-11-20 15:32:30] sin runners vivos — arrancando campaña H9 v3 (cascada ciega)
+[2026-11-20 15:33:26] CORRIENDO: openai/gpt-6.2-sol × tlamati (v3 cascada) → evals/h9v3_2026-11_openai_gpt-6_2-sol/
+[2026-11-20 15:33:37] TERMINADO: openai/gpt-6.2-sol × tlamati rc=0
+[2026-11-20 16:08:04] sin runners vivos — arrancando campaña H9 v3 (cascada ciega)
+[2026-11-20 16:08:04] SALTO (ya completo): tlamati × openai/gpt-6.2-sol
+[2026-11-20 16:09:20] CORRIENDO: openai/gpt-6.2-sol × codex (v3 cascada) → evals/h9v3_2026-11_openai_gpt-6_2-sol/

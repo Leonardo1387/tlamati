@@ -1,0 +1,3 @@
+{"task": "ducto_cascada_l3", "harness": "tlamati", "run": 1, "success": true, "turns": 36, "tokens_in": 218136, "tokens_out": 2171, "cache_read": 215562, "duration_s": 35.86, "cost_usd": 0.048414, "error": null}
+{"task": "ducto_cascada_l3", "harness": "tlamati", "run": 2, "success": true, "turns": 36, "tokens_in": 225372, "tokens_out": 2319, "cache_read": 220791, "duration_s": 40.43, "cost_usd": 0.054431, "error": null}
+{"task": "ducto_cascada_l3", "harness": "tlamati", "run": 3, "success": true, "turns": 37, "tokens_in": 214683, "tokens_out": 1604, "cache_read": 213852, "duration_s": 33.69, "cost_usd": 0.039087, "error": null}

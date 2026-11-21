@@ -1,0 +1,2 @@
+{"task": "cadena_defectos_l1", "harness": "tlamati", "run": 1, "success": true, "turns": 4, "tokens_in": 35993, "tokens_out": 573, "cache_read": 26811, "duration_s": 6.4, "cost_usd": 0.026775, "error": null}
+{"task": "ducto_reglas_l2", "harness": "tlamati", "run": 1, "success": true, "turns": 5, "tokens_in": 68565, "tokens_out": 2181, "cache_read": 59065, "duration_s": 17.36, "cost_usd": 0.046717, "error": null}
