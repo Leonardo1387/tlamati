@@ -119,3 +119,35 @@ propio en la misma tabla; (2) columna "fuente" + fecha + fixture distinta en
 cada fila; (3) el puente solo es válido si el codex-externo y el codex-propio
 son versiones/fechas comparables — si no, presentar como contexto separado.
 Detalle y fuentes: research/08_BENCHMARKS_EXISTENTES.md.
+
+## 8. TABLA EXTERNA (Terminal-Bench 4.1, tbench.ai, capturado 20-nov-2026)
+
+FUENTE EXTERNA — NO mezclable con las tablas propias (fixtures y dificultad
+distintas, corridas de $200-16,500). Se lista como CONTEXTO y como "puente
+codex": nuestros 3 modelos frontera de H9 aparecen aquí con OTROS arneses.
+
+| # | Modelo | Arnés | Resolución | Tokens | Costo corrida |
+|---|---|---|---|---|---|
+| 1 | Copilot Fusion (max) | GitHub Copilot | 71.2% ±2.9 | 3.3B | $2.0k |
+| 2 | Opus 5.5 (max) | Claude Code | 65.8% ±3.1 | 8.0B | $4.7k |
+| 5 | Sonnet 5.5 (max) | Claude Code | 63.9% ±3.0 | 19.4B | $7.3k |
+| 6 | GPT-6.2 Astra (max) | Codex | 62.1% ±2.3 | 1.1B | $1.4k |
+| 7 | **GPT-6.2 Sol (max)** | **Codex** | 61.5% ±2.8 | 1.1B | $0.3k |
+| 22 | Grok 4.7 (xhigh) | Grok Build | 38.8% ±3.6 | 5.5B | $3.7k |
+| 29 | **Qwen3.8-Max-0902 (max)** | **Claude Code** | 27.0% ±3.9 | 3.0B | $4.6k |
+
+Puentes posibles (nuestro H9 vs este leaderboard, MISMO modelo):
+- **GPT-6.2 Sol**: aquí Codex=61.5% ($0.3k). En nuestro H9, tlamati hizo la
+  MISMA tarea que Codex al 1/8.6 del costo. tlamati no está en el leaderboard.
+- **Opus 5.5**: aquí Claude Code=65.8% ($4.7k). En H9, tlamati vs codex con
+  Opus = codex 1.9x más caro. No comparamos tlamati vs Claude Code (distintas
+  fixtures) → NO se puede afirmar que tlamati gane/pierda vs Claude Code.
+- **Qwen3.8-Max-0902**: aquí Claude Code=27.0% ($4.6k, nota: variante "max",
+  NO el qwen3-coder de nuestro bench lite). En H9 con este modelo el ratio se
+  invirtió (tlamati más caro) — coherente: es el modelo difícil de domar.
+
+Reglas cumplidas: (1) externo en tabla SEPARADA; (2) fuente+fecha+arnés por
+fila; (3) el puente solo se usa donde el modelo coincide Y se declara que las
+fixtures son distintas (no se promedian porcentajes de pistas diferentes).
+tlamati/hermes/opencode NO figuran en el leaderboard público → no hay número
+externo directo para ellos; el único anclaje es vía el modelo+codex compartido.
