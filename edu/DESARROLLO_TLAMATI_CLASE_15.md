@@ -26,10 +26,10 @@ contener los nombres que busca (sería esconder la llave dentro de la caja
 fuerte); los patrones específicos del dueño viven en un archivo local
 ignorado, `scripts/audit_patterns_local.txt`.
 
-Segundo hallazgo, la herramienta que muerde: `git log -S "usuario"` no busca
-"commits que HOY contienen la cadena" — busca commits que la AGREGARON O
+Segundo hallazgo, la herramienta que muerde: `git log -S "nombre-usuario"` no
+busca "commits que HOY contienen la cadena" — busca commits que la AGREGARON O
 QUITARON. Los borrados también aparecen. Si te asustas con 14 "fantasmas",
-corrobora con `git grep usuario HEAD` (eso sí es el árbol real). Lección de
+corrobora con `git grep nombre-usuario HEAD` (eso sí es el árbol real). Lección de
 literalidad de herramientas: el mismo comando te miente si le preguntas otra
 cosa.
 
