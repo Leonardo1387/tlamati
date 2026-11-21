@@ -39,11 +39,18 @@ def is_wsl() -> bool:
         return False
 
 
+# Perfiles de sistema de Windows: NO son usuarios reales (sus Desktops son
+# plantillas/carpetas públicas) — filtrados del barrido WSL para que el
+# prompt solo muestre escritorios donde realmente vive trabajo del usuario.
+_WIN_SYSTEM_PROFILES = frozenset({"All Users", "Default", "Default User", "Public"})
+
+
 def user_dirs(home: Path, *, wsl: bool | None = None) -> dict[str, list[Path]]:
     """Dirs de usuario REALES por rol: desktop/documents/downloads.
 
-    En WSL además barre /mnt/*/Users/*/<rol> (el escritorio de Windows).
-    Solo devuelve los que existen (is_dir) — cero invención.
+    En WSL además barre /mnt/*/Users/*/<rol> (el escritorio de Windows),
+    excluyendo perfiles de sistema. Solo devuelve los que existen (is_dir)
+    — cero invención.
     """
     if wsl is None:
         wsl = is_wsl()
@@ -66,7 +73,7 @@ def user_dirs(home: Path, *, wsl: bool | None = None) -> dict[str, list[Path]]:
                         sorted(
                             u / en
                             for u in _winpath.MOUNT_ROOT.glob("*/Users/*")
-                            if (u / en).is_dir()
+                            if u.name not in _WIN_SYSTEM_PROFILES and (u / en).is_dir()
                         )
                     )
                 except OSError:
