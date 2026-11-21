@@ -1,5 +1,5 @@
 # PRD — TLAMATI: arnés agéntico open-source, local-first
-Versión 0.1 · 14-nov-2026 · Owner: Leonardo · Nombre: tlamati ("el sabio", náhuatl)
+Versión 0.1 · 14-nov-2026 · Owner: Leonardo Gutiérrez · Nombre: tlamati ("el sabio", náhuatl)
 Licencia elegida: **Apache-2.0** (incluye concesión de patente; MIT aceptable, Apache preferido para proyecto que aspira a adopción corporativa).
 
 ---
@@ -10,7 +10,7 @@ Investigación del Paso 1 (research/01_HALLAZGOS_PASO1.md) demostró que, con mo
 Oportunidad: los mejores arneses abiertos (opencode 226k★, hermes 263k★, codex, gemini-cli, qwen-code) convergen en una receta conocida. Ninguno es *nuestro*: Tlamati es el arnés que corre en la máquina del desarrollador con sus modelos (OpenRouter/Anthropic vía OpenRouter, GPU alquilada por hora para pesos abiertos, Ollama local), sin fugas de datos por comodidad (anti-patrón OpenCode: session-titling con modelo hosted), que hereda las decisiones probadas y evita los costos no probados (no reinventar el sandbox de Windows de 24k LOC).
 
 ## 2. Usuarios
-- **Primario:** Leonardo, power user en WSL/Ubuntu; CLI + TUI; un humano aprueba acciones peligrosas.
+- **Primario:** Leonardo Gutiérrez, power user en WSL/Ubuntu; CLI + TUI; un humano aprueba acciones peligrosas.
 - **Secundario:** devs de la comunidad OSS que corren modelos abiertos en hardware propio (el nicho que winder.ai identifica: "running a harness against open-weight models on your own hardware").
 
 ## 3. Propuesta de valor
