@@ -1,0 +1,1 @@
+{"task": "ducto_cascada_l3", "harness": "tlamati", "run": 1, "success": true, "turns": 74, "tokens_in": 2050159, "tokens_out": 13688, "cache_read": 1990016, "duration_s": 499.8, "cost_usd": 0.699918, "error": null}
