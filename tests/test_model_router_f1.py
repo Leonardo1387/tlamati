@@ -25,42 +25,62 @@ def _mock_json(payload: dict[str, Any], status: int = 200, seen: dict | None = N
             seen["url"] = str(request.url)
             seen["headers"] = dict(request.headers)
         return httpx.Response(status, json=payload)
+
     return httpx.MockTransport(handler)
 
 
-_MODELS = {"data": [{"id": "claude-opus-5-5"}, {"id": "claude-sonnet-3-5"},
-                    {"id": "claude-haiku-4-5"}, {"id": "claude-opus-5-5"}]}
+_MODELS = {
+    "data": [
+        {"id": "claude-opus-5-5"},
+        {"id": "claude-sonnet-3-5"},
+        {"id": "claude-haiku-4-5"},
+        {"id": "claude-opus-5-5"},
+    ]
+}
 
 
 # --------------------------------------------------------------------------
 # OpenAICompat.list_models
 # --------------------------------------------------------------------------
 
+
 class TestOpenAICompatListModels:
     async def test_returns_sorted_deduped_ids(self) -> None:
-        p = OpenAICompat(model="m", base_url="https://x.test/api/v1",
-                         api_key="sk-test-0000", transport=_mock_json(_MODELS))
+        p = OpenAICompat(
+            model="m",
+            base_url="https://x.test/api/v1",
+            api_key="sk-test-0000",
+            transport=_mock_json(_MODELS),
+        )
         ids = await p.list_models()
         assert ids == ["claude-haiku-4-5", "claude-opus-5-5", "claude-sonnet-3-5"]
 
     async def test_hits_models_endpoint_with_bearer(self) -> None:
         seen: dict[str, Any] = {}
-        p = OpenAICompat(model="m", base_url="https://x.test/api/v1",
-                         api_key="sk-test-0000", transport=_mock_json(_MODELS, seen=seen))
+        p = OpenAICompat(
+            model="m",
+            base_url="https://x.test/api/v1",
+            api_key="sk-test-0000",
+            transport=_mock_json(_MODELS, seen=seen),
+        )
         await p.list_models()
         assert seen["url"] == "https://x.test/api/v1/models"
         assert seen["headers"]["authorization"] == "Bearer sk-test-0000"
 
     async def test_trailing_slash_normalized(self) -> None:
         seen: dict[str, Any] = {}
-        p = OpenAICompat(model="m", base_url="https://x.test/api/v1/",
-                         transport=_mock_json(_MODELS, seen=seen))
+        p = OpenAICompat(
+            model="m", base_url="https://x.test/api/v1/", transport=_mock_json(_MODELS, seen=seen)
+        )
         await p.list_models()
         assert seen["url"] == "https://x.test/api/v1/models"
 
     async def test_http_error_raises_typed(self) -> None:
-        p = OpenAICompat(model="m", base_url="https://x.test/api/v1",
-                         transport=_mock_json({"error": "boom"}, status=403))
+        p = OpenAICompat(
+            model="m",
+            base_url="https://x.test/api/v1",
+            transport=_mock_json({"error": "boom"}, status=403),
+        )
         with pytest.raises(ProviderError) as ei:
             await p.list_models()
         assert ei.value.kind == "http"
@@ -68,8 +88,9 @@ class TestOpenAICompatListModels:
         assert ei.value.retryable is False
 
     async def test_malformed_shape_raises(self) -> None:
-        p = OpenAICompat(model="m", base_url="https://x.test/api/v1",
-                         transport=_mock_json({"nope": True}))
+        p = OpenAICompat(
+            model="m", base_url="https://x.test/api/v1", transport=_mock_json({"nope": True})
+        )
         with pytest.raises(ProviderError, match="shape"):
             await p.list_models()
 
@@ -78,11 +99,15 @@ class TestOpenAICompatListModels:
 # AnthropicMessages.list_models
 # --------------------------------------------------------------------------
 
+
 class TestAnthropicListModels:
     async def test_native_host_uses_v1_models(self) -> None:
         seen: dict[str, Any] = {}
-        p = AnthropicMessages(model="claude-opus-5-5", api_key="sk-ant-test-000",
-                              transport=_mock_json(_MODELS, seen=seen))
+        p = AnthropicMessages(
+            model="claude-opus-5-5",
+            api_key="sk-ant-test-000",
+            transport=_mock_json(_MODELS, seen=seen),
+        )
         ids = await p.list_models()
         assert seen["url"] == "https://api.anthropic.com/v1/models"
         assert seen["headers"]["x-api-key"] == "sk-ant-test-000"
@@ -90,9 +115,12 @@ class TestAnthropicListModels:
 
     async def test_openrouter_style_base_uses_models(self) -> None:
         seen: dict[str, Any] = {}
-        p = AnthropicMessages(model="anthropic/claude", api_key="sk-or-test-000",
-                              base_url="https://openrouter.ai/api/v1",
-                              transport=_mock_json(_MODELS, seen=seen))
+        p = AnthropicMessages(
+            model="anthropic/claude",
+            api_key="sk-or-test-000",
+            base_url="https://openrouter.ai/api/v1",
+            transport=_mock_json(_MODELS, seen=seen),
+        )
         await p.list_models()
         assert seen["url"] == "https://openrouter.ai/api/v1/models"
 
@@ -106,6 +134,7 @@ class TestAnthropicListModels:
 # --------------------------------------------------------------------------
 # ModelRouter
 # --------------------------------------------------------------------------
+
 
 class _FakeProvider:
     def __init__(self, model: str, events: list[Event] | None = None) -> None:
@@ -192,6 +221,7 @@ class TestModelRouter:
         r = self._router()
 
         class Bare: ...
+
         with pytest.raises(ProviderError, match="no enrutable"):
             r.add_provider(Bare())
 
@@ -215,6 +245,7 @@ class TestModelRouter:
         class WithList(_FakeProvider):
             async def list_models(self) -> list[str]:
                 return ["opus", "sonnet", "haiku"]
+
         ps = {m: WithList(m) for m in ("opus", "sonnet", "haiku")}
         r = ModelRouter(providers=ps, active="opus")
         # el router delega tal cual: NO re-ordena ni deduplica aquí
@@ -230,6 +261,7 @@ class TestModelRouter:
         class Boom(_FakeProvider):
             async def list_models(self) -> list[str]:
                 raise ProviderError("HTTP 403", kind="http", status=403)
+
         ps = {"opus": Boom("opus")}
         r = ModelRouter(providers=ps, active="opus")
         with pytest.raises(ProviderError) as ei:

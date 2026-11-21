@@ -102,21 +102,27 @@ class AnthropicMessages:
             try:
                 resp = await client.get(url, headers=headers)
             except httpx.TransportError as e:
-                raise ProviderError(f"list_models transport error: {e}", kind="http",
-                                    retryable=True) from e
+                raise ProviderError(
+                    f"list_models transport error: {e}", kind="http", retryable=True
+                ) from e
             if resp.status_code != 200:
                 raise ProviderError(
                     f"list_models HTTP {resp.status_code}: {resp.text[:200]}",
-                    kind="http", status=resp.status_code,
-                    retryable=resp.status_code == 429 or resp.status_code >= 500)
+                    kind="http",
+                    status=resp.status_code,
+                    retryable=resp.status_code == 429 or resp.status_code >= 500,
+                )
         try:
             data = resp.json()
         except (json.JSONDecodeError, ValueError) as e:
             raise ProviderError(f"list_models malformed JSON: {e}", kind="stream") from e
         items = data.get("data") if isinstance(data, dict) else None
         if not isinstance(items, list):
-            raise ProviderError("list_models: unexpected payload shape (no 'data' list)",
-                                kind="stream", raw=data if isinstance(data, dict) else None)
+            raise ProviderError(
+                "list_models: unexpected payload shape (no 'data' list)",
+                kind="stream",
+                raw=data if isinstance(data, dict) else None,
+            )
         ids = [str(m["id"]) for m in items if isinstance(m, dict) and m.get("id")]
         return sorted(set(ids))
 
