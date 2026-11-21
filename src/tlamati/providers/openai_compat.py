@@ -46,6 +46,15 @@ _FINISH_MAP: dict[str | None, str] = {
 }
 
 
+def _is_anthropic(model: str) -> bool:
+    """Anthropic models do NOT auto-cache: the prefix is only cached when the
+    request carries explicit cache_control markers (verified live against
+    OpenRouter chat/completions 2026-11-20: plain repeat = cached 0; with
+    markers = 99% hit, 19x cheaper). Other families (OpenAI/Qwen/DeepSeek)
+    auto-cache, so sending them markers would be noise."""
+    return model.startswith(("anthropic/", "claude-"))
+
+
 @dataclass(frozen=True)
 class OpenAICompat:
     """Provider for OpenAI-compatible endpoints."""
@@ -69,9 +78,12 @@ class OpenAICompat:
         return h
 
     def _payload(self, messages: Sequence[Message], tools: Sequence[ToolSpec]) -> dict[str, Any]:
+        converted = [self._convert_message(m) for m in messages]
+        if _is_anthropic(self.model):
+            self._mark_anthropic_cache(converted)
         payload: dict[str, Any] = {
             "model": self.model,
-            "messages": [self._convert_message(m) for m in messages],
+            "messages": converted,
             "stream": True,
             "max_tokens": self.max_tokens,
             "stream_options": {"include_usage": True},
@@ -81,6 +93,33 @@ class OpenAICompat:
         if tools:
             payload["tools"] = tools_to_openai(tools)
         return payload
+
+    @staticmethod
+    def _mark_anthropic_cache(converted: list[dict[str, Any]]) -> None:
+        """Explicit cache breakpoints for Anthropic models (they never
+        auto-cache). Two of the four allowed markers, mirroring
+        anthropic_messages.py semantics + the verified-live rolling pattern:
+        (1) LAST system block = stable prefix; (2) LAST tool result = rolling
+        breakpoint so the growing history stays cached turn over turn
+        (probe 20-nov: 99.8% hit, 19x cheaper than plain)."""
+        last_system = next((m for m in reversed(converted) if m["role"] == "system"), None)
+        if last_system is not None and isinstance(last_system["content"], str):
+            last_system["content"] = [
+                {
+                    "type": "text",
+                    "text": last_system["content"],
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+        last_tool = next((m for m in reversed(converted) if m["role"] == "tool"), None)
+        if last_tool is not None and isinstance(last_tool["content"], str):
+            last_tool["content"] = [
+                {
+                    "type": "text",
+                    "text": last_tool["content"],
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
 
     @staticmethod
     def _convert_message(m: Message) -> dict[str, Any]:
