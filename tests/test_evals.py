@@ -39,6 +39,11 @@ FIXTURE_NAMES = {
     "recuperacion_test_roto",  # suite rota por env-var: autocorrección tras traceback
     "edicion_quirurgica_grande",  # 600 líneas, 2 funciones: patch vs sobrescritura
     "rollback_o_regresion",  # 5 tests pasan + 1 falla: arreglar sin regresión
+    # H9: horizonte largo (curva de saturación, anti-batch por defectos divergentes)
+    "cadena_defectos_l1",  # 15 módulos encadenados, un defecto distinto por módulo
+    "ducto_reglas_l2",  # 30 etapas con dependencias; contrato solo en docs/REGLAS.md
+    # H9 v3: cascada ciega (fallos runtime secuenciales + docs únicos por módulo)
+    "ducto_cascada_l3",  # 34 módulos, guardavas que excepcionan en cascada, 150 turnos
 }
 
 
