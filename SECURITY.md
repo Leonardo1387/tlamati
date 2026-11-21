@@ -53,8 +53,7 @@ Report vulnerabilities PRIVATELY — do not open a public issue.
 
 - **GitHub Private Vulnerability Reporting** (preferred): on the repo page,
   Security → Report a vulnerability.
-- **Email**: [PENDIENTE: el dueño del proyecto debe poner aquí un correo
-  real antes de publicar — ver checklist E4] — include "tlamati security"
+- **Email**: leonardo@convrsations.ai — include "tlamati security"
   in the subject.
 
 Scope we care most about: sandbox escapes from the bwrap jail, permission
