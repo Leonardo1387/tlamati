@@ -71,13 +71,25 @@ def make_terminal_tools(
         prefix = _NO_SANDBOX_NOTE if no_jail else ""
         return f"{prefix}[exit {proc.returncode}]\n{out}".rstrip()
 
+    # Declarar capacidades del shell (dogfooding 20-nov: el modelo usó
+    # brace-expansion {a,b} → sh creó un dir literal; y probó curl → exit 6
+    # sin entender que la jaula no tiene red). Tool description = contrato.
+    net_note = (
+        "HAY acceso a red."
+        if sandbox_net or not sandbox
+        else "NO hay acceso a red (jaula bwrap): curl/wget/pip install fallan (exit 6/2)."
+    )
+    description = (
+        "Run a shell command in the working directory "
+        f"(foreground, {TERMINAL_TIMEOUT_S:.0f}s timeout). "
+        "Shell = /bin/sh (POSIX): SIN brace expansion ({a,b} crea un dir literal; "
+        "usa mkdir -p a b c). " + net_note
+    )
+
     return [
         Tool(
             name="terminal",
-            description=(
-                "Run a shell command in the working directory "
-                f"(foreground, {TERMINAL_TIMEOUT_S:.0f}s timeout)."
-            ),
+            description=description,
             input_schema={
                 "type": "object",
                 "properties": {"command": {"type": "string"}},

@@ -359,6 +359,10 @@ class TlamatiApp(App[None]):
                 store.create_session(
                     self.session_id, cwd=str(self.workdir), model=model, first_prompt=""
                 )
+                # C7: session_search — capability sin orden (igual que headless).
+                from tlamati.session.search import make_session_search_tools
+
+                tool_list.extend(make_session_search_tools(store.path))
 
             # Ledger (B5): auditoría append-only (fail-soft como en headless).
             try:
@@ -764,8 +768,10 @@ class TlamatiApp(App[None]):
 
     def _note(self, text: str, cls: str = "tool-line") -> None:
         t = self.query_one("#transcript", VerticalScroll)
+        follow = t.is_vertical_scroll_end  # solo seguir si el usuario está abajo
         t.mount(Static(text, classes=cls, markup=False))
-        t.scroll_end(animate=False)
+        if follow:
+            t.scroll_end(animate=False)
 
     def _update_stream(self) -> None:
         """Los deltas solo MARCAN sucio el buffer; el timer serializa el
@@ -782,12 +788,16 @@ class TlamatiApp(App[None]):
             return
         self._stream_dirty = False
         t = self.query_one("#transcript", VerticalScroll)
+        follow = t.is_vertical_scroll_end  # bug UX real (20-nov): el scroll del
+        # stream arrastraba la pantalla aunque el usuario hubiera subido a leer.
+        # Fix: solo seguir al final si YA estaba al final (patrón follow-tail).
         if self._turn_md is None:
             self._turn_md = Markdown("".join(self._turn_text))
             t.mount(self._turn_md)
         else:
             self._turn_md.update("".join(self._turn_text))
-        t.scroll_end(animate=False)
+        if follow:
+            t.scroll_end(animate=False)
 
 
 def run_tui(
