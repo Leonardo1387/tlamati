@@ -17,9 +17,16 @@ def reg(tmp_path: Path) -> Registry:
 
 
 class TestToolsetShape:
-    def test_five_tools_stable_order(self, reg: Registry) -> None:
+    def test_six_tools_stable_order(self, reg: Registry) -> None:
         names = [s.name for s in reg.specs()]
-        assert names == ["read_file", "write_file", "edit", "search_files", "terminal"]
+        assert names == [
+            "read_file",
+            "write_file",
+            "edit",
+            "list_dir",
+            "search_files",
+            "terminal",
+        ]
 
     def test_only_terminal_sandboxable(self, reg: Registry) -> None:
         flags = {t.name: t.sandboxable for t in reg}
@@ -27,6 +34,7 @@ class TestToolsetShape:
             "read_file": False,
             "write_file": False,
             "edit": False,
+            "list_dir": False,
             "search_files": False,
             "terminal": True,
         }

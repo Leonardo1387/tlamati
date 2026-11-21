@@ -532,6 +532,13 @@ async def _run_headless(args: argparse.Namespace) -> int:
     mem_store: MemoryStore | None = None
     system_prompt = str(cfg.get("system_prompt") or DEFAULT_SYSTEM)
 
+    # Sesión 25 (dogfooding #3): bloque ambiental — el modelo debe saber que
+    # SÍ ve el filesystem y dónde están Desktop/Documents REALES (WSL: /mnt).
+    # Estático por corrida (cwd+home fijos) → prefijo cacheable byte-estable.
+    from tlamati.env_info import environment_block
+
+    system_prompt += "\n\n" + environment_block(Path.cwd())
+
     # C4: project instructions (AGENTS.md/CLAUDE.md) — outermost first,
     # versioned by content hash so the cacheable prefix is stable.
     if not args.no_instructions:

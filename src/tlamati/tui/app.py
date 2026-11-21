@@ -332,6 +332,12 @@ class TlamatiApp(App[None]):
             self.provider = self._make_router(model, base_url, api_key, cfg)
 
             system_prompt = str(cfg.get("system_prompt") or DEFAULT_SYSTEM)
+            # Sesión 25 (dogfooding #3): el modelo debe saber que SÍ ve el
+            # filesystem y dónde está el Desktop REAL (WSL: /mnt/c/Users/...).
+            # Estático por corrida → prefijo cacheable byte-estable.
+            from tlamati.env_info import environment_block
+
+            system_prompt += "\n\n" + environment_block(self.workdir)
             instr = load_instructions(self.workdir)
             if instr.found:
                 system_prompt += render_for_prompt(instr)
