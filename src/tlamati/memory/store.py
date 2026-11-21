@@ -36,12 +36,17 @@ HEADER_MEMORY = (
     f"{MAX_ENTRIES} entradas / {MAX_CHARS} chars)\n"
     "<!-- Reglas (semilla Osmani, research/05): rutas absolutas, sin "
     "recapitulación, sin emojis. Si está lleno: consolida (replace/remove) "
-    "en el mismo batch. -->\n"
+    "en el mismo batch. Guarda hechos NUEVOS y durables (nombres de proyecto, "
+    "decisiones, constraints) cuando aparezcan — NO guardes progreso de tarea "
+    "ni nada que caduque en días. Escríbelos declarativos ('el proyecto X usa "
+    "Y'), nunca imperativos. -->\n"
 )
 HEADER_USER = (
     "# USER — quién es el usuario (límites: "
     f"{MAX_ENTRIES} entradas / {MAX_CHARS} chars)\n"
-    "<!-- Preferencias, correcciones, estilo. Consolidar al llenarse. -->\n"
+    "<!-- Preferencias, correcciones, estilo. Cuando el usuario corrija o "
+    "declare una preferencia, guárdala aquí en el mismo turno. Consolidar al "
+    "llenarse. -->\n"
 )
 
 ENTRY_SEP = "\n\n"

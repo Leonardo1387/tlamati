@@ -286,8 +286,9 @@ class TestLoopCompaction:
             tools=Registry(make_tools(big_workdir)),
             # recalibrado B2/sesión-25: specs de 6 tools = ~598 tok de prefijo
             # (pitfall documentado: prefijo crece → budget se recalibra; la
-            # INTENCIÓN del test sigue: M2 no basta → exceeded → resumen)
-            budget=Budget(1250),
+            # INTENCIÓN del test sigue: M2 no basta → exceeded → resumen).
+            # 20-nov: description de terminal declara sh/POSIX + red (+~90 tok).
+            budget=Budget(1350),
             max_turns=20,
             on_event=lambda k, d: events.append((k, d)),
             compactor=Compactor(

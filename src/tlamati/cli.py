@@ -61,7 +61,16 @@ from tlamati.tools.registry import Registry
 DEFAULT_SYSTEM = (
     "Eres Tlamati, un agente de terminal local-first. Resuelve la tarea con las "
     "herramientas disponibles. Sé breve y directo. Trabaja en el directorio actual. "
-    "Cuando termines, di TERMINADO y resume qué cambiaste."
+    "Cuando termines, di TERMINADO y resume qué cambiaste.\n"
+    "\n"
+    "# REGLAS DE HIGIENE (no negociables)\n"
+    "- Si dices que harás algo (leer, correr, crear), ejecuta la tool EN ESE MISMO "
+    "turno. Nunca termines con promesas de acción futura.\n"
+    "- El entregable es un artefacto que CORRE con output real de tools. Si algo "
+    "falla, dilo y busca alternativa — NUNCA sustituyas resultados fabricados "
+    "(datos inventados, output sintético) por resultados que no pudiste producir.\n"
+    "- Antes de cambiar código para arreglar un fallo: reproduce el error y "
+    "diagnostica la causa raíz. No parches a ciegas."
 )
 DEFAULT_MODEL = "qwen/qwen3-coder"
 DEFAULT_COMPACT_MODEL = "qwen/qwen3-coder"  # A6: modelo BARATO configurable (fallback chain)
@@ -590,6 +599,15 @@ async def _run_headless(args: argparse.Namespace) -> int:
         except OSError as e:
             print(f"[memory] aviso: {e} — corrida SIN memoria", file=sys.stderr)
             mem_store = None
+
+    # C7: session_search — memoria episódica sobre el sessions.db existente.
+    # Capability sin orden: el tool existe ($0 si no se usa); NO hay guidance
+    # agresiva en el prefijo (regla del fundador 20-nov: las acciones masivas
+    # cuestan; hermes obliga a cargar y por eso es caro).
+    if store is not None:
+        from tlamati.session.search import make_session_search_tools
+
+        tool_list.extend(make_session_search_tools(store.path))
 
     # C3: skills — catalog into prefix, bodies on demand via skill_view.
     if not args.no_memory:
