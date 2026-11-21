@@ -1,0 +1,12 @@
+== tlamati / ducto_cascada_l3 run 1/2 ==
+{"task": "ducto_cascada_l3", "harness": "tlamati", "run": 1, "success": true, "turns": 42, "tokens_in": 982845, "tokens_out": 8668, "cache_read": 936448, "duration_s": 249.05, "cost_usd": 0.378914, "error": null}
+== tlamati / ducto_cascada_l3 run 2/2 ==
+{"task": "ducto_cascada_l3", "harness": "tlamati", "run": 2, "success": true, "turns": 108, "tokens_in": 2962238, "tokens_out": 18000, "cache_read": 2883968, "duration_s": 607.43, "cost_usd": 0.985532, "error": null}
+[bench] tlamati: 2/2 OK · costo $1.3644 · duración 856s±253
+[bench] tlamati: tareas 1/1 todas-las-réplicas (1/1 al menos una)
+== codex / ducto_cascada_l3 run 1/2 ==
+{"task": "ducto_cascada_l3", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 2922089, "tokens_out": 19177, "cache_read": 2849152, "duration_s": 667.82, "cost_usd": 0.973224, "error": null}
+== codex / ducto_cascada_l3 run 2/2 ==
+{"task": "ducto_cascada_l3", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 1539598, "tokens_out": 12058, "cache_read": 1490176, "duration_s": 382.73, "cost_usd": 0.543736, "error": null}
+[bench] codex: 2/2 OK · costo $1.5170 · duración 1051s±202
+[bench] codex: tareas 1/1 todas-las-réplicas (1/1 al menos una)

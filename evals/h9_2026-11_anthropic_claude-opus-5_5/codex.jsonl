@@ -1,0 +1,2 @@
+{"task": "cadena_defectos_l1", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 62139, "tokens_out": 1842, "cache_read": 39344, "duration_s": 18.66, "cost_usd": 0.135889, "error": null}
+{"task": "ducto_reglas_l2", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 123211, "tokens_out": 4461, "cache_read": 91273, "duration_s": 41.04, "cost_usd": 0.235227, "error": null}

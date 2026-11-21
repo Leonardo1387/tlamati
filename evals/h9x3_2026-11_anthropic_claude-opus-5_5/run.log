@@ -1,0 +1,28 @@
+== tlamati / cadena_defectos_l1 run 1/3 ==
+{"task": "cadena_defectos_l1", "harness": "tlamati", "run": 1, "success": true, "turns": 5, "tokens_in": 86598, "tokens_out": 2246, "cache_read": 81944, "duration_s": 32.15, "cost_usd": 0.079925, "error": null}
+== tlamati / cadena_defectos_l1 run 2/3 ==
+{"task": "cadena_defectos_l1", "harness": "tlamati", "run": 2, "success": true, "turns": 8, "tokens_in": 185215, "tokens_out": 4203, "cache_read": 156124, "duration_s": 43.51, "cost_usd": 0.231649, "error": null}
+== tlamati / cadena_defectos_l1 run 3/3 ==
+{"task": "cadena_defectos_l1", "harness": "tlamati", "run": 3, "success": true, "turns": 5, "tokens_in": 87551, "tokens_out": 2056, "cache_read": 68418, "duration_s": 30.51, "cost_usd": 0.131336, "error": null}
+== tlamati / ducto_reglas_l2 run 1/3 ==
+{"task": "ducto_reglas_l2", "harness": "tlamati", "run": 1, "success": true, "turns": 6, "tokens_in": 121778, "tokens_out": 4619, "cache_read": 97340, "duration_s": 53.6, "cost_usd": 0.2096, "error": null}
+== tlamati / ducto_reglas_l2 run 2/3 ==
+{"task": "ducto_reglas_l2", "harness": "tlamati", "run": 2, "success": true, "turns": 7, "tokens_in": 146493, "tokens_out": 4672, "cache_read": 120600, "duration_s": 56.38, "cost_usd": 0.221132, "error": null}
+== tlamati / ducto_reglas_l2 run 3/3 ==
+{"task": "ducto_reglas_l2", "harness": "tlamati", "run": 3, "success": true, "turns": 8, "tokens_in": 169460, "tokens_out": 4426, "cache_read": 143312, "duration_s": 66.12, "cost_usd": 0.221774, "error": null}
+[bench] tlamati: 6/6 OK · costo $1.0954 · duración 282s±14
+[bench] tlamati: tareas 2/2 todas-las-réplicas (2/2 al menos una)
+== codex / cadena_defectos_l1 run 1/3 ==
+{"task": "cadena_defectos_l1", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 58831, "tokens_out": 1749, "cache_read": 37752, "duration_s": 22.61, "cost_usd": 0.126846, "error": null}
+== codex / cadena_defectos_l1 run 2/3 ==
+{"task": "cadena_defectos_l1", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 58961, "tokens_out": 1771, "cache_read": 55354, "duration_s": 20.55, "cost_usd": 0.060919, "error": null}
+== codex / cadena_defectos_l1 run 3/3 ==
+{"task": "cadena_defectos_l1", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 58910, "tokens_out": 1887, "cache_read": 55355, "duration_s": 27.87, "cost_usd": 0.063031, "error": null}
+== codex / ducto_reglas_l2 run 1/3 ==
+{"task": "ducto_reglas_l2", "harness": "codex", "run": 1, "success": true, "turns": null, "tokens_in": 120973, "tokens_out": 4396, "cache_read": 89627, "duration_s": 54.6, "cost_usd": 0.231229, "error": null}
+== codex / ducto_reglas_l2 run 2/3 ==
+{"task": "ducto_reglas_l2", "harness": "codex", "run": 2, "success": true, "turns": null, "tokens_in": 122736, "tokens_out": 4872, "cache_read": 108456, "duration_s": 52.24, "cost_usd": 0.176251, "error": null}
+== codex / ducto_reglas_l2 run 3/3 ==
+{"task": "ducto_reglas_l2", "harness": "codex", "run": 3, "success": true, "turns": null, "tokens_in": 123564, "tokens_out": 4340, "cache_read": 109406, "duration_s": 50.85, "cost_usd": 0.165313, "error": null}
+[bench] codex: 6/6 OK · costo $0.8236 · duración 229s±16
+[bench] codex: tareas 2/2 todas-las-réplicas (2/2 al menos una)

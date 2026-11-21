@@ -196,6 +196,44 @@ réplicas, 15/15 al-menos-una, $0.13, 1.75M tok_in, cero errores upstream** —
 primer combo perfecto de la campaña. La tabla completa se añadirá al terminar
 (misma regla de honestidad por celda).
 
+## H9 — frontera: ¿el ratio codex/tlamati crece con el horizonte largo?
+
+Tres campañas con modelos frontera (gpt-6.2-sol, claude-opus-5.5,
+qwen3.8-max-0902) vía OpenRouter, arneses tlamati vs codex. Detalles crudos:
+`evals/H9_RESULTS_2026-11-20.md` (v2) y `evals/H9_V4_RESULTS.md` (v4).
+
+- **v2 ×1 + ×3** (fixtures cortas L1/L2, cadena_defectos_l1 + ducto_reglas_l2,
+  4-10 turnos): la frontera colapsa las tareas cortas — el techo de turnos
+  nunca se acerca. Ratios de costo codex/tlamati: gpt ×3.8-5.4, qwen ×1.9-3.0,
+  opus ×0.6-1.8 (paridad, confirmada con ×3: no era ruido). $2.03 + $4.70.
+- **v3 INVALIDADA**: la memoria persistente de tlamati filtró los fixes a opus
+  (acordeón, 7 turnos) y los docstrings contenían la spec → batch ilegítimo.
+  Data archivada en evals/_abortado_v3/ (cifrada), no utilizable para tesis.
+- **v4 cascada limpia** (ducto_cascada_l3, 34 módulos, revela escalonado ×33,
+  horizonte forzado 36-110 turnos; entorno hostil fixes A-F; n=1 + réplicas
+  gpt/opus ×3, qwen ×2; 22/22 success; $9.31):
+
+| modelo | dur codex/tlamati | COSTO codex/tlamati | v2 (L1/L2) costo |
+|---|---|---|---|
+| gpt-6.2-sol | ×2.30 | **×8.58** | ×5.4 / ×3.9 |
+| opus-5.5 | ×1.10 | ×1.89 | ×1.8 / ×0.8 |
+| qwen3.8-max | ×1.03 | **×0.98 (invertido)** | ×1.9 / ×3.0 |
+
+**Veredicto H9**: con horizonte largo forzado, el ratio de COSTO crece en gpt
+(→×8.6) y se sostiene en opus (×1.9) — la tesis pivotada a costo se sostiene
+en frontera. Mecanismo medido: codex consume 3-4x tokens_in en la misma tarea
+(bola de nieve de contexto: re-manda historial y re-lee archivos entre
+reveals; tlamati mantiene ventana activa acotada). qwen3.8-max INVIERTE el
+ratio: divaga dentro de la cascada (75±33 turnos en tlamati) y pierde la
+ventaja — el beneficio del arnés depende del modelo, no es universal.
+
+Simetría del protocolo (blindaje): ambos brazos con los mismos 33 reveals y
+horizonte comparable — se mide qué hace cada arnés con el historial acumulado
+entre reveals, no quién ve más. Auditoría anti-trampa en los 11 brazos
+tlamati (fuera_workdir=0, memory=0, canary intacto): 2 banderas investigadas
+y resueltas como falsos positivos del auditor (gpt r3: reveals indirectos vía
+helper `.next`; qwen: "vacio" era el bug de m07 corregido a "vacío").
+
 ## Fuera de la tabla (y por qué)
 
 - **claude code / grok**: atados a cerebros propietarios — el delta mediría el
