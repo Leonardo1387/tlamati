@@ -259,6 +259,75 @@ class TestOpenAICompat:
         )
         assert asst_m["tool_calls"][0]["function"]["arguments"] == '{"a": 1}'
 
+    async def test_anthropic_model_gets_cache_markers(self) -> None:
+        """Anthropic models never auto-cache (probe 20-nov: plain repeat =
+        cached 0). The adapter must attach explicit cache_control breakpoints:
+        LAST system block + LAST tool result (rolling)."""
+        seen, transport = capture_request()
+        set_response(seen, sse_response([{"choices": [{"delta": {}, "finish_reason": "stop"}]}]))
+        p = OpenAICompat(model="anthropic/claude-opus-5.5", transport=transport)
+        msgs = [
+            Message(role="system", content="sys"),
+            Message(role="user", content="haz x"),
+            Message(
+                role="assistant",
+                tool_calls=(ToolCall(id="c1", name="t", arguments={}),),
+            ),
+            Message(role="tool", tool_result=ToolResult(tool_call_id="c1", content="r1")),
+            Message(role="user", content="sigue"),
+        ]
+        await collect(p, msgs, [TOOL])
+        body = seen["body"]
+        sys_m = next(m for m in body["messages"] if m["role"] == "system")
+        tool_m = next(m for m in body["messages"] if m["role"] == "tool")
+        assert sys_m["content"] == [
+            {"type": "text", "text": "sys", "cache_control": {"type": "ephemeral"}}
+        ]
+        assert tool_m["content"] == [
+            {"type": "text", "text": "r1", "cache_control": {"type": "ephemeral"}}
+        ]
+        # otros roles NO se tocan
+        user_ms = [m for m in body["messages"] if m["role"] == "user"]
+        assert all(isinstance(m["content"], str) for m in user_ms)
+
+    async def test_non_anthropic_payload_untouched(self) -> None:
+        """OpenAI/Qwen/DeepSeek auto-cache: el payload debe seguir byte-igual."""
+        seen, transport = capture_request()
+        set_response(seen, sse_response([{"choices": [{"delta": {}, "finish_reason": "stop"}]}]))
+        p = OpenAICompat(model="qwen/qwen3.8-flash", transport=transport)
+        msgs = [
+            Message(role="system", content="sys"),
+            Message(role="user", content="hi"),
+            Message(
+                role="assistant",
+                tool_calls=(ToolCall(id="c1", name="t", arguments={}),),
+            ),
+            Message(role="tool", tool_result=ToolResult(tool_call_id="c1", content="r")),
+        ]
+        await collect(p, msgs, [])
+        sys_m = next(m for m in seen["body"]["messages"] if m["role"] == "system")
+        tool_m = next(m for m in seen["body"]["messages"] if m["role"] == "tool")
+        assert sys_m["content"] == "sys"
+        assert tool_m["content"] == "r"
+        assert "cache_control" not in json.dumps(seen["body"])
+
+    async def test_anthropic_rolling_marker_only_last_tool(self) -> None:
+        seen, transport = capture_request()
+        set_response(seen, sse_response([{"choices": [{"delta": {}, "finish_reason": "stop"}]}]))
+        p = OpenAICompat(model="claude-opus-5.5", transport=transport)
+        msgs = [
+            Message(role="system", content="sys"),
+            Message(role="user", content="x"),
+            Message(role="assistant", tool_calls=(ToolCall(id="c1", name="t", arguments={}),)),
+            Message(role="tool", tool_result=ToolResult(tool_call_id="c1", content="r1")),
+            Message(role="assistant", tool_calls=(ToolCall(id="c2", name="t", arguments={}),)),
+            Message(role="tool", tool_result=ToolResult(tool_call_id="c2", content="r2")),
+        ]
+        await collect(p, msgs, [])
+        tools = [m for m in seen["body"]["messages"] if m["role"] == "tool"]
+        assert tools[0]["content"] == "r1"  # viejo: string plano
+        assert tools[1]["content"][0]["cache_control"] == {"type": "ephemeral"}  # último: marcado
+
 
 # --------------------------------------------------------------------------
 # AnthropicMessages
