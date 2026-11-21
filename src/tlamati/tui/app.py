@@ -38,7 +38,7 @@ from typing import Any, ClassVar
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import (
     Button,
@@ -69,12 +69,15 @@ from tlamati.context.compaction import CompactionConfig, Compactor, ModelSummari
 from tlamati.context.instructions import load_instructions, render_for_prompt
 from tlamati.core.loop import LoopResult, run_loop
 from tlamati.core.messages import Message
+from tlamati.core.model_router import ModelRouter
 from tlamati.memory.skills import SkillLibrary, default_skill_roots, make_skill_tools
 from tlamati.memory.store import MemoryStore, default_memory_dir, seed_if_empty
 from tlamati.memory.tools import make_memory_tools
 from tlamati.plan.mode import PlanState
 from tlamati.policy.config import Policy, PolicyConfig
 from tlamati.policy.ledger import Ledger
+from tlamati.providers.anthropic_messages import AnthropicMessages
+from tlamati.providers.base import ProviderError
 from tlamati.providers.openai_compat import OpenAICompat
 from tlamati.session.store import SessionStore
 from tlamati.tools.builtin import make_tools
@@ -178,6 +181,37 @@ class ApproveScreen(ModalScreen[str]):
         self.dismiss("reject")
 
 
+class ModelPalette(ModalScreen[int]):
+    """F1: selector de modelo (lista OptionsView). Dismiss con el indice
+    elegido; Escape = None (no cambia nada, fail closed como ApproveScreen).
+    El caller ya sabe construir (id, etiqueta) — aquí solo se pinta y se
+    elige."""
+
+    def __init__(self, options: list[tuple[str, str]], current: str) -> None:
+        super().__init__()
+        self.options = options
+        self.current = current
+
+    def compose(self) -> ComposeResult:
+        rows: list[ListItem] = []
+        for mid, bits in self.options:
+            mark = "▶ " if mid == self.current else "  "
+            rows.append(ListItem(Label(f"{mark}{mid}   [dim]{bits}[/dim]")))
+        with Vertical(id="model-palette"):
+            yield Static(
+                f"Modelo activo: [b]{self.current}[/b] — ↑/↓ elegir · Enter cambiar · Esc cancelar",
+                markup=True,
+            )
+            yield ListView(*rows, id="model-list")
+
+    async def on_list_view_selected(self, event: ListView.Selected) -> None:
+        lv = self.query_one("#model-list", ListView)
+        self.dismiss(lv.index)
+
+    def key_escape(self) -> None:
+        self.dismiss(None)
+
+
 class TlamatiApp(App[None]):
     """Chat agéntico interactivo: la cara humana de run_loop."""
 
@@ -218,7 +252,12 @@ class TlamatiApp(App[None]):
         self._total_turns = 0  # turnos acumulados de TODA la sesión TUI
         # Componentes de corrida (se construyen en on_mount).
         self.registry: Registry | None = None
-        self.provider: OpenAICompat | None = None
+        # F1: el provider ES un ModelRouter (façade Provider). Intercambiable
+        # en frontera de turno con /model; loop.py nunca se entera.
+        self.provider: ModelRouter | None = None
+        self._base_url = ""
+        self._api_key = ""
+        self._model_tiers: dict[str, str] = {}  # small/medium/frontier -> id
         self.budget: Budget | None = None
         self.compactor: Compactor | None = None
         self.store: SessionStore | None = None
@@ -258,7 +297,10 @@ class TlamatiApp(App[None]):
             self.store.close()
 
     def on_mount(self) -> None:
+        self.title = f"tlamati {__version__}"
         self._setup_run()
+        if self.provider is not None and not self.setup_error:
+            self.sub_title = f"modelo: {self.provider.model}"
         if self.setup_error:
             self._note(f"ERROR de arranque: {self.setup_error}", cls="tool-error")
         self._refresh_sessions()
@@ -285,7 +327,9 @@ class TlamatiApp(App[None]):
             if not api_key:
                 self.setup_error = "falta la API key (OPENROUTER_API_KEY)"
                 return
-            self.provider = OpenAICompat(model=model, base_url=base_url, api_key=api_key)
+            self._base_url = base_url
+            self._api_key = api_key
+            self.provider = self._make_router(model, base_url, api_key, cfg)
 
             system_prompt = str(cfg.get("system_prompt") or DEFAULT_SYSTEM)
             instr = load_instructions(self.workdir)
@@ -383,12 +427,142 @@ class TlamatiApp(App[None]):
         self._note(f"tool {name!r} RECHAZADA por el usuario", cls="tool-error")
         return False
 
-    # ------------------------------------------------------------ chat
+    # ------------------------------------------------------------- F1: modelos
+
+    def _make_provider(self, model: str) -> OpenAICompat | AnthropicMessages:
+        """Un provider segun la familia del modelo (F1). Anthropic por
+        key/`claude-` usa el adapter nativo; el resto, OpenAI-compat.
+        El prefijo del system prompt NO menciona el modelo: los swaps
+        respetan la cache sagrada."""
+        is_anth = model.startswith(("anthropic/", "claude-")) and (
+            self._api_key.startswith("sk-ant-") or "anthropic.com" in self._base_url
+        )
+        if is_anth:
+            return AnthropicMessages(model=model, api_key=self._api_key, base_url=self._base_url)
+        return OpenAICompat(model=model, base_url=self._base_url, api_key=self._api_key)
+
+    def _make_router(
+        self, model: str, base_url: str, api_key: str, cfg: dict[str, Any]
+    ) -> ModelRouter:
+        """Router con el modelo default + los modelos nombrados en config
+        ([models] tier=... y available=[...]). La lista remota se trae
+        bajo demanda en /model; aquí solo lo barato y determinista."""
+        self._base_url, self._api_key = base_url, api_key
+        mcfg = cfg.get("models") or {}
+        tiers = {str(k): str(v) for k, v in (mcfg.get("tiers") or {}).items()}
+        self._model_tiers = tiers
+        ids = [model] + [v for v in tiers.values() if v != model]
+        for extra in mcfg.get("available") or []:
+            if str(extra) not in ids:
+                ids.append(str(extra))
+        providers = {mid: self._make_provider(mid) for mid in ids}
+        return ModelRouter(providers=providers, active=model, on_swap=self._log_swap)
+
+    def _log_swap(self, ts: float, out: str, ins: str) -> None:
+        """El swap es una decision del usuario: se audita como tool-evento
+        (mismo ledger append-only, tool='model_swap')."""
+        if self.ledger is None:
+            return
+        self.ledger.record_tool_event(
+            tool="model_swap",
+            args={"out": out, "in": ins},
+            decision="user",
+        )
+
+    async def _open_model_palette(self) -> None:
+        assert self.provider is not None
+        router = self.provider
+        # Traer la lista remota (fail-soft) y FILTRARLA: OpenRouter expone
+        # 400+ modelos; la palette solo muestra los config + los que pasan
+        # [models] filter (globs; "*" = todo). Pitfall HANDOFF §5: la lista
+        # cruda es el problema de las 80 tools en miniatura.
+        try:
+            remote = await router.list_models()
+        except Exception as e:
+            remote = []
+            self._note(
+                f"[model] lista remota no disponible ({type(e).__name__}); "
+                "usando config",
+                cls="tool-error",
+            )
+        import fnmatch
+
+        cfg = load_config()
+        mcfg = cfg.get("models") or {}
+        patterns = [str(p) for p in (mcfg.get("filter") or [])]
+        show_all = "*" in patterns
+        if not patterns:
+            patterns = [str(v) for v in self._model_tiers.values()]
+        visible = set(router.providers) | {str(v) for v in self._model_tiers.values()}
+        if show_all:
+            visible |= set(remote)
+        else:
+            visible |= {m for m in remote if any(fnmatch.fnmatch(m, p) for p in patterns)}
+        tier_by_id = {v: k for k, v in self._model_tiers.items()}
+        options: list[tuple[str, str]] = []
+        for mid in sorted(visible, key=str.lower):
+            bits = []
+            if mid in tier_by_id:
+                bits.append(tier_by_id[mid])
+            if mid not in router.providers:
+                bits.append("nuevo")
+            hint = router.cache_hint(mid) if mid in router.providers else "nuevo"
+            bits.append(f"cache:{hint}")
+            options.append((mid, " · ".join(bits)))
+        if not options:
+            options = [
+                (m, "cache:hot" if m == router.model else "cache:?")
+                for m in sorted(router.providers, key=str.lower)
+            ]
+        idx = await self.push_screen_wait(ModelPalette(options, router.model))
+        if idx is None or idx < 0 or idx >= len(options):
+            return
+        mid = options[idx][0]
+        if mid not in router.providers:
+            try:
+                router.add_provider(self._make_provider(mid))
+            except ProviderError as e:
+                self._note(f"[model] no se pudo crear provider: {e}", cls="tool-error")
+                return
+        out = router.set_model(mid)
+        if out != mid:
+            self.sub_title = f"modelo: {mid}"
+            cold = router.cache_hint(mid) == "cold"
+            extra = (
+                " — cache FRIO: el proximo turno reescribe el prefijo "
+                "(pago unico, luego vuelve a hit)"
+                if cold
+                else " — cache caliente: el regreso es casi gratis"
+            )
+            self._note(f"[model] {out} → {mid}{extra}", cls="tool-line")
+
+    def _handle_slash(self, text: str) -> bool:
+        """True = el texto era un comando y ya fue manejado (no enviar al
+        modelo). Por ahora solo /model; la familia de comandos crece aqui."""
+        if text == "/model":
+            if self._busy:
+                self._note(
+                    "[model] espera a que termine el turno actual "
+                    "(el swap aplica en frontera de turno)",
+                    cls="tool-error",
+                )
+                return True
+            self.run_worker(self._open_model_palette(), exclusive=True)
+            return True
+        if text.startswith("/"):
+            self._note(f"comando desconocido: {text} (disponible: /model)", cls="tool-error")
+            return True
+        return False
+
+    # ------------------------------------------------------------- chat
 
     def action_submit(self) -> None:
         ta = self.query_one("#prompt", TextArea)
         text = ta.text.strip()
         if not text or self._busy or self.registry is None:
+            return
+        if self._handle_slash(text):
+            ta.clear()
             return
         ta.clear()
         # E3d PASO B: tras topar el muro, el siguiente mensaje del usuario

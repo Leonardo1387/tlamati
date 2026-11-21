@@ -32,6 +32,7 @@ from tlamati.core.messages import (
     Usage,
 )
 from tlamati.providers.base import (
+    ProviderError,
     ToolSpec,
     iter_sse,
     post_stream,
@@ -80,6 +81,44 @@ class AnthropicMessages:
 
     def _url(self) -> str:
         return self.base_url.rstrip("/") + "/v1/messages"
+
+    async def list_models(self) -> list[str]:
+        """Model ids visible to THIS api key.
+
+        Endpoint depends on the surface the base_url points at (the adapter
+        serves both native Anthropic and OpenRouter's anthropic-compatible
+        surface): a base ending in /v1 (OpenAI-style) exposes /models; the
+        native api.anthropic.com host exposes /v1/models.
+
+        Fail-loud: any transport/HTTP/shape problem raises ProviderError —
+        the caller (ModelRouter / TUI) decides the fallback to config.
+        Never returns a partial or invented list.
+        """
+        root = self.base_url.rstrip("/")
+        url = root + "/models" if root.endswith("/v1") else root + "/v1/models"
+        headers = {k: v for k, v in self._headers().items() if k != "Content-Type"}
+        timeout = httpx.Timeout(self.timeout_s)
+        async with httpx.AsyncClient(timeout=timeout, transport=self.transport) as client:
+            try:
+                resp = await client.get(url, headers=headers)
+            except httpx.TransportError as e:
+                raise ProviderError(f"list_models transport error: {e}", kind="http",
+                                    retryable=True) from e
+            if resp.status_code != 200:
+                raise ProviderError(
+                    f"list_models HTTP {resp.status_code}: {resp.text[:200]}",
+                    kind="http", status=resp.status_code,
+                    retryable=resp.status_code == 429 or resp.status_code >= 500)
+        try:
+            data = resp.json()
+        except (json.JSONDecodeError, ValueError) as e:
+            raise ProviderError(f"list_models malformed JSON: {e}", kind="stream") from e
+        items = data.get("data") if isinstance(data, dict) else None
+        if not isinstance(items, list):
+            raise ProviderError("list_models: unexpected payload shape (no 'data' list)",
+                                kind="stream", raw=data if isinstance(data, dict) else None)
+        ids = [str(m["id"]) for m in items if isinstance(m, dict) and m.get("id")]
+        return sorted(set(ids))
 
     def _headers(self) -> dict[str, str]:
         h = {
