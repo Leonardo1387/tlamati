@@ -481,8 +481,7 @@ class TlamatiApp(App[None]):
         except Exception as e:
             remote = []
             self._note(
-                f"[model] lista remota no disponible ({type(e).__name__}); "
-                "usando config",
+                f"[model] lista remota no disponible ({type(e).__name__}); usando config",
                 cls="tool-error",
             )
         import fnmatch
