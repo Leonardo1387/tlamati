@@ -1,84 +1,115 @@
-# CLASE 15 — La especificación ejecutable: arreglar un bug leyendo primero el test, no el código
+# CLASE 15 — El modelo es un enchufe: routers, paletas y la caza de fantasmas en la historia git
 
-*Serie: DESARROLLO_TLAMATI. Sesión 25, 20-nov-2026. Anterior: CLASE_14 (autopsia del dogfooding #2: "cuando el modelo es chico, el arnés importa más").*
+Hoy la sesión tuvo dos vidas. En la primera nos vestimos de auditores: el repo
+va a ser público y antes de eso hay que jurar que no queda NADA que revele al
+humano detrás del teclado. En la segunda construimos F1 fase A: meter y sacar
+modelos de una conversación AGÉNTICA en caliente, con un solo comando. Y entre
+medio, un incidente que vale la pena diseccionar — porque aquí lo importante no
+fue solo lo que construimos, sino cómo nos detuvimos a tiempo.
 
-En la clase 14 hicimos una autopsia y llegamos a una conclusión incómoda: arreglar el arnés no arregla al modelo, solo deja de taparlo. Pero también vimos el otro lado de la moneda: en el bench flash, con tareas bien especificadas y verificadas por máquina, el modelo chico salió 45/45 perfecto. Hoy nos toca estar del otro lado del mostrador: correr NOSOTROS una tarea de bench, la tarea "promedio" del brazo hermes, y usar exactamente ese ingrediente que hizo que el modelo chico rindiera: una especificación ejecutable.
+## 1. El problema en una escena
 
-## El problema, en escena cotidiana
+Imagina que le prestas tu casa a un desconocido. Barres, ordenas, guardas los
+documentos en un cajón y le abres la puerta. Todo impecable… hasta que el
+desconocido abre EL cajón de los fotos del pasado. Eso es un repo git: borrar
+un archivo hoy NO lo borra de los commits de ayer. La sesión arrancó con la
+auditoría del cajón: ¿qué sabe el mundo de ti si mañana `tlamati` es público?
 
-Imagina que te entregan una calculadora que promete promedios y un compañero te dice: "está mal, promedio([2, 4]) da 2.0 y debería dar 3.0; arréglala y verifica con verify.py". Nada más. No te dicen dónde está el bug ni por qué. Eso es una tarea de bench: un directorio aislado con un instruction.md (el enunciado) y un verificador automático que decide si ganaste o perdiste. Fíjate que el enunciado te da dos cosas que valen oro: un caso concreto de fallo ([2,4] → 2.0 en vez de 3.0) y un comando de verificación (python3 verify.py debe imprimir VERIFY OK). Cuando un reporte de bug viene así de bien armado, el trabajo de diagnóstico se reduce a la mitad.
+## 2. Qué entendimos (hallazgos con número y comprobante)
 
-Los archivos están en /tmp/tlamati-bench/hermes/promedio/ y son apenas dos: calc.py (3 líneas, la función a arreglar) y verify.py (11 líneas, el juez). El bench completo de este brazo tiene 14 tareas hermanas (offbyone, import_roto, git_history, anti_bucle_imposible, context_rot_20_archivos…), cada una en su carpeta con la misma anatomía.
+Primero, la herramienta: `scripts/audit_publicacion.py` escanea dos mundos — el
+árbol actual (archivos `tracked`) y TODA la historia (`git rev-list --objects
+--all`: cada versión que existió de cada archivo). Busca secretos (`sk-or-…`,
+claves privadas), rutas de máquina (`/home/…`), nombres de negocio. Detalle
+fino que vale la pena que entiendas: el propio script de auditoría NO puede
+contener los nombres que busca (sería esconder la llave dentro de la caja
+fuerte); los patrones específicos del dueño viven en un archivo local
+ignorado, `scripts/audit_patterns_local.txt`.
 
-## Qué entendimos hoy
+Segundo hallazgo, la herramienta que muerde: `git log -S "usuario"` no busca
+"commits que HOY contienen la cadena" — busca commits que la AGREGARON O
+QUITARON. Los borrados también aparecen. Si te asustas con 14 "fantasmas",
+corrobora con `git grep usuario HEAD` (eso sí es el árbol real). Lección de
+literalidad de herramientas: el mismo comando te miente si le preguntas otra
+cosa.
 
-Lo primero que hicimos fue leer los DOS archivos, en paralelo, antes de tocar nada. Y aquí está el hallazgo didáctico del día: verify.py no es solo el juez, es la ESPECIFICACIÓN. Sus tres casos de prueba definen el contrato exacto de la función:
+Tercero, la pregunta del fundador sobre el caché — "si me voy de opus a sonnet
+y regreso, ¿pierdo el caché?" — y su respuesta cambió el diseño: NO se pierde
+de forma permanente. El prompt caché de Anthropic vive keyed por (modelo + hash
+del prefijo + cuenta) y con TTL de 5 minutos que se renueva con cada hit. El
+regreso paga cache_write si se enfrió, y casi nada si volviste a tiempo. Por
+eso la palette muestra `cache:hot` / `cache:cold` ANTES de picar: honestidad de
+costo en el momento de la decisión. (Etiquetado [P] en el handoff: re-verificar
+TTLs contra los docs oficiales antes de publicar el texto.)
 
-- promedio([2, 4]) debe dar 3.0
-- promedio([10]) debe dar 10.0
-- promedio([1, 2, 3, 4]) debe dar 2.5
+## 3. Qué se construyó y cómo (replicable)
 
-El segundo caso es el más interesante: la lista de un solo elemento. Cualquier "arreglo" que no devuelva exactamente 10.0 para [10] está mal. Ese caso existe a propósito para matar soluciones tramposas — por ejemplo, alguien que "arregle" el bug sumando 1 en vez de quitar la resta pasaría el primer caso (2.0+1=3.0) y moriría en el segundo (10.0+1=11.0). Un buen test no solo detecta el bug reportado: detecta la clase completa de arreglos incorrectos.
+El patrón estrella del día es la FACHADA (el donor: el Protocol `Provider` del
+propio tlamati, y la idea de "el modelo es un plugin" del PRD). El loop de
+`core/loop.py` recibe `provider` por turno y solo usa `.model` y `.stream()`.
+Entonces creamos `src/tlamati/core/model_router.py`: un objeto que parece un
+provider, se registra como provider, pero por dentro tiene un
+`dict[model_id → provider]` y un "activo". `set_model()` cambia el activo; el
+loop jamás se entera. Cambiar de cerebro en plena sesión sin tocar el loop =
+sustituir el enchufe, no la casa.
 
-Y el bug en sí, en calc.py:3, era una resta espuria al final de la fórmula:
+Los pasos exactos: (1) `list_models()` en ambos adapters (GET /models con
+httpx, MockTransport en tests, cero red — patrón heredado de clase 7); (2)
+tests primer: 22 nuevos en `tests/test_model_router_f1.py`, incluida la
+invariante de que un stream EN VUELTO termina con el modelo saliente (swap solo
+en frontera de turno); (3) cablear la TUI: `/model` abre `ModelPalette`
+(Escape = cancelar, fail closed como ApproveScreen), el Header muestra
+`modelo: X`, y cada swap se anota en el ledger B5 como evento `model_swap` —
+las decisiones del usuario también se auditan. (4) Config nueva:
+`[models] tiers = {small=, medium=, frontier=}` + `available` + `filter`
+(globs; vacío = solo tiers; "*" = todo — OpenRouter lista 400+ modelos y pintar
+la lista cruda sería el problema de las 80 tools en miniatura).
 
-```python
-return sum(nums) / len(nums) - 1
-```
+Comandos de la casa, tal cual: `.venv/bin/python -m pytest tests/ -q` (462
+verdes), `-m mypy src/` (Success), `-m ruff check src/ tests/` (passed). El
+commit: f0f47be.
 
-El "- 1" le restaba uno a TODOS los promedios. Por eso [2,4] daba 2.0 (la suma 6 entre 2 elementos = 3, menos 1 = 2). Un bug de una sola línea, pero del tipo más traicionero: no truena, no lanza excepción, devuelve números que "casi" se ven bien.
+## 4. El incidente y la lección de gobernanza
 
-## QUÉ SE CONSTRUYÓ Y CÓMO (sección replicable)
+A media edición de la palette, un patch mío reemplazó la CABECERA de un método
+grande y dejó el cuerpo viejo adentro con sangría de anidado: código parseable,
+8 errores de "variable sin definir", y yo a punto de seguir parcheando encima.
+Tú dijiste "para aquí" y tenías razón. La regla que sale de esto: los bloques
+grandes se reescriben ENTEROS en un parche, nunca a medias; y si algo se rompe,
+lo primero es parar y ESCRIBIR el estado antes de seguir tocando. De ahí nació
+`HANDOFF_SESION_25_F1_Y_AUDITORIA.md`: qué estaba haciendo, qué pasó, qué
+faltaba, en qué orden. El handoff ES el seguro contra el accidente.
 
-El flujo completo, comandos exactos tal como se corrieron:
+Ojo con la higiene: filter-repo reescribe la historia, y lo hicimos CON un
+stash abierto — los stashes son objetos git que también cuentan (y también se
+reescriben… o se re-contaminan). Ritual correcto para la sesión 25: trabajar
+limpio, drop stash, reescribir, `git reflog expire --expire=now --all && git gc
+--prune=now`, y verificar las tres pasadas del auditor. Queda un pendiente que
+el propio script encontró al final: "proveedor-nube" sigue vivo; el nombre real está en el handoff local en HEAD (PRD y CLASE_1)
+; la regla existía pero la segunda pasada no cubrió lo commiteado después. Por
+eso la verificación final SIEMPRE es `git grep … HEAD`, no confiar en que el
+filtro corrió.
 
-```
-# 1. Encontrar los archivos del task (no asumir rutas)
-ls /tmp/tlamati-bench/hermes/promedio/
+## 5. Teoría del día (patrón reutilizable)
 
-# 2. Leer el código Y el verificador ANTES de editar
-cat calc.py
-cat verify.py
+**Fachada / Adapter** (donor del diseño clásico de Gamma et al., "Design
+Patterns", 1994, y del Protocol de Python — tipado estructural: te basta con
+parecerlo para serlo). Cuando un sistema necesita poder CAMBIAR de proveedor en
+vivo, no esparzas `if modelo ==` por el código: define una interface mínima
+(.model + .stream), mete el estado mutable en UN objeto y deja que el resto del
+mundo crea que habla con un provider. Sirve para modelos, para backends de
+pago, para bases de datos. La regla de oro hija de esto: el estado de intercambio
+vive en la fachada, y quien muta la fachada (la TUI) es el único que puede
+hacerlo — un solo pasador de llaves.
 
-# 3. El fix: una línea, quitar el "- 1" espurio de calc.py:3
-#    antes:  return sum(nums) / len(nums) - 1
-#    después: return sum(nums) / len(nums)
+## 6. Continuidad
 
-# 4. Verificar con el juez que dio el propio enunciado
-cd /tmp/tlamati-bench/hermes/promedio && python3 verify.py
-```
+Serie de arquitectura: clase 14 fue autopsia (forense de sesiones pasadas); hoy
+forense del PASADO DEL REPO (historia git) — misma disciplina, otro objeto. Y
+cerramos con el arnés aprendiendo a mudar de cerebro. Siguiente estación en el
+mapa: F1 fase B (el plan recomienda tiers chico/medio/frontera y el ruteo se
+activa al aprobar), la auditoría terminada, y el experimento de 3 brazos que
+decide si "opus se siente distinto" es ciencia o fe.
 
-Salida real del paso 4:
-
-```
-VERIFY OK
-```
-
-exit_code 0. Tarea completada en 4 pasos: localizar, leer ambos archivos, editar una línea, correr el verificador.
-
-Archivos tocados: solo /tmp/tlamati-bench/hermes/promedio/calc.py (una línea cambiada). verify.py NO se toca nunca — es el juez; editar el juez para pasar es hacer trampa y en un bench invalida la medición.
-
-## LA TEORÍA DETRÁS
-
-Hoy usamos el patrón de **especificación ejecutable** (executable specification): cuando existe un test que define el comportamiento correcto, el test es la fuente de verdad, no el código, no los comentarios, no la memoria de nadie. El orden de trabajo que impone este patrón es fijo y reusable en cualquier proyecto:
-
-1. **Lee el test primero.** Te dice qué significa "bien" con números concretos.
-2. **Reproduce el fallo.** Corre el verificador ANTES de arreglar, para confirmar que falla como dice el reporte (hoy nos ahorramos este paso porque el enunciado ya traía el fallo documentado y el código era de 3 líneas, pero en un proyecto real es obligatorio: a veces el bug reportado no reproduce).
-3. **Arregla la raíz, no el síntoma.** El síntoma era "promedio([2,4]) = 2.0"; la raíz era el "- 1". Un arreglo por síntoma (sumar 1 al resultado final) habría pasado un caso y fallado otro.
-4. **Verifica con la misma máquina que te va a calificar.** Nada de "ya se ve bien"; python3 verify.py imprimió VERIFY OK.
-
-Este patrón es exactamente lo que hace que un bench funcione — y conecta directo con la clase 14: la razón por la que el modelo chico sacó 45/45 en el bench flash es que cada tarea traía su verify.py. La verificación por máquina convierte "¿lo hice bien?" (juicio subjetivo) en "VERIFY OK" (hecho binario). El diseño de tasks aislados con instruction.md + verify.py es hijo directo de SWE-bench y de los benchmarks de agentes tipo Terminal-Bench: un directorio por tarea, cero dependencias entre tareas, grading automatizado. Tlamati se evalúa contra el mismo bench que corremos a mano hoy — por eso entender la anatomía de una tarea importa: es el terreno donde se mide la tesis del proyecto.
-
-## Qué decidimos NO construir
-
-No agregamos manejo de lista vacía (ZeroDivisionError), no agregamos tipos, no escribimos tests extra. Tentador, pero fuera de alcance: el bench califica contra verify.py y nada más, y en un arnés de evaluación cada token y cada segundo cuentan. Añadir comportamiento no pedido se llama scope creep (el proyecto que crece como enredadera) y en un benchmark contamina la medición: si el agente tarda el doble en hacer "de más", la comparación entre arneses deja de ser justa. Decir que no también es clase.
-
-## El error del día
-
-El error no fue nuestro: fue el bug plantado del bench (esa es la naturaleza de un bench — los bugs están sembrados a propósito). Pero el material didáctico está en cómo se detecta esa FAMILIA de bug: una resta/correr-de-uno al final de una fórmula ("off-by-one", que de hecho es el nombre de otra tarea del mismo bench). Su firma es inconfundible: todo resultado sale desplazado la misma cantidad. Si ves que TODOS los valores fallan por exactamente el mismo delta, no busques lógica compleja rota — busca un término constante que sobra o falta.
-
-## Gancho para mañana
-
-El brazo hermes del bench tiene 14 tareas; hoy corrimos una. La campaña S27 sigue con los brazos qwen por relanzar y el análisis del PASO 3 pendiente.
-
-**La pregunta que queda abierta: si una tarea de 3 líneas se resuelve en 4 pasos, ¿en qué punto exacto de las 13 tareas restantes (git_history, context_rot_20_archivos, anti_bucle_imposible) empieza a fallar un agente — y es el modelo o es el arnés el que falla?**
+— Hermes, sesión 24 (20-nov-2026). Main = f0f47be, 462 tests, mypy/ruff
+limpios. Handoff de continuación: HANDOFF_SESION_25_F1_Y_AUDITORIA.md.
