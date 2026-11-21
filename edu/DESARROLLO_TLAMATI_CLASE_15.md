@@ -84,11 +84,12 @@ Ojo con la higiene: filter-repo reescribe la historia, y lo hicimos CON un
 stash abierto — los stashes son objetos git que también cuentan (y también se
 reescriben… o se re-contaminan). Ritual correcto para la sesión 25: trabajar
 limpio, drop stash, reescribir, `git reflog expire --expire=now --all && git gc
---prune=now`, y verificar las tres pasadas del auditor. Queda un pendiente que
-el propio script encontró al final: "proveedor-nube" sigue vivo; el nombre real está en el handoff local en HEAD (PRD y CLASE_1)
-; la regla existía pero la segunda pasada no cubrió lo commiteado después. Por
-eso la verificación final SIEMPRE es `git grep … HEAD`, no confiar en que el
-filtro corrió.
+--prune=now`, y verificar las tres pasadas del auditor. Detalle de gobernanza:
+cada cadena que el auditor encuentra se DECIDE (¿se protege o se publica?), no
+se filtra en automático — "Enverge" por ejemplo sobrevivió como nombre público
+de proveedor por decisión del fundador, y su regla se borró del archivo local
+de filter-repo antes de la pasada final. Por eso la verificación final SIEMPRE
+es `git grep … HEAD`, no confiar en que el filtro corrió.
 
 ## 5. Teoría del día (patrón reutilizable)
 
