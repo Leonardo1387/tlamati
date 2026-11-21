@@ -296,8 +296,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "cmd",
         nargs="?",
-        choices=["sessions", "audit"],
-        help="'sessions' = list stored sessions; 'audit' = read the audit ledger (no LLM, free)",
+        choices=["sessions", "audit", "model"],
+        help=(
+            "'sessions' = list stored sessions; 'audit' = read the audit ledger; "
+            "'model' = wizard interactivo proveedor->modelo->config (no LLM, free)"
+        ),
     )
     p.add_argument("--session", metavar="ID", help="session id for `tlamati audit`")
     return p
@@ -836,15 +839,169 @@ def _run_sessions(args: argparse.Namespace) -> int:
     return 0
 
 
+def _fetch_openrouter_models(base_url: str, api_key: str) -> list[dict[str, Any]]:
+    """Lista cruda de modelos del proveedor OpenAI-compatible (fail-loud)."""
+    import httpx
+
+    url = base_url.rstrip("/") + "/models"
+    headers = {}
+    if api_key:
+        headers["Authorization"] = "Bearer " + api_key
+    resp = httpx.get(url, headers=headers, timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+    return data.get("data", data if isinstance(data, list) else [])
+
+
+def _run_model(args: argparse.Namespace) -> int:
+    """`tlamati model` — wizard interactivo: proveedor -> modelo -> config.yaml.
+
+    Sin flags, $0, sin LLM. Guarda provider.model/base_url y activa
+    models.filter=['*'] para que la paleta /model de la TUI muestre la lista
+    remota completa (sin filter, la paleta solo ve el default).
+    """
+    if not sys.stdin.isatty():
+        print(
+            "tlamati: `model` es interactivo (necesita terminal). "
+            "Alternativa: tlamati --model ID o editar ~/.config/tlamati/config.yaml",
+            file=sys.stderr,
+        )
+        return 2
+    cfg = load_config()
+    cfg_provider = dict(cfg.get("provider") or {})
+    current_model = cfg_provider.get("model") or DEFAULT_MODEL
+    current_base = cfg_provider.get("base_url") or DEFAULT_BASE_URL
+
+    print(f"tlamati model — modelo actual: {current_model}")
+    print(f"                 base_url actual: {current_base}\n")
+
+    # ---- Paso 1: proveedor ------------------------------------------------
+    print("1) PROVEEDOR")
+    api_key = _resolve_api_key(cfg_provider)
+    key_hint = "key detectada" if api_key else "SIN key"
+    options = [
+        ("OpenRouter (recomendado — usa tu API key integrada)", DEFAULT_BASE_URL),
+        (f"Conservar base_url del config ({current_base})", current_base),
+        ("Otro (escribir base_url OpenAI-compatible)", ""),
+    ]
+    for i, (label, _) in enumerate(options, 1):
+        extra = f" — {key_hint}" if i == 1 else ""
+        print(f"  {i}. {label}{extra}")
+    try:
+        choice = input(f"  elige [1-{len(options)}] (Enter = 1): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\n(cancelado)")
+        return 1
+    if choice == "" or choice == "1":
+        base_url = DEFAULT_BASE_URL
+    elif choice == "2":
+        base_url = current_base
+    elif choice == "3":
+        base_url = input("  base_url: ").strip() or DEFAULT_BASE_URL
+    else:
+        print("  opción inválida", file=sys.stderr)
+        return 2
+
+    if base_url.rstrip("/") == DEFAULT_BASE_URL.rstrip("/") and not api_key:
+        print("  aviso: no hay OPENROUTER_API_KEY ni key en ~/.hermes/.env", file=sys.stderr)
+
+    # ---- Paso 2: modelo ----------------------------------------------------
+    print("\n2) MODELO — descargando lista del proveedor...")
+    try:
+        models = _fetch_openrouter_models(base_url, api_key)
+    except Exception as e:  # fail-loud honesto al usuario
+        print(
+            f"tlamati: no pude traer la lista de modelos ({type(e).__name__}: {e})",
+            file=sys.stderr,
+        )
+        manual = input("  ¿escribir el model id a mano? (Enter = cancelar): ").strip()
+        if not manual:
+            return 1
+        models = [{"id": manual}]
+
+    by_id = {m.get("id", ""): m for m in models}
+    print(f"  {len(models)} modelos disponibles.")
+
+    selected: str | None = None
+    while selected is None:
+        query = input("  busca (Enter = top por contexto, 's' = salir): ").strip().lower()
+        if query in ("s", "salir"):
+            print("(cancelado)")
+            return 1
+        if query:
+            matches = [m for m in models if query in str(m.get("id", "")).lower()]
+            name_q = [
+                m for m in models if query in str(m.get("name", "")).lower() and m not in matches
+            ]
+            matches += name_q
+        else:
+            matches = sorted(models, key=lambda m: int(m.get("context_length") or 0), reverse=True)[
+                :15
+            ]
+        if not matches:
+            print("  sin coincidencias, intenta otro término.")
+            continue
+        for i, m in enumerate(matches[:20], 1):
+            mid = m.get("id", "")
+            ctx = m.get("context_length")
+            pricing = m.get("pricing") or {}
+            prompt_p = pricing.get("prompt")
+            try:
+                price_str = f"${float(prompt_p) * 1e6:.2f}/M in" if prompt_p is not None else ""
+            except (TypeError, ValueError):
+                price_str = ""
+            ctx_str = f"{ctx // 1000}K ctx" if ctx else ""
+            mod = ",".join((m.get("architecture") or {}).get("input_modalities") or [])
+            mark = " *" if mid == current_model else ""
+            print(f"  {i:2d}. {mid}{mark}  {ctx_str} {price_str} [{mod}]")
+        pick = input("  número del modelo (Enter = buscar de nuevo): ").strip()
+        if pick == "":
+            continue
+        try:
+            idx = int(pick) - 1
+            if 0 <= idx < min(len(matches), 20):
+                selected = matches[idx].get("id")
+        except ValueError:
+            # permite pegar el id completo en vez del número
+            if pick in by_id:
+                selected = pick
+    print(f"\n  elegido: {selected}")
+
+    # ---- Paso 3: guardar config -------------------------------------------
+    path = (
+        Path(args.config_path)
+        if getattr(args, "config_path", None)
+        else (Path.home() / ".config" / "tlamati" / "config.yaml")
+    )
+    cfg["provider"] = {**cfg_provider, "model": selected, "base_url": base_url}
+    models_cfg = dict(cfg.get("models") or {})
+    filt = models_cfg.get("filter") or []
+    if "*" not in [str(p) for p in filt]:
+        filt = ["*"] + [str(p) for p in filt]
+        models_cfg["filter"] = filt  # paleta /model de la TUI ve todo
+    cfg["models"] = models_cfg
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
+    print(f"  guardado en {path}")
+    print(
+        "  ✔ próximas corridas (CLI y TUI) usan este modelo; "
+        "en la TUI puedes cambiar en vivo con /model"
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.cmd == "audit":
         return _run_audit(args)
     if args.cmd == "sessions":
         return _run_sessions(args)
+    if args.cmd == "model":
+        return _run_model(args)
     if args.cmd is not None:
         print(
-            f"tlamati: subcomando desconocido {args.cmd!r} (existen: sessions, audit)",
+            f"tlamati: subcomando desconocido {args.cmd!r} (existen: sessions, audit, model)",
             file=sys.stderr,
         )
         return 2
