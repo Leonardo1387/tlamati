@@ -1,8 +1,8 @@
 """Built-in toolset composition (B2/B3): files + search + terminal.
 
 ``make_tools(workdir)`` returns the full formal toolset. Order is stable
-(read, write, edit, search, terminal) because tool specs are part of the
-cacheable prefix ("caching is sacred").
+(read, write, edit, list_dir, search, terminal) because tool specs are part of
+the cacheable prefix ("caching is sacred").
 
 ``sandbox``: None (default) → jaula bwrap ON si bwrap existe (CLI y evals);
 True/False fuerza el modo (tests). Solo afecta a tools sandboxable (terminal).

@@ -321,6 +321,35 @@ def make_file_tools(workdir: Path) -> list[Any]:
         count = "all occurrences" if replace_all else "1 occurrence"
         return f"edited {path} ({count}, strategy {strategy})"
 
+    async def list_dir(args: dict[str, Any]) -> str:
+        try:
+            path = _resolve(workdir, str(args.get("path", ".")))
+        except WinPathError as e:
+            return f"ERROR: {e}"
+        if not path.is_dir():
+            from tlamati.tools.winpath import windows_dir_hint
+
+            return f"ERROR: not a directory: {path}{windows_dir_hint(path)}"
+        pattern = str(args.get("pattern", "")) or "*"
+        limit = int(args.get("limit", 200))
+        try:
+            entries = sorted(path.glob(pattern), key=lambda p: (p.is_file(), p.name.lower()))
+        except OSError as e:
+            return f"ERROR: {e}"
+        if not entries:
+            return f"(no match for {pattern!r}): {path}"
+        lines = []
+        for p in entries[:limit]:
+            try:
+                if p.is_dir():
+                    lines.append(f"[dir]  {p.name}/")
+                else:
+                    lines.append(f"{p.stat().st_size:>10}  {p.name}")
+            except OSError:
+                lines.append(f"[?]  {p.name}")
+        more = f"\n... [capped at {limit}]" if len(entries) > limit else ""
+        return f"{path} ({len(entries)} entries):\n" + "\n".join(lines) + more
+
     return [
         Tool(
             name="read_file",
@@ -377,6 +406,25 @@ def make_file_tools(workdir: Path) -> list[Any]:
                 "required": ["path", "old_string", "new_string"],
             },
             run=edit,
+            permission=Permission.AUTO,
+        ),
+        Tool(
+            name="list_dir",
+            description=(
+                "List entries of a directory (dirs first, then files with size). "
+                "Optional glob pattern (e.g. '*notes*') and limit. Windows "
+                "paths (C:\\...) are accepted. Use this to SEE what exists "
+                "before claiming a file is missing."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "directory (default: workdir)"},
+                    "pattern": {"type": "string", "description": "glob filter, default *"},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+                },
+            },
+            run=list_dir,
             permission=Permission.AUTO,
         ),
     ]
