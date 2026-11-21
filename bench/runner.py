@@ -53,13 +53,18 @@ HARNESSES = ("tlamati", "opencode", "codex", "hermes")
 PROBE_TASK = "promedio"
 
 # Precios OpenRouter VERIFICADOS EN VIVO el 19-nov-2026 (USD por token).
-# cache_read se descuenta de tokens_in (misma semántica acumulativa del schema).
+# Frontera añadida el 19-nov sesión 25 (verificados vs catálogo vivo, script
+# /tmp/hermes-verify-cotizacion.py). cache_read se descuenta de tokens_in
+# (misma semántica acumulativa del schema).
 # Modelo sin precios conocidos → cost_usd null honesto, NUNCA inventado.
 PRICES: dict[str, tuple[float, float, float]] = {  # (in, out, cache_read)
     "qwen/qwen3-coder": (0.30e-6, 1.00e-6, 0.10e-6),
     "qwen/qwen3.8-flash": (0.15e-6, 0.47e-6, 0.016e-6),
     "deepseek/deepseek-v3.2": (0.26e-6, 0.38e-6, 0.13e-6),
     "moonshotai/kimi-k2.7-code": (0.65e-6, 3.50e-6, 0.16e-6),
+    "qwen/qwen3.8-max-0902": (2.00e-6, 6.00e-6, 0.25e-6),
+    "openai/gpt-6.2-sol": (2.00e-6, 10.00e-6, 0.10e-6),
+    "anthropic/claude-opus-5.5": (4.00e-6, 20.00e-6, 0.20e-6),
 }
 
 
@@ -134,7 +139,7 @@ MODEL = DEFAULT_MODEL
 # ---------------------------------------------------------------- arneses
 
 
-def _cmd_tlamati(workdir: Path, instruction: str) -> list[str]:
+def _cmd_tlamati(workdir: Path, instruction: str, max_turns: int = 50) -> list[str]:
     return [
         "tlamati",
         "-p",
@@ -145,9 +150,28 @@ def _cmd_tlamati(workdir: Path, instruction: str) -> list[str]:
         "--approve-tool",
         "*",
         "--max-turns",
-        "50",
+        str(max_turns),
         "--no-session",
+        # FIX H9-v4 (FIX-B): memoria DESACTIVADA en el bench. La memoria
+        # persistente (~/.local/share/tlamati/memory) contaminó la campaña v3:
+        # la calibración guardó las respuestas de la fixture y opus las recibió
+        # en el prompt inicial (7 turnos, acordeón). El arnés de codex tampoco
+        # trae memoria persistente (estado purgado por _wipe_codex_state) →
+        # comparación simétrica.
+        "--no-memory",
     ]
+
+
+def _wipe_codex_state() -> None:
+    """FIX H9-v4 (FIX-B): purga el estado mutable de CODEX_HOME antes de cada
+    corrida (memories/goals/state/shell_snapshots se acumulan entre combos;
+    en v3 se modificaron en plena campaña). Conserva auth.json/config.toml."""
+    for pat in ("memories", "goals_*.sqlite*", "state_*.sqlite*", "shell_snapshots", "tmp", ".tmp"):
+        for p in CODEX_HOME_DIR.glob(pat):
+            if p.is_dir():
+                shutil.rmtree(p, ignore_errors=True)
+            else:
+                p.unlink(missing_ok=True)
 
 
 def _cmd_opencode(workdir: Path, instruction: str) -> list[str]:
@@ -191,6 +215,12 @@ def _cmd_hermes(workdir: Path, instruction: str) -> list[str]:
         MODEL,
         "--provider",
         "openrouter",
+        # FIX 19-nov sesión 26: -z SÍ puede exponer tokens vía --usage-file
+        # (verificado real: corrida de centavos devolvió input/output/cache +
+        # estimated_cost). Sin esto la fila hermes era null en toda la tabla.
+        "--usage-file",
+        str(workdir / ".bench_usage.json"),
+        "--no-restore-cwd",
     ]
 
 
@@ -296,9 +326,27 @@ def _extract_opencode(stdout: str) -> dict[str, Any]:
     return out
 
 
-def _extract_hermes(stdout: str) -> dict[str, Any]:
-    # -z imprime SOLO texto final: sin tokens/turnos → nulls honestos
-    return {}
+def _extract_hermes(stdout: str, workdir: Path | None = None) -> dict[str, Any]:
+    # -z imprime solo texto; los tokens vienen del --usage-file (fix sesión 26).
+    # turns = api_calls del reporte (proxy honesto: 1 llamada ≈ 1 turno).
+    if workdir is None:
+        return {}
+    f = workdir / ".bench_usage.json"
+    if not f.is_file():
+        return {}
+    try:
+        u = json.loads(f.read_text())
+    except (OSError, ValueError):
+        return {}
+    if not u.get("completed", True) and u.get("input_tokens") is None:
+        return {}
+    return {
+        "turns": u.get("api_calls"),
+        "tokens_in": u.get("input_tokens"),
+        "tokens_out": u.get("output_tokens"),
+        "cache_read": u.get("cache_read_tokens"),
+        "error": None if u.get("completed") else "hermes usage: completed=false",
+    }
 
 
 EXTRACTORS = {
@@ -327,12 +375,53 @@ def verify(workdir: Path) -> tuple[bool, str]:
     return proc.returncode == 0 and "VERIFY OK" in proc.stdout, out[-500:]
 
 
+def _task_limits(task_dir: Path) -> tuple[int, int]:
+    """Límites por fixture (H9: tareas largas de 100+ turnos). bench_limits.json
+    {"max_turns": N, "timeout_s": S} en la fixture ORIGINAL (no se copia al
+    workspace para no contaminarlo). Default = los globales del runner."""
+    f = task_dir / "bench_limits.json"
+    max_turns, timeout_s = 50, HARNESS_TIMEOUT_S
+    if f.is_file():
+        try:
+            d = json.loads(f.read_text())
+            max_turns = int(d.get("max_turns", max_turns))
+            timeout_s = int(d.get("timeout_s", timeout_s))
+        except (OSError, ValueError, TypeError):
+            pass  # fail-soft: límites globales
+    return max_turns, timeout_s
+
+
 def run_one(harness: str, task_dir: Path, api_key: str, run: int = 1) -> BenchResult:
     workdir = BENCH_ROOT / harness / task_dir.name
+    # FIX H9-v4 (FIX-C, ataque A6): antes de cada combo, archivar y PURGAR los
+    # workdirs de ESTA tarea en TODOS los arneses. En v3, opus x tlamati podía
+    # leer /tmp/tlamati-bench/codex/<task>/ con la solución ya aplicada por el
+    # combo anterior (el jail bwrap es --ro-bind / / → todo el fs es legible).
+    # La forensia del workdir se conserva como tarball en _raw (FIX-D).
+    model_slug = MODEL.replace("/", "_").replace(".", "_")
+    for other in BENCH_ROOT.iterdir() if BENCH_ROOT.exists() else []:
+        if not other.is_dir() or other.name == "_raw":
+            continue
+        stale = other / task_dir.name
+        if stale.exists():
+            with contextlib.suppress(OSError, subprocess.SubprocessError):
+                raw_dir = BENCH_ROOT / "_raw" / other.name
+                raw_dir.mkdir(parents=True, exist_ok=True)
+                tarball = raw_dir / f"{task_dir.name}.{model_slug}.pre{run}.workdir.tgz"
+                subprocess.run(
+                    ["tar", "czf", str(tarball), "-C", str(other), task_dir.name],
+                    capture_output=True,
+                    timeout=120,
+                )
+            shutil.rmtree(stale, ignore_errors=True)
     if workdir.exists():
         shutil.rmtree(workdir)
     workdir.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(task_dir, workdir, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    shutil.copytree(
+        task_dir,
+        workdir,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "bench_limits.json"),
+    )
     setup = workdir / "setup.sh"
     if setup.is_file():
         with contextlib.suppress(subprocess.TimeoutExpired, OSError):
@@ -348,12 +437,21 @@ def run_one(harness: str, task_dir: Path, api_key: str, run: int = 1) -> BenchRe
     env = dict(os.environ)
     env["OPENROUTER_API_KEY"] = api_key
     if harness == "codex":
+        _wipe_codex_state()  # FIX-B: sin estado residual entre combos/campañas
         env["CODEX_HOME"] = str(CODEX_HOME_DIR)
+        # Curva por-request (moat H1): el TRACE loguea cada POST con su body;
+        # solo afecta stderr, no cambia requests ni métricas.
+        env.setdefault("RUST_LOG", "codex_client=trace")
 
-    cmd = COMMANDS[harness](workdir, instruction)
+    max_turns, timeout_s = _task_limits(task_dir)
+    if harness == "tlamati":
+        cmd = _cmd_tlamati(workdir, instruction, max_turns=max_turns)
+    else:
+        cmd = COMMANDS[harness](workdir, instruction)
     t0 = time.monotonic()
     error: str | None = None
     stdout = ""
+    stderr = ""
     try:
         proc = subprocess.run(
             cmd,
@@ -361,20 +459,50 @@ def run_one(harness: str, task_dir: Path, api_key: str, run: int = 1) -> BenchRe
             env=env,
             capture_output=True,
             text=True,
-            timeout=HARNESS_TIMEOUT_S,
+            timeout=timeout_s,
         )
         stdout = proc.stdout
+        stderr = proc.stderr or ""
         if proc.returncode != 0:
             tail = (proc.stderr or proc.stdout or "").strip()[-300:]
             error = f"harness rc={proc.returncode}: {tail}"
-    except subprocess.TimeoutExpired:
-        error = f"harness timeout >{HARNESS_TIMEOUT_S}s"
+    except subprocess.TimeoutExpired as e:
+        # FIX paso 1a (19-nov sesión 25): TimeoutExpired.stdout SÍ trae el stdout
+        # parcial capturado (verificado con test /tmp/test_timeout_stdout.py).
+        # codex emite turn.completed.usage solo al final, pero si el timeout lo
+        # sorprende tras un evento de usage parcial (compactación/reintento), la
+        # cosecha rescata lo que haya. Semántica TimeoutExpired: bytes si text=False
+        # no aplica aquí (text=True) → str; defensivo por versión.
+        partial = e.stdout
+        if isinstance(partial, bytes):
+            partial = partial.decode(errors="replace")
+        stdout = partial or ""
+        partial_err = e.stderr
+        if isinstance(partial_err, bytes):
+            partial_err = partial_err.decode(errors="replace")
+        stderr = partial_err or ""
+        error = f"harness timeout >{timeout_s}s"
     except FileNotFoundError as e:
         error = f"harness no instalado: {e}"
     duration = time.monotonic() - t0
 
+    # Guardar eventos crudos + stderr (curva TRACE de codex) para forensia/curvas
+    # (paso 1b, moat_analysis.py) — nunca rompe la corrida.
+    # FIX-D (H9-v4): el nombre incluye el MODELO — en v3 el raw de gpt x tlamati
+    # fue pisado por opus x tlamati (mismo path) y se perdió la forensia de 36 turnos.
+    raw_dir = BENCH_ROOT / "_raw" / harness
+    model_slug = MODEL.replace("/", "_").replace(".", "_")
+    raw_stem = f"{task_dir.name}.{model_slug}.run{run}"
+    with contextlib.suppress(OSError):
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        (raw_dir / f"{raw_stem}.jsonl").write_text(stdout)
+        (raw_dir / f"{raw_stem}.stderr").write_text(stderr)
+
     ok, verify_out = verify(workdir)
-    metrics = EXTRACTORS[harness](stdout)
+    if harness == "hermes":
+        metrics = _extract_hermes(stdout, workdir)
+    else:
+        metrics = EXTRACTORS[harness](stdout)
     tin, tout = metrics.get("tokens_in"), metrics.get("tokens_out")
     cread = metrics.get("cache_read")
     return BenchResult(
