@@ -5,7 +5,7 @@ description = "Local-first, provider-agnostic agentic harness. The model is a pl
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12"
-authors = [{ name = "Leonardo" }]
+authors = [{ name = "Leonardo Gutiérrez" }]
 keywords = ["agent", "harness", "llm", "cli", "local-first"]
 dependencies = [
     "httpx>=0.27",

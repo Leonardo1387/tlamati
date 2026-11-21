@@ -1,6 +1,6 @@
 # NOTICE — Tlamati
 
-Copyright 2026 Leonardo. Licensed under the Apache License, Version 2.0.
+Copyright 2026 Leonardo Gutiérrez. Licensed under the Apache License, Version 2.0.
 
 This product includes SEMANTICS and architectural patterns learned from the
 following projects (no verbatim code copied unless stated; all licenses OSS):
