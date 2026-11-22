@@ -32,7 +32,11 @@ DREAM_SYSTEM = (
     "de la conversación, datos que cambian pronto. Responde EXCLUSIVAMENTE un "
     'JSON: {"operations": [{"target": "memory"|"user", "action": '
     '"add"|"replace"|"remove", "content": "...", "old_text": '
-    '"..."}]}. Si no hay nada durable: {"operations": []}. Máximo 5 '
+    '"..."}], "gaps": [...]}. "gaps": 0-3 frases cortas señalando qué NO '
+    "quedó en memoria y probablemente importará después (temas que el usuario "
+    "mencionó de pasada, decisiones sin registrar, posibles contradicciones "
+    "con entradas existentes). Si no hay huecos: lista vacía. Si no hay nada "
+    'durable: {"operations": [], "gaps": []}. Máximo 5 '
     "operaciones. Entradas cortas (1-2 líneas), declarativas, en el idioma "
     "del usuario."
 )
@@ -44,11 +48,17 @@ MAX_TRANSCRIPT_CHARS = 40_000
 class DreamReport:
     applied: int = 0
     skipped_reason: str | None = None
+    gaps: tuple[str, ...] = ()
 
     def human(self) -> str:
-        if self.skipped_reason:
-            return f"[dream] sin consolidar: {self.skipped_reason}"
-        return f"[dream] {self.applied} entrada(s) consolidada(s) en memoria"
+        base = (
+            f"[dream] sin consolidar: {self.skipped_reason}"
+            if self.skipped_reason
+            else f"[dream] {self.applied} entrada(s) consolidada(s) en memoria"
+        )
+        if self.gaps:
+            base += f"; {len(self.gaps)} hueco(s): " + " | ".join(self.gaps)
+        return base
 
 
 def transcript_from_messages(messages: list[Message]) -> str:
@@ -70,9 +80,13 @@ def transcript_from_messages(messages: list[Message]) -> str:
     return "\n".join(lines)[:MAX_TRANSCRIPT_CHARS]
 
 
-def parse_dream_output(raw: str) -> list[dict[str, str]]:
-    """Extract the operations array from the model reply, tolerating code
-    fences and leading prose (models love wrapping JSON)."""
+def parse_dream_output(raw: str) -> tuple[list[dict[str, str]], list[str]]:
+    """Extract the operations array (G2: + gaps) from the model reply,
+    tolerating code fences and leading prose (models love wrapping JSON).
+
+    G2 gap-analysis (donor: gbrain think): "gaps" = advisory phrases about
+    what did NOT make it into memory. Caps: max 3 gaps, 300 chars each.
+    """
     text = raw.strip()
     if text.startswith("```"):
         # strip fence lines
@@ -90,7 +104,15 @@ def parse_dream_output(raw: str) -> list[dict[str, str]]:
     for op in ops[:5]:
         if isinstance(op, dict) and op.get("action") in ("add", "replace", "remove"):
             clean.append({str(k): str(v) for k, v in op.items()})
-    return clean
+    raw_gaps = data.get("gaps")
+    gaps: list[str] = []
+    if isinstance(raw_gaps, list):
+        for g in raw_gaps:
+            if len(gaps) >= 3:
+                break
+            if isinstance(g, str) and g.strip():
+                gaps.append(g.strip()[:300])
+    return clean, gaps
 
 
 async def dream(store: MemoryStore, summarizer: Summarizer, messages: list[Message]) -> DreamReport:
@@ -111,11 +133,11 @@ async def dream(store: MemoryStore, summarizer: Summarizer, messages: list[Messa
     if not text:
         return DreamReport(skipped_reason="modelo devolvió vacío")
     try:
-        ops = parse_dream_output(text)
+        ops, gaps = parse_dream_output(text)
     except (ValueError, json.JSONDecodeError) as e:
         return DreamReport(skipped_reason=f"respuesta no es JSON válido: {e}")
     if not ops:
-        return DreamReport(skipped_reason="nada durable que guardar")
+        return DreamReport(skipped_reason="nada durable que guardar", gaps=tuple(gaps))
     applied = 0
     for op in ops:
         target = op.pop("target", "memory")
@@ -129,5 +151,9 @@ async def dream(store: MemoryStore, summarizer: Summarizer, messages: list[Messa
             # the batch atomicity is for the agent-facing tool).
             continue
     if applied == 0:
-        return DreamReport(skipped_reason="todas las operaciones fueron rechazadas (caps)")
-    return DreamReport(applied=applied)
+        return DreamReport(
+            skipped_reason="todas las operaciones fueron rechazadas (caps)",
+            gaps=tuple(gaps),
+        )
+    # G2: gaps = advisory puro, NUNCA se escriben a archivo (invariante 3).
+    return DreamReport(applied=applied, gaps=tuple(gaps))
