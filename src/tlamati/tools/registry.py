@@ -37,6 +37,7 @@ from tlamati.plugins.internal.ledger_plugin import register_ledger_hooks
 from tlamati.providers.base import ToolSpec
 
 if TYPE_CHECKING:  # B4: policy.config importa Permission de aquí → ciclo evitado
+    from tlamati.context.late_instructions import LateInstructions
     from tlamati.policy.config import Policy
     from tlamati.policy.ledger import Ledger
 
@@ -115,11 +116,16 @@ class Registry:
         policy: Policy | None = None,
         ledger: Ledger | None = None,
         hooks: HookRegistry | None = None,
+        late_instructions: LateInstructions | None = None,
     ):
         self._tools: dict[str, Tool] = {}
         self.approver = approver
         self.policy = policy  # B4: overrides + patrones + trifecta
         self.ledger = ledger  # B5: auditoría append-only (None = off)
+        # NIVEL 1a (dogfood #6): inyección tardía de AGENTS.md cuando el
+        # agente toca un repo FUERA del cwd inicial. Advisory: adjunta un
+        # recordatorio al tool result (mensaje nuevo), nunca muta el prefijo.
+        self.late_instructions = late_instructions
         # D2: hooks (plugins). Con ledger, el plugin INTERNO de auditoría se
         # registra SIEMPRE (B5 no es opcional; migración real de _log): el
         # registro de tool_events ahora vive en after_tool de ese plugin.
@@ -281,6 +287,13 @@ class Registry:
             content = f"ERROR: tool {name} raised {type(e).__name__}: {e}"
             is_error = True
         content, truncated = truncate(content)
+        # NIVEL 1a (dogfood #6): si el tool tocó un repo con AGENTS.md fuera
+        # del cwd inicial, adjuntar sus reglas al result — mensaje NUEVO en la
+        # conversación, el prefijo cacheable NO se toca (cache sagrada).
+        if self.late_instructions is not None:
+            reminder = self.late_instructions.reminder(name, args)
+            if reminder:
+                content += reminder
         # B4 trifecta: un tool que PRODUCE contenido no confiable (p.ej.
         # terminal con red) marca el resultado y la corrida entera.
         untrusted = bool(tool.produces_untrusted and not is_error)

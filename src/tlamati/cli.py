@@ -602,6 +602,10 @@ async def _run_headless(args: argparse.Namespace) -> int:
 
     # C4: project instructions (AGENTS.md/CLAUDE.md) — outermost first,
     # versioned by content hash so the cacheable prefix is stable.
+    # NIVEL 1a (dogfood #6): si la sesión arranca FUERA del repo, las reglas
+    # del repo que el agente toque después se inyectan TARDÍAMENTE como
+    # recordatorio en el tool result (mensaje nuevo; prefijo intacto).
+    late_instr = None
     if not args.no_instructions:
         instr = load_instructions(Path.cwd())
         if instr.found:
@@ -610,6 +614,12 @@ async def _run_headless(args: argparse.Namespace) -> int:
                 f"[instrucciones] {len(instr.sources)} archivo(s) v:{instr.version}",
                 file=sys.stderr,
             )
+        from tlamati.context.late_instructions import LateInstructions
+
+        late_instr = LateInstructions(
+            Path.cwd(),
+            prefix_versions=frozenset({instr.version}) if instr.found else frozenset(),
+        )
 
     # C6: routing.md (workspaces) — AFTER instructions in the prefix (stable
     # order, append-only) and BEFORE volatile blocks (memory/skills), so the
@@ -780,6 +790,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
         policy=policy,
         ledger=ledger,
         hooks=hooks,
+        late_instructions=late_instr,
     )
     budget = Budget(max_context_tokens=args.max_context)
 
