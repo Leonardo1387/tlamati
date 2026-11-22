@@ -39,7 +39,7 @@ from tlamati.core.loop import LoopResult, run_loop
 from tlamati.core.messages import Message
 from tlamati.mcp.client import close_mcp, load_mcp_servers, parse_mcp_config
 from tlamati.memory.dream import dream
-from tlamati.memory.meta import open_meta
+from tlamati.memory.meta import MemoryMeta, open_meta
 from tlamati.memory.skills import SkillLibrary, default_skill_roots, make_skill_tools
 from tlamati.memory.store import MemoryStore, default_memory_dir, seed_if_empty
 from tlamati.memory.tools import make_memory_tools
@@ -341,11 +341,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "cmd",
         nargs="?",
-        choices=["sessions", "audit", "model"],
+        choices=["sessions", "audit", "model", "memory"],
         help=(
             "'sessions' = list stored sessions; 'audit' = read the audit ledger; "
-            "'model' = wizard interactivo proveedor->modelo->config (no LLM, free)"
+            "'model' = wizard interactivo proveedor->modelo->config (no LLM, free); "
+            "'memory status' = uso de MEMORY.md/USER.md + entradas frías (M8b, no LLM)"
         ),
+    )
+    p.add_argument(
+        "cmd2",
+        nargs="?",
+        help="sub-acción del subcomando (p.ej. 'status' para 'memory')",
     )
     p.add_argument("--session", metavar="ID", help="session id for `tlamati audit`")
     return p
@@ -1057,6 +1063,34 @@ def _run_model(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_memory_status(args: argparse.Namespace) -> int:
+    """`tlamati memory status` — uso de memoria + entradas frías (M8b).
+
+    Cero-LLM, $0, advisory puro: NO evicta ni reescribe nada (invariante 3).
+    Sin sidecar → todo cuenta como caliente (beneficio de la duda)."""
+    mem_dir = Path(args.memory_dir) if args.memory_dir else default_memory_dir()
+    store = MemoryStore(mem_dir)
+    seed_if_empty(store)
+    live: dict[str, list[str]] = {}
+    for target, label in (("user", "user"), ("memory", "project")):
+        mf = store.load(target)
+        live[target] = list(mf.entries)
+        st = mf.stats
+        print(
+            f"memoria {label:8s} {st.entries:>3}/{st.max_entries} entradas, "
+            f"{st.chars:>6,}/{st.max_chars:,} chars"
+        )
+    meta = MemoryMeta(mem_dir)
+    cold = meta.cold_entries(live)
+    print(f"frías (>45d sin uso): {len(cold)}")
+    for target, text, days in cold:
+        snippet = text if len(text) <= 60 else text[:57] + "..."
+        print(f'  [{target}] "{snippet}" ({days} días)')
+    if cold:
+        print("Sugerencia: consolida o confirma vigencia en la próxima sesión.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.cmd == "audit":
@@ -1065,9 +1099,19 @@ def main(argv: list[str] | None = None) -> int:
         return _run_sessions(args)
     if args.cmd == "model":
         return _run_model(args)
+    if args.cmd == "memory":
+        if args.cmd2 == "status":
+            return _run_memory_status(args)
+        print(
+            "tlamati: `memory` requiere sub-acción (existe: status) — "
+            "p.ej. `tlamati memory status`",
+            file=sys.stderr,
+        )
+        return 2
     if args.cmd is not None:
         print(
-            f"tlamati: subcomando desconocido {args.cmd!r} (existen: sessions, audit, model)",
+            f"tlamati: subcomando desconocido {args.cmd!r} "
+            "(existen: sessions, audit, model, memory)",
             file=sys.stderr,
         )
         return 2
