@@ -230,10 +230,18 @@ class TlamatiApp(App[None]):
         skills_extra_dirs: list[Path] | None = None,
         max_turns: int = 60,
         stall_repeats: int = 3,
+        sandbox: bool | None = None,
+        sandbox_net: bool | None = None,
     ) -> None:
         super().__init__()
         self.workdir = workdir or Path.cwd()
         self._session_db_arg = session_db
+        # SEC.2: la TUI recibe los flags de sandbox IGUAL que headless (antes
+        # llamaba make_tools() sin flags → red inalcanzable aunque el flag
+        # existiera; mismo patrón que el pitfall #5 de E3d con --skills-dir).
+        # None = "no opinó" → resuelve config.yaml > default (net=True).
+        self._sandbox_flag = sandbox
+        self._sandbox_net_flag = sandbox_net
         # E3d PASO A: la TUI recibe --skills-dir / config skills.extra_dirs
         # IGUAL que headless (pitfall #5 sesión 20: el flag existía en cli.py
         # desde C3 y la TUI lo ignoró — el fundador lo descubrió usándola).
@@ -343,7 +351,14 @@ class TlamatiApp(App[None]):
                 system_prompt += render_for_prompt(instr)
             self._system_prompt = system_prompt
 
-            tool_list = make_tools(self.workdir)
+            # SEC.2 (bug raíz): cablear sandbox/net — flag > config > default
+            # (enabled=True, net=True). Mismo núcleo que headless (cli.py).
+            from tlamati.cli import resolve_sandbox_flags
+
+            sandbox, sandbox_net = resolve_sandbox_flags(
+                cfg, enabled_flag=self._sandbox_flag, net_flag=self._sandbox_net_flag
+            )
+            tool_list = make_tools(self.workdir, sandbox=sandbox, sandbox_net=sandbox_net)
             policy = Policy(
                 PolicyConfig.from_dict(cfg.get("permissions")), plan_state=PlanState(active=False)
             )
@@ -806,6 +821,8 @@ def run_tui(
     skills_extra_dirs: list[Path] | None = None,
     max_turns: int = 60,
     stall_repeats: int = 3,
+    sandbox: bool | None = None,
+    sandbox_net: bool | None = None,
 ) -> int:
     """Entry point del CLI. `textual` es extra opcional (decisión #4)."""
     try:
@@ -822,6 +839,8 @@ def run_tui(
         skills_extra_dirs=skills_extra_dirs,
         max_turns=max_turns,
         stall_repeats=stall_repeats,
+        sandbox=sandbox,
+        sandbox_net=sandbox_net,
     )
     app.run()
     return 0
