@@ -5,7 +5,7 @@ MEMORY.md/USER.md; nunca se renderiza al prompt; fallo NUNCA aborta.
 """
 
 import json
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 from tlamati.memory.meta import MemoryMeta
@@ -240,3 +240,89 @@ def test_open_meta_reconcilia_fantasmas(tmp_path: Path):
     data = m2.load()
     assert MemoryMeta.key("viva") in data["entries"]
     assert MemoryMeta.key("fantasma") not in data["entries"]
+
+
+# --------------------------------------------------- M8b memory status
+
+
+def _seed(dirp: Path, entries: dict[str, str], ages_days: dict[str, int]) -> None:
+    """Siembra sidecar con edades relativas a hoy."""
+    from datetime import timedelta
+
+    now = datetime.now(UTC)
+    raw = {
+        "version": 1,
+        "entries": {
+            MemoryMeta.key(text): {
+                "created_at": (now - timedelta(days=ages_days[text])).isoformat(),
+                "last_touched_at": (now - timedelta(days=ages_days[text])).isoformat(),
+                "touch_count": 1,
+            }
+            for text in entries.values()
+        },
+    }
+    (dirp / ".meta.json").write_text(json.dumps(raw), encoding="utf-8")
+
+
+def test_memory_status_muestra_frias(capsys, tmp_path: Path):
+    from tlamati.cli import main
+    from tlamati.memory.store import MemoryStore
+
+    store = MemoryStore(tmp_path)
+    store.apply_batch("memory", [{"action": "add", "content": "entrada fría de proyecto"}])
+    store.apply_batch("user", [{"action": "add", "content": "entrada joven"}])
+    # sidecar: la de proyecto tiene 60 días sin touch; la de user, 5.
+    from datetime import timedelta
+
+    now = datetime.now(UTC)
+    (tmp_path / ".meta.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "entries": {
+                    MemoryMeta.key("entrada fría de proyecto"): {
+                        "created_at": (now - timedelta(days=60)).isoformat(),
+                        "last_touched_at": (now - timedelta(days=60)).isoformat(),
+                        "touch_count": 1,
+                    },
+                    MemoryMeta.key("entrada joven"): {
+                        "created_at": (now - timedelta(days=5)).isoformat(),
+                        "last_touched_at": (now - timedelta(days=5)).isoformat(),
+                        "touch_count": 1,
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    rc = main(["memory", "status", "--memory-dir", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "memoria user" in out and "memoria project" in out
+    assert "frías (>45d sin uso): 1" in out
+    assert "entrada fría de proyecto" in out
+    assert "60 días" in out
+    assert "Sugerencia:" in out
+    # la joven NO aparece como fría
+    assert "entrada joven" not in out.split("frías")[1]
+
+
+def test_memory_status_sin_sidecar_todo_caliente(capsys, tmp_path: Path):
+    from tlamati.cli import main
+    from tlamati.memory.store import MemoryStore
+
+    store = MemoryStore(tmp_path)
+    store.apply_batch("memory", [{"action": "add", "content": "sin registro"}])
+    rc = main(["memory", "status", "--memory-dir", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "frías (>45d sin uso): 0" in out
+
+
+def test_memory_sin_subaccion_exit_2(capsys):
+    from tlamati.cli import main
+
+    rc = main(["memory"])
+    err = capsys.readouterr().err
+    assert rc == 2
+    assert "status" in err
