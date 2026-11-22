@@ -43,10 +43,17 @@ Claude models today.
 - **Stall detector.** Same tool call (identical args) 3 turns in a row = dead
   loop → hard stop. Editing the same file with different content is NOT a loop.
 - **Sandbox.** `terminal` runs inside a bubblewrap jail: read-only filesystem
-  outside the workdir, network OFF by default. `[sin sandbox]` warning when
-  bwrap is missing — never silent.
+  outside the workdir. Network is ON by default (Hermes parity, SEC.1) — the
+  real defense against exfiltration is review, not a blind cage: untrusted
+  web/MCP content escalates egress to ASK (see Security). Use
+  `--no-sandbox-net` or `sandbox: {net: false}` in config to deny network.
+  `[sin sandbox]` warning when bwrap is missing — never silent.
 - **Permissions that never relax.** Escalade `deny > ask > auto`; the "lethal
-  trifecta" (untrusted content + egress tool) auto-escalates to ASK.
+  trifecta" (untrusted content + egress tool) auto-escalates to ASK. In the
+  TUI the approval modal offers **once / always / reject** — "always" lasts
+  for the current run and that tool only (it never touches the Policy).
+  Headless equivalent: `--approve-tool terminal` (or `'*'`; default: never
+  auto-approve).
 - **Append-only audit ledger.** Every tool call, decision and per-turn cost in
   SQLite (`tlamati audit`). Non-disableable by design.
 - **Context budget + cache-safe compaction.** Prompt caching is sacred: history
@@ -81,6 +88,11 @@ general:
   max_turns: 60               # turn wall; <=0 = yolo (context budget still caps)
   stall_repeats: 3            # stall detector; 0 disables
 
+sandbox:
+  enabled: true               # bwrap jail for the terminal tool
+  net: true                   # network inside the jail (default ON, SEC.1;
+                              # flags --sandbox-net/--no-sandbox-net override)
+
 skills:
   extra_dirs:                 # additional skill roots (hermes SKILL.md format)
     - ~/shared-skills
@@ -101,7 +113,9 @@ mcp:
 
 Key flags: `--max-turns N`, `--stall-repeats N`, `--plan-mode` (explore →
 approve → execute), `--json` (JSONL events for CI), `--no-sandbox`,
-`--sandbox-net`, `--no-memory`, `--no-audit`, `--continue`, `--resume ID`.
+`--sandbox-net/--no-sandbox-net`, `--approve-tool NAME` (headless pre-approval
+for ASK permissions, e.g. `--approve-tool terminal` = the TUI's "always"
+button), `--no-memory`, `--no-audit`, `--continue`, `--resume ID`.
 
 When the turn wall is hit in the TUI, tlamati offers **"continúa"** (resume
 with history intact) or **"resumen"** (model-summarized compaction, cost
