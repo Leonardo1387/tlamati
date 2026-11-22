@@ -39,6 +39,7 @@ from tlamati.core.loop import LoopResult, run_loop
 from tlamati.core.messages import Message
 from tlamati.mcp.client import close_mcp, load_mcp_servers, parse_mcp_config
 from tlamati.memory.dream import dream
+from tlamati.memory.meta import open_meta
 from tlamati.memory.skills import SkillLibrary, default_skill_roots, make_skill_tools
 from tlamati.memory.store import MemoryStore, default_memory_dir, seed_if_empty
 from tlamati.memory.tools import make_memory_tools
@@ -629,8 +630,13 @@ async def _run_headless(args: argparse.Namespace) -> int:
     if not args.no_memory:
         mem_dir = Path(args.memory_dir) if args.memory_dir else default_memory_dir()
         try:
-            mem_store = MemoryStore(mem_dir)
-            seed_if_empty(mem_store)
+            _probe_store = MemoryStore(mem_dir)
+            seed_if_empty(_probe_store)
+            live = [
+                *_probe_store.load("memory").entries,
+                *_probe_store.load("user").entries,
+            ]
+            mem_store = MemoryStore(mem_dir, meta=open_meta(mem_dir, live))
             mem_block = mem_store.render_for_prompt()
             if mem_block:
                 system_prompt = (

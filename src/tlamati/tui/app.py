@@ -70,6 +70,7 @@ from tlamati.context.instructions import load_instructions, render_for_prompt
 from tlamati.core.loop import LoopResult, run_loop
 from tlamati.core.messages import Message
 from tlamati.core.model_router import ModelRouter
+from tlamati.memory.meta import open_meta
 from tlamati.memory.skills import SkillLibrary, default_skill_roots, make_skill_tools
 from tlamati.memory.store import MemoryStore, default_memory_dir, seed_if_empty
 from tlamati.memory.tools import make_memory_tools
@@ -392,8 +393,14 @@ class TlamatiApp(App[None]):
 
             # Memoria + skills (C2/C3): prefijo + tools (mismos helpers que CLI).
             try:
-                mem_store = MemoryStore(default_memory_dir())
-                seed_if_empty(mem_store)
+                _mem_dir = default_memory_dir()
+                _probe = MemoryStore(_mem_dir)
+                seed_if_empty(_probe)
+                _live = [
+                    *_probe.load("memory").entries,
+                    *_probe.load("user").entries,
+                ]
+                mem_store = MemoryStore(_mem_dir, meta=open_meta(_mem_dir, _live))
                 mem_block = mem_store.render_for_prompt()
                 if mem_block:
                     self._system_prompt += (
