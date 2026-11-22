@@ -1091,6 +1091,34 @@ def _run_memory_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_memory_lint(args: argparse.Namespace) -> int:
+    """`tlamati memory lint` — near-duplicates cero-LLM (M8c, Jaccard).
+
+    ADVISORY puro: solo imprime; NUNCA muta archivos (invariante 3).
+    Exit 0 SIEMPRE — un finding no es un error de la corrida."""
+    from tlamati.memory.lint import lint as lint_memory
+
+    mem_dir = Path(args.memory_dir) if args.memory_dir else default_memory_dir()
+    store = MemoryStore(mem_dir)
+    seed_if_empty(store)
+    entries = {
+        "memory": list(store.load("memory").entries),
+        "user": list(store.load("user").entries),
+    }
+    findings = lint_memory(entries)
+    if not findings:
+        print("memoria limpia: sin entradas casi-duplicadas")
+        return 0
+    print(f"{len(findings)} posible(s) duplicado(s) (advisory — nada se modifica):")
+    for f in findings:
+        a = f.entry_a if len(f.entry_a) <= 50 else f.entry_a[:47] + "..."
+        b = f.entry_b if len(f.entry_b) <= 50 else f.entry_b[:47] + "..."
+        print(f"  [{f.target_a}] \"{a}\"")
+        print(f"  [{f.target_b}] \"{b}\"  — similitud {f.score:.0%}")
+    print("Sugerencia: consolida con el tool `memory` (replace) en la próxima sesión.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.cmd == "audit":
@@ -1102,8 +1130,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "memory":
         if args.cmd2 == "status":
             return _run_memory_status(args)
+        if args.cmd2 == "lint":
+            return _run_memory_lint(args)
         print(
-            "tlamati: `memory` requiere sub-acción (existe: status) — "
+            "tlamati: `memory` requiere sub-acción (existen: status, lint) — "
             "p.ej. `tlamati memory status`",
             file=sys.stderr,
         )
