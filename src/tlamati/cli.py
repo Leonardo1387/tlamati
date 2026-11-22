@@ -582,10 +582,16 @@ async def _run_headless(args: argparse.Namespace) -> int:
 
     # Sesión 25 (dogfooding #3): bloque ambiental — el modelo debe saber que
     # SÍ ve el filesystem y dónde están Desktop/Documents REALES (WSL: /mnt).
-    # Estático por corrida (cwd+home fijos) → prefijo cacheable byte-estable.
+    # SEC.3: también debe SABER si su terminal tiene red (dogfood #4:
+    # capacidad sin orden = "no puedo" mentiroso). net efectiva = sandbox_net
+    # or not sandbox (misma semántica que produces_untrusted, terminal.py).
+    # Estático por corrida (cwd+home+sandbox fijos) → prefijo cacheable
+    # byte-estable.
     from tlamati.env_info import environment_block
 
-    system_prompt += "\n\n" + environment_block(Path.cwd())
+    system_prompt += "\n\n" + environment_block(
+        Path.cwd(), net=sandbox_net or not sandbox
+    )
 
     # C4: project instructions (AGENTS.md/CLAUDE.md) — outermost first,
     # versioned by content hash so the cacheable prefix is stable.

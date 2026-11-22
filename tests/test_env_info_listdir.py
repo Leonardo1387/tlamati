@@ -85,6 +85,43 @@ def test_environment_block_estable_entre_llamadas(tmp_path: Path) -> None:
     assert a == b
 
 
+# ------------------------------------------------- SEC.3: el agente SABE su red
+# Lección dogfood #4 (nemotron): capacidad SIN orden = el modelo dice "no
+# puedo" aunque pueda. El bloque ambiental debe declarar el estado de red
+# del terminal, y ser byte-estable por corrida (cache sagrada, commit 7751663).
+
+def test_block_declara_red_on(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    block = environment_block(tmp_path, home=home, wsl=False, net=True)
+    assert "SÍ tiene acceso a red" in block
+    assert "NO tiene acceso a red" not in block
+
+def test_block_declara_red_off_con_alternativa(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    block = environment_block(tmp_path, home=home, wsl=False, net=False)
+    assert "NO tiene acceso a red" in block
+    # lección dogfood #4: honesto + alternativa, no un "no puedo" seco
+    assert "alternativa" in block.lower()
+    assert "exit 6" in block  # señal concreta del fallo (terminal.py ya la usa)
+
+def test_block_sin_net_no_declara_nada(tmp_path: Path) -> None:
+    """net=None (default) → backward-compat: ni afirma ni niega."""
+    home = tmp_path / "home"
+    home.mkdir()
+    block = environment_block(tmp_path, home=home, wsl=False)
+    assert "acceso a red" not in block
+
+def test_block_red_byte_estable(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    a = environment_block(tmp_path, home=home, wsl=False, net=True)
+    b = environment_block(tmp_path, home=home, wsl=False, net=True)
+    assert a == b
+    assert a != environment_block(tmp_path, home=home, wsl=False, net=False)
+
+
 def test_is_wsl_no_crash() -> None:
     assert isinstance(is_wsl(), bool)
 
