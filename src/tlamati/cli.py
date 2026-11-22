@@ -71,7 +71,13 @@ DEFAULT_SYSTEM = (
     "falla, dilo y busca alternativa — NUNCA sustituyas resultados fabricados "
     "(datos inventados, output sintético) por resultados que no pudiste producir.\n"
     "- Antes de cambiar código para arreglar un fallo: reproduce el error y "
-    "diagnostica la causa raíz. No parches a ciegas."
+    "diagnostica la causa raíz. No parches a ciegas.\n"
+    # NIVEL 3g (dogfood #6, falso positivo OCR): 2 líneas máximo — el prefijo
+    # es cache sagrada. El agente culpó al corpus cuando el stream crudo salía
+    # limpio: el bug era de SU parsing.
+    "- Si el output de TU script se ve corrupto pero el output crudo de la "
+    "fuente se ve bien, el bug es de tu parsing — verifica el crudo antes de "
+    "culpar a los datos."
 )
 DEFAULT_MODEL = "qwen/qwen3-coder"
 DEFAULT_COMPACT_MODEL = "qwen/qwen3-coder"  # A6: modelo BARATO configurable (fallback chain)
