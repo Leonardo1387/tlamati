@@ -110,6 +110,38 @@ def _resolve_api_key(cfg_provider: dict[str, Any]) -> str:
     return value
 
 
+def resolve_sandbox_flags(
+    cfg: dict[str, Any], *, enabled_flag: bool | None, net_flag: bool | None
+) -> tuple[bool, bool]:
+    """Núcleo de SEC.1: flag explícito > config.yaml sandbox.* > default.
+
+    enabled_flag/net_flag: None = "el usuario no opinó" (manda la config).
+    Defaults: enabled=True (jaula bwrap fs), net=True (BREAKING 21-nov:
+    paridad Hermes — la red ya no se apaga por defecto; la defensa real es
+    la trifecta produces_untrusted + egreso AUTO→ASK, no la jaula ciega).
+    Config basura nunca aborta: se cae a defaults."""
+    cfg_sandbox = cfg.get("sandbox")
+    if not isinstance(cfg_sandbox, dict):
+        cfg_sandbox = {}
+
+    def _bool(flag: bool | None, key: str, default: bool) -> bool:
+        if flag is not None:
+            return flag
+        val = cfg_sandbox.get(key)
+        return val if isinstance(val, bool) else default
+
+    return (_bool(enabled_flag, "enabled", True), _bool(net_flag, "net", True))
+
+
+def resolve_sandbox(cfg: dict[str, Any], args: argparse.Namespace) -> tuple[bool, bool]:
+    """SEC.1 headless: adapta los flags CLI al núcleo (compartido con la TUI)."""
+    # --no-sandbox es store_true (True = apagar); False = "no opinó".
+    enabled_flag = False if getattr(args, "no_sandbox", False) else None
+    return resolve_sandbox_flags(
+        cfg, enabled_flag=enabled_flag, net_flag=getattr(args, "sandbox_net", None)
+    )
+
+
 def resolve_turn_limits(cfg: dict[str, Any], args: argparse.Namespace) -> tuple[int, int]:
     """E3d PASO B: flag > config general.* > default (60 turnos, 3 repeticiones).
     Mismos límites para headless Y TUI (pitfall #5 sesión 20)."""
@@ -181,8 +213,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--sandbox-net",
-        action="store_true",
-        help="allow network inside the bwrap jail (default: network OFF)",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        dest="sandbox_net",
+        help="allow/deny network inside the bwrap jail (--no-sandbox-net to deny; "
+        "default: config sandbox.net or ON — paridad Hermes, SEC.1)",
     )
     p.add_argument(
         "--approve-tool",
@@ -506,7 +541,8 @@ async def _run_headless(args: argparse.Namespace) -> int:
                 )
 
     provider = OpenAICompat(model=model, base_url=base_url, api_key=api_key)
-    sandbox = not args.no_sandbox
+    # SEC.1: flag > config sandbox.* > default (enabled=True, net=True).
+    sandbox, sandbox_net = resolve_sandbox(cfg, args)
     if sandbox and not bwrap_available():
         print(
             "tlamati: bwrap NO instalado — el terminal correrá SIN sandbox "
@@ -538,7 +574,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
                 f"tlamati: ledger de auditoría no disponible ({e}); sigo sin auditoría",
                 file=sys.stderr,
             )
-    tool_list = make_tools(Path.cwd(), sandbox=sandbox, sandbox_net=args.sandbox_net)
+    tool_list = make_tools(Path.cwd(), sandbox=sandbox, sandbox_net=sandbox_net)
 
     # C2: durable memory — prefix injection + tools (skipped with --no-memory).
     mem_store: MemoryStore | None = None
@@ -1041,6 +1077,9 @@ def main(argv: list[str] | None = None) -> int:
             skills_extra_dirs=skills_extra,
             max_turns=tui_max_turns,
             stall_repeats=tui_stall,
+            # SEC.2: los flags de sandbox llegan a la TUI (antes morían aquí).
+            sandbox=False if args.no_sandbox else None,
+            sandbox_net=args.sandbox_net,
         )
     build_parser().print_help()
     return 0
