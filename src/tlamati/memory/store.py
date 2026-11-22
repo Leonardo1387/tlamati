@@ -25,6 +25,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from tlamati.memory.meta import MemoryMeta
+
 # Hard caps (donor: CC entries-capped sync events). Generous but finite:
 # the goal is consolidation pressure, not a shoebox.
 MAX_ENTRIES = 100
@@ -106,13 +108,19 @@ def _parse(path: Path, default_header: str) -> MemoryFile:
 
 
 class MemoryStore:
-    """Two files per scope, cap-enforced, atomic batches."""
+    """Two files per scope, cap-enforced, atomic batches.
 
-    def __init__(self, dir_path: str | Path) -> None:
+    M8a: `meta` opcional (MemoryMeta sidecar). Default None = conducta
+    anterior byte-idéntica. Si se pasa, apply_batch registra nacimiento/uso
+    tras cada escritura exitosa — y un fallo del sidecar NUNCA aborta el
+    batch (la memoria manda; el sidecar es derivado y reconstruible)."""
+
+    def __init__(self, dir_path: str | Path, meta: MemoryMeta | None = None) -> None:
         self.dir = Path(dir_path)
         self.dir.mkdir(parents=True, exist_ok=True)
         self.memory_path = self.dir / "MEMORY.md"
         self.user_path = self.dir / "USER.md"
+        self.meta = meta
 
     def load(self, target: str) -> MemoryFile:
         if target == "memory":
@@ -134,6 +142,7 @@ class MemoryStore:
             raise MemoryError("batch vacío")
         mf = self.load(target)
         entries = list(mf.entries)
+        sidecar_ops: list[tuple[str, str, str | None]] = []  # (action, content, old_entry)
         for i, op in enumerate(operations):
             action = op.get("action", "")
             content = (op.get("content") or "").strip()
@@ -146,6 +155,7 @@ class MemoryStore:
                         f"op[{i}]: entrada demasiado larga ({len(content)} > {MAX_ENTRY_CHARS})"
                     )
                 entries.append(content)
+                sidecar_ops.append(("add", content, None))
             elif action in ("replace", "remove"):
                 if not old_text:
                     raise MemoryError(f"op[{i}]: {action} sin old_text")
@@ -156,14 +166,17 @@ class MemoryStore:
                     raise MemoryError(
                         f"op[{i}]: old_text ambiguo ({len(matches)} entradas); sé más específico"
                     )
+                old_entry = entries[matches[0]]
                 if action == "replace":
                     if not content:
                         raise MemoryError(f"op[{i}]: replace sin content")
                     if len(content) > MAX_ENTRY_CHARS:
                         raise MemoryError(f"op[{i}]: entrada demasiado larga")
                     entries[matches[0]] = content
+                    sidecar_ops.append(("replace", content, old_entry))
                 else:
                     del entries[matches[0]]
+                    sidecar_ops.append(("remove", "", old_entry))
             else:
                 raise MemoryError(f"op[{i}]: acción inválida {action!r} (add|replace|remove)")
 
@@ -179,7 +192,28 @@ class MemoryStore:
             raise MemoryError(f"el batch deja {body_chars} chars (máx {MAX_CHARS}); consolida")
         new_mf = MemoryFile(path=mf.path, header=mf.header, entries=tuple(entries))
         self._write(new_mf)
+        self._update_meta(sidecar_ops)
         return new_mf.stats
+
+    def _update_meta(self, sidecar_ops: list[tuple[str, str, str | None]]) -> None:
+        """M8a: sidecar tras escritura exitosa. FAIL-SOFT total: cualquier
+        fallo del sidecar se traga (la memoria manda; .meta.json es derivado
+        y reconstruible — invariante M8a)."""
+        if self.meta is None or not sidecar_ops:
+            return
+        try:
+            for action, content, old_entry in sidecar_ops:
+                if action == "add":
+                    self.meta.touch(content)
+                elif action == "replace":
+                    if old_entry is not None:
+                        self.meta.forget(old_entry)
+                    self.meta.touch(content)
+                elif action == "remove" and old_entry is not None:
+                    self.meta.forget(old_entry)
+            self.meta.save()
+        except Exception:
+            pass
 
     def render_for_prompt(self) -> str:
         """Both files as ONE stable text block for the cacheable prefix.

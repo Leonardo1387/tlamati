@@ -180,3 +180,63 @@ def test_fecha_corrupta_trata_como_hot(tmp_path: Path):
     (tmp_path / ".meta.json").write_text(json.dumps(raw), encoding="utf-8")
     m = MemoryMeta(tmp_path)
     assert m.cold_entries({"memory": ["rota"]}, now=datetime.now(UTC)) == []
+
+
+# ------------------------------------------------------- M8a cableado
+
+
+def test_apply_batch_actualiza_sidecar(tmp_path: Path):
+    """Integración: add→touch, replace→forget+touch, remove→forget."""
+    from tlamati.memory.store import MemoryStore
+
+    meta = MemoryMeta(tmp_path)
+    store = MemoryStore(tmp_path, meta=meta)
+    store.apply_batch("memory", [{"action": "add", "content": "dato uno"}])
+    assert MemoryMeta.key("dato uno") in MemoryMeta(tmp_path).load()["entries"]
+
+    store.apply_batch(
+        "memory",
+        [{"action": "replace", "content": "dato uno v2", "old_text": "dato uno"}],
+    )
+    m2 = MemoryMeta(tmp_path).load()["entries"]
+    assert MemoryMeta.key("dato uno") not in m2
+    assert MemoryMeta.key("dato uno v2") in m2
+
+    store.apply_batch("memory", [{"action": "remove", "old_text": "dato uno v2"}])
+    assert MemoryMeta.key("dato uno v2") not in MemoryMeta(tmp_path).load()["entries"]
+
+
+def test_sidecar_roto_no_aborta_batch(tmp_path: Path):
+    """Fail-soft: sidecar que revienta al guardar → la memoria SE ESCRIBE igual."""
+    from tlamati.memory.store import MemoryStore
+
+    class MetaRoto(MemoryMeta):
+        def save(self) -> None:
+            raise OSError("disco lleno simulado")
+
+    store = MemoryStore(tmp_path, meta=MetaRoto(tmp_path))
+    stats = store.apply_batch("memory", [{"action": "add", "content": "sobreviví"}])
+    assert stats.entries == 1
+    assert "sobreviví" in (tmp_path / "MEMORY.md").read_text(encoding="utf-8")
+
+
+def test_store_sin_meta_comporta_igual(tmp_path: Path):
+    """Default None = conducta anterior byte-idéntica (tests viejos intactos)."""
+    from tlamati.memory.store import MemoryStore
+
+    store = MemoryStore(tmp_path)
+    store.apply_batch("memory", [{"action": "add", "content": "x"}])
+    assert not (tmp_path / ".meta.json").exists()
+
+
+def test_open_meta_reconcilia_fantasmas(tmp_path: Path):
+    from tlamati.memory.meta import open_meta
+
+    m = MemoryMeta(tmp_path)
+    m.touch("viva")
+    m.touch("fantasma")
+    m.save()
+    m2 = open_meta(tmp_path, ["viva"])
+    data = m2.load()
+    assert MemoryMeta.key("viva") in data["entries"]
+    assert MemoryMeta.key("fantasma") not in data["entries"]

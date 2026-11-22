@@ -164,3 +164,19 @@ class MemoryMeta:
                     cold.append((target, text, int(age_days)))
         cold.sort(key=lambda c: -c[2])  # más fría primero
         return cold
+
+
+def open_meta(dir_path: Path, live_entries: list[str]) -> MemoryMeta:
+    """M8a.2: punto de entrada único — carga el sidecar, reconcilia claves
+    fantasma contra las entradas vivas y persiste SOLO si hubo cambios.
+    Fail-soft: cualquier fallo devuelve un sidecar vacío usable."""
+    m = MemoryMeta(dir_path)
+    try:
+        m.load()
+        before = len(m._data["entries"])
+        m.reconcile(live_entries)
+        if len(m._data["entries"]) != before:
+            m.save()
+    except Exception:
+        m = MemoryMeta(dir_path)
+    return m
