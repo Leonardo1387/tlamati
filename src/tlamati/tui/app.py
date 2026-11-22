@@ -363,6 +363,14 @@ class TlamatiApp(App[None]):
             if instr.found:
                 system_prompt += render_for_prompt(instr)
             self._system_prompt = system_prompt
+            # NIVEL 1a (dogfood #6): inyección tardía de reglas del repo
+            # tocado fuera del workdir inicial (advisory en tool result).
+            from tlamati.context.late_instructions import LateInstructions
+
+            late_instr = LateInstructions(
+                self.workdir,
+                prefix_versions=frozenset({instr.version}) if instr.found else frozenset(),
+            )
 
             tool_list = make_tools(self.workdir, sandbox=sandbox, sandbox_net=sandbox_net)
             policy = Policy(
@@ -430,6 +438,7 @@ class TlamatiApp(App[None]):
                 approver=self._approver,
                 policy=policy,
                 ledger=self.ledger,
+                late_instructions=late_instr,
             )
             self.budget = Budget(max_context_tokens=DEFAULT_MAX_CONTEXT)
             cfg_compact = cfg.get("compaction") or {}
