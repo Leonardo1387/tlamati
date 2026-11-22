@@ -81,12 +81,19 @@ def user_dirs(home: Path, *, wsl: bool | None = None) -> dict[str, list[Path]]:
     return out
 
 
-def environment_block(workdir: Path, home: Path | None = None, *, wsl: bool | None = None) -> str:
+def environment_block(
+    workdir: Path,
+    home: Path | None = None,
+    *,
+    wsl: bool | None = None,
+    net: bool | None = None,
+) -> str:
     """Bloque para el system prompt. Estático por corrida (sin reloj/estado).
 
     Le dice al modelo: (1) tiene acceso COMPLETO al filesystem local — que
     nunca diga que no puede, que intente; (2) dónde está parado (OS, cwd,
-    home, WSL); (3) dónde viven Desktop/Documents/Downloads REALES.
+    home, WSL); (3) dónde viven Desktop/Documents/Downloads REALES;
+    (4) SEC.3: si el terminal tiene red o no (net=None = no declara).
     """
     home = home or Path.home()
     if wsl is None:
@@ -115,4 +122,18 @@ def environment_block(workdir: Path, home: Path | None = None, *, wsl: bool | No
         "Para buscar un archivo por nombre parcial: search_files "
         '(target="files", pattern="*trozo*").'
     )
+    # SEC.3 (lección dogfood #4: capacidad SIN orden = "no puedo" mentiroso):
+    # el agente debe SABER si su terminal tiene red. Byte-estable por corrida.
+    if net is True:
+        lines.append(
+            "El tool terminal SÍ tiene acceso a red: curl/wget/pip install/"
+            "git clone funcionan con normalidad."
+        )
+    elif net is False:
+        lines.append(
+            "El tool terminal NO tiene acceso a red (jaula bwrap): curl/wget/"
+            "pip install fallan (exit 6/2). Si la tarea necesita red, dilo "
+            "honesto y ofrece una alternativa sin red (archivos locales, "
+            "tools de filesystem) en vez de reintentar a ciegas."
+        )
     return "\n".join(lines)

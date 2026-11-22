@@ -339,25 +339,30 @@ class TlamatiApp(App[None]):
             self._api_key = api_key
             self.provider = self._make_router(model, base_url, api_key, cfg)
 
-            system_prompt = str(cfg.get("system_prompt") or DEFAULT_SYSTEM)
-            # Sesión 25 (dogfooding #3): el modelo debe saber que SÍ ve el
-            # filesystem y dónde está el Desktop REAL (WSL: /mnt/c/Users/...).
-            # Estático por corrida → prefijo cacheable byte-estable.
-            from tlamati.env_info import environment_block
-
-            system_prompt += "\n\n" + environment_block(self.workdir)
-            instr = load_instructions(self.workdir)
-            if instr.found:
-                system_prompt += render_for_prompt(instr)
-            self._system_prompt = system_prompt
-
-            # SEC.2 (bug raíz): cablear sandbox/net — flag > config > default
-            # (enabled=True, net=True). Mismo núcleo que headless (cli.py).
+            # SEC.2 (bug raíz): resolver sandbox/net ANTES del prompt —
+            # flag > config > default (enabled=True, net=True). Mismo núcleo
+            # que headless (cli.py). SEC.3 usa el resultado para declarar red.
             from tlamati.cli import resolve_sandbox_flags
 
             sandbox, sandbox_net = resolve_sandbox_flags(
                 cfg, enabled_flag=self._sandbox_flag, net_flag=self._sandbox_net_flag
             )
+
+            system_prompt = str(cfg.get("system_prompt") or DEFAULT_SYSTEM)
+            # Sesión 25 (dogfooding #3): el modelo debe saber que SÍ ve el
+            # filesystem y dónde está el Desktop REAL (WSL: /mnt/c/Users/...).
+            # SEC.3 (dogfood #4): y si su terminal tiene red — capacidad sin
+            # orden = "no puedo" mentiroso. Estático por corrida → byte-estable.
+            from tlamati.env_info import environment_block
+
+            system_prompt += "\n\n" + environment_block(
+                self.workdir, net=sandbox_net or not sandbox
+            )
+            instr = load_instructions(self.workdir)
+            if instr.found:
+                system_prompt += render_for_prompt(instr)
+            self._system_prompt = system_prompt
+
             tool_list = make_tools(self.workdir, sandbox=sandbox, sandbox_net=sandbox_net)
             policy = Policy(
                 PolicyConfig.from_dict(cfg.get("permissions")), plan_state=PlanState(active=False)
