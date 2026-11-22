@@ -261,8 +261,9 @@ class TestAutoDream:
         ops = [{"action": "add", "content": f"e{i}"} for i in range(10)]
         import json as _json
 
-        parsed = parse_dream_output(_json.dumps({"operations": ops}))
+        parsed, gaps = parse_dream_output(_json.dumps({"operations": ops}))
         assert len(parsed) == 5
+        assert gaps == []  # G2: sin campo "gaps" → lista vacía tolerante
 
     def test_transcript_truncates_tool_bodies(self) -> None:
         msgs = _session_messages()
