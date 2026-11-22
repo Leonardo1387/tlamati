@@ -23,6 +23,8 @@ Los cambios que rompen la superficie estable (STABILITY.md) se etiquetan
 - M8b: `tlamati memory status` — uso de caps + entradas frías (advisory).
 - M8c: `tlamati memory lint` — near-duplicates cero-LLM (Jaccard, advisory,
   exit 0 siempre).
+- O1: fixture vendado obsidian-skills (7 skills reales, MIT) + test de
+  compatibilidad agentskills.io — la compat queda certificada en CI.
 - SEC.1-3: `config.yaml` gobierna sandbox/red; la TUI cablea sandbox/net; el
   system prompt declara la red efectiva (nunca contradice al tool).
 
@@ -30,7 +32,8 @@ Los cambios que rompen la superficie estable (STABILITY.md) se etiquetan
 
 - SECURITY.md: matriz honesta REAL / ILUSORIO-PARIDAD / FRENA.
 - STABILITY.md: promesa de estabilidad v0.1 (este contrato).
-- README actualizado (red ON por defecto, always/--approve-tool, sandbox).
+- README actualizado (red ON por defecto, always/--approve-tool, sandbox,
+  compat agentskills.io verificada con fixture obsidian-skills).
 
 ## v0.1.0
 

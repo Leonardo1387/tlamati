@@ -19,6 +19,18 @@ following projects (no verbatim code copied unless stated; all licenses OSS):
 - DeepSeek-Reasonix (MIT, discontinued 2026-11-12) — reference: everything-is-a-plugin
   architecture; used as design seed only, not a dependency.
 
+This product includes VENDORED FILES (verbatim copies, license preserved):
+
+- obsidian-skills (MIT, © 2026 Steph Ango (@kepano),
+  github.com/obsidianmd/obsidian-skills) — the 7 skills of the official
+  Obsidian plugin, vendored into `fixtures/agentskills_compat/` as the
+  agentskills.io compatibility fixture (tests/test_skills_agentskills_compat.py).
+  License text: `fixtures/agentskills_compat/LICENSE-OBSIDIAN-SKILLS`.
+  Cloned 21-nov-2026 (depth 1). Vendored on purpose: if upstream changes or
+  disappears, the test keeps measuring against the certified spec.
+- gbrain `docs/STABILITY.md` — SEMANTIC donor for the repo's own STABILITY.md
+  (adapted, not copied; see its header).
+
 Closed-source systems (Claude Code, Cursor) were studied via BEHAVIORAL and
 documented-evidence analysis only (REA). No code, minified bundles, or derived
 lines from proprietary sources are included in this repository.

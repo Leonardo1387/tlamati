@@ -63,7 +63,11 @@ Claude models today.
   consolidation at close (`--dream`), resumable sessions (`--continue`).
 - **Skills, hermes-compatible.** `tlamati --skills-dir ~/.hermes/skills` reads
   an existing library with zero conversion. `~/.hermes/skills` is auto-added
-  last if present.
+  last if present. tlamati also reads any
+  [agentskills.io](https://agentskills.io)-compatible skill — verified in CI
+  against the real
+  [obsidian-skills](https://github.com/obsidianmd/obsidian-skills)
+  (fixture in `fixtures/agentskills_compat/`).
 - **AGENTS.md / CLAUDE.md** project instructions (cross-agent standard).
 - **Subagents** (`delegate_task`) — child is read-only by construction, depth 1,
   hard token/turn caps that block BEFORE spending.
