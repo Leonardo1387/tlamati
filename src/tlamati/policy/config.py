@@ -7,7 +7,13 @@ Tres capas sobre el permiso DECLARADO por cada Tool (GUIA §B4):
    ``override si existe, else declarado``.
 2. PATRONES de comando (solo tools con args["command"], p.ej. terminal):
    ``deny_commands`` (fnmatch) → DENY; ``ask_commands`` → al menos ASK.
-   DENY gana siempre: la escalera nunca RELAJA un permiso más duro.
+   NIVEL 2d/2e: además ``ask_command_regex`` (regex search) → al menos ASK,
+   default ON para `pip install --break-system-packages` y para escritura
+   (redirección/tee/mv/cp/rm) hacia dirs de artefactos indexados
+   (07-index/, dist/); ``ask_path_regex`` cubre write_file/edit cuyo
+   ``path`` cae en esos dirs. Ambos configurables vía config.yaml
+   (lista vacía explícita = OFF). DENY gana siempre: la escalera nunca
+   RELAJA un permiso más duro.
 3. TRIFECTA LETAL (research/01): si la corrida YA consumió un tool result
    ``untrusted=True``, toda herramienta de EGRESO (default: terminal — la
    única que puede hablar hacia afuera; red/env-mail) escala AUTO→ASK aunque
@@ -22,6 +28,7 @@ Regla de oro: default NUNCA yolo. Sin approver, ASK = error honesto (B1).
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
@@ -34,6 +41,44 @@ if TYPE_CHECKING:  # C5: plan.mode no importa policy → sin ciclo real
 
 DEFAULT_EGRESS_TOOLS = frozenset({"terminal"})
 
+# NIVEL 2d/2e (dogfood #6): gates de policy por patrón regex, default ON y
+# configurables vía config.yaml (permissions.ask_command_regex /
+# permissions.ask_path_regex; lista vacía explícita = OFF). Genéricos: cero
+# nombres de proyecto hardcodeados.
+#
+# 2d — `pip install --break-system-packages` sustituye paquetes del sistema
+#      (en el dogfood #6 el agente lo corrió 2 veces y reemplazó el Pillow
+#      de WSL) → aprobación humana.
+# 2e — sobrescritura de artefactos de producción indexados: operadores de
+#      escritura (redirección, tee, mv, cp, rm) cuyo destino cae en un dir
+#      07-index/ o dist/ → aprobación humana. Lecturas (ls/cat de dist/)
+#      NO matchean: el gate es de sobreescritura, no de acceso.
+DEFAULT_ASK_COMMAND_REGEX: tuple[str, ...] = (
+    r"pip3?\s+install\b[^|;&\n]*--break-system-packages",
+    r"--break-system-packages[^|;&\n]*\bpip3?\s+install\b",
+    r"(?:>>?|\btee\b|\bmv\b|\bcp\b|\brm\b)[^|;&\n]*[/'\"\s](?:07-index|dist)/",
+)
+
+# 2e para tools de archivo (write_file/edit): path DENTRO de un dir de
+# artefactos indexados, sin necesitar operador de escritura (el tool YA
+# escribe). read_file/list_dir no pasan por aquí (no tienen efecto).
+DEFAULT_ASK_PATH_REGEX: tuple[str, ...] = (
+    r"(?:^|/)(?:07-index|dist)/",
+)
+
+# Tools cuyo args["path"] se somete a ask_path_regex (solo los que escriben).
+_WRITE_PATH_TOOLS = frozenset({"write_file", "edit"})
+
+
+def _compile_patterns(patterns: tuple[str, ...], *, key: str) -> tuple[re.Pattern[str], ...]:
+    out: list[re.Pattern[str]] = []
+    for p in patterns:
+        try:
+            out.append(re.compile(p))
+        except re.error as e:
+            raise ValueError(f"{key}: patrón regex inválido {p!r}: {e}") from None
+    return tuple(out)
+
 
 @dataclass(frozen=True)
 class PolicyConfig:
@@ -43,6 +88,17 @@ class PolicyConfig:
     deny_commands: tuple[str, ...] = ()
     ask_commands: tuple[str, ...] = ()
     egress_tools: frozenset[str] = DEFAULT_EGRESS_TOOLS
+    # NIVEL 2d/2e: regex (search, no fnmatch) — default ON.
+    ask_command_regex: tuple[re.Pattern[str], ...] = field(
+        default_factory=lambda: _compile_patterns(
+            DEFAULT_ASK_COMMAND_REGEX, key="permissions.ask_command_regex"
+        )
+    )
+    ask_path_regex: tuple[re.Pattern[str], ...] = field(
+        default_factory=lambda: _compile_patterns(
+            DEFAULT_ASK_PATH_REGEX, key="permissions.ask_path_regex"
+        )
+    )
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any] | None) -> PolicyConfig:
@@ -72,11 +128,34 @@ class PolicyConfig:
             if raw_egress is not None
             else DEFAULT_EGRESS_TOOLS
         )
+        # NIVEL 2d/2e: regex configurables; clave ausente = default ON,
+        # lista vacía explícita = OFF (decisión del dueño, fail-fast si el
+        # regex no compila — una política mal escrita no degrada en silencio).
+        raw_cmd_re = data.get("ask_command_regex")
+        cmd_re = (
+            _compile_patterns(
+                tuple(str(p) for p in raw_cmd_re), key="permissions.ask_command_regex"
+            )
+            if raw_cmd_re is not None
+            else _compile_patterns(
+                DEFAULT_ASK_COMMAND_REGEX, key="permissions.ask_command_regex"
+            )
+        )
+        raw_path_re = data.get("ask_path_regex")
+        path_re = (
+            _compile_patterns(
+                tuple(str(p) for p in raw_path_re), key="permissions.ask_path_regex"
+            )
+            if raw_path_re is not None
+            else _compile_patterns(DEFAULT_ASK_PATH_REGEX, key="permissions.ask_path_regex")
+        )
         return cls(
             tool_overrides=overrides,
             deny_commands=deny,
             ask_commands=ask,
             egress_tools=egress,
+            ask_command_regex=cmd_re,
+            ask_path_regex=path_re,
         )
 
 
@@ -117,6 +196,19 @@ class Policy:
                 return Permission.DENY
             if any(fnmatch(command, pat) for pat in self.config.ask_commands):
                 effective = _harder(effective, Permission.ASK)
+            # NIVEL 2d/2e: gates regex sobre el comando (pip
+            # --break-system-packages, escritura en dirs de artefactos).
+            if any(rx.search(command) for rx in self.config.ask_command_regex):
+                effective = _harder(effective, Permission.ASK)
+        # NIVEL 2e (tools de archivo): write_file/edit cuyo path cae en un
+        # dir de artefactos indexados → ASK. Solo tools que ESCRIBEN.
+        path = args.get("path")
+        if (
+            tool_name in _WRITE_PATH_TOOLS
+            and isinstance(path, str)
+            and any(rx.search(path.replace("\\", "/")) for rx in self.config.ask_path_regex)
+        ):
+            effective = _harder(effective, Permission.ASK)
         # Trifecta: egress AUTO→ASK tras consumir contenido untrusted.
         if self.untrusted_seen and tool_name in self.config.egress_tools:
             effective = _harder(effective, Permission.ASK)
