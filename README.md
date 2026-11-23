@@ -132,6 +132,38 @@ agent → `verify.py` decides, never assumed). Numbers with real costs, cache
 rates and honest failure attribution (upstream provider errors are NOT counted
 as harness failures) live in [EVALS.md](EVALS.md).
 
+## The skillopt experiment (self-improvement, honestly measured)
+
+We asked whether a harness can improve its own skills — propose a better
+SKILL.md from observed failures, benchmark it, keep it only if it wins — and we
+measured the answer instead of assuming it.
+
+Three rounds, one fixture, two models (qwen3.8-flash, qwen3-coder), 190 total
+runs, $2.85 total spend:
+
+| Round | n per arm | What it said |
+|---|---|---|
+| S1.0 | 3 | "+67 points!" — a story small samples tell |
+| S1.1 | 10/5 | baseline was really ~80%, not 33%; effect shrank, p=0.24, not significant |
+| S1.2 | 35/30 | **mutated skill 97-100% vs baseline 83-90%, pooled Fisher p=0.0085** |
+
+What the numbers mean:
+
+- The propose→bench→keep cycle works, and the effect is real but modest
+  (+12-14 points), with fewer turns per task (11.8 vs 14.4) — cheaper, not
+  just better.
+- One mutation made things *worse* (74-80%). The "keep only if the bench
+  improves" gate is not optional: without a statistical judge, a
+  self-improving harness degrades itself.
+- The n=3 round was wrong and we say so. Benchmarks with tiny n are
+  storytelling. The eval rig here (resumable, isolated HOME, Fisher's exact
+  test from the stdlib) costs cents and tells the truth.
+
+skillopt is **not a v0.1 feature** — it lives on the `spike/skillopt` branch
+with full appendices (`dev/SPIKE_SKILLOPT.md`). It is the validated pilot for
+v2's evidence-gated self-improvement (proposer + statistical judge + ledger).
+Replication caveat: one fixture, two models; broader tasks before shipping.
+
 ## Security
 
 Read [SECURITY.md](SECURITY.md): trust model, sandbox guarantees, plugin/MCP
