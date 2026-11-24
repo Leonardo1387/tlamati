@@ -942,6 +942,63 @@ def _fetch_openrouter_models(base_url: str, api_key: str) -> list[dict[str, Any]
     return data.get("data", data if isinstance(data, list) else [])
 
 
+# Familias "principales" que el wizard muestra por default (Enter), en orden de
+# exhibición. La lista cruda de OpenRouter trae 400+ ids con variantes :batch,
+# :free y routers (openrouter/auto) que solo hacen ruido — mismo patrón que el
+# pitfall de las 80 tools: la lista completa sin curar ES el problema de UX.
+_CURATED_VENDORS = [
+    "anthropic",
+    "openai",
+    "google",
+    "x-ai",
+    "deepseek",
+    "qwen",
+    "moonshotai",
+    "z-ai",
+    "mistralai",
+    "meta-llama",
+    "nvidia",
+]
+_CURATED_PER_VENDOR = 4
+
+
+def _curate_models(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Los N flags más recientes por familia principal, sin variantes.
+
+    - descarta ids con ':' (:batch, :free, :extended) y routers openrouter/*;
+    - agrupa por vendor de _CURATED_VENDORS y toma los más recientes (campo
+      `created`) por familia;
+    - si el endpoint no trae `created`, conserva el orden original del feed.
+    """
+    clean = [
+        m
+        for m in models
+        if isinstance(m, dict)
+        and m.get("id")
+        and ":" not in str(m["id"])
+        and not str(m["id"]).startswith("openrouter/")
+        and "~" not in str(m["id"])
+    ]
+    by_vendor: dict[str, list[dict[str, Any]]] = {}
+    for m in clean:
+        vendor = str(m["id"]).split("/")[0]
+        by_vendor.setdefault(vendor, []).append(m)
+    out: list[dict[str, Any]] = []
+    for vendor in _CURATED_VENDORS:
+        fam = by_vendor.pop(vendor, [])
+        if not fam:
+            continue
+        fam.sort(key=lambda m: int(m.get("created") or 0), reverse=True)
+        out.extend(fam[:_CURATED_PER_VENDOR])
+    # resto de vendors: 1 flag más reciente cada uno, por descubrimiento
+    rest: list[dict[str, Any]] = []
+    for fam in by_vendor.values():
+        fam.sort(key=lambda m: int(m.get("created") or 0), reverse=True)
+        rest.append(fam[0])
+    rest.sort(key=lambda m: int(m.get("created") or 0), reverse=True)
+    return out + rest[:8]
+
+
 def _run_model(args: argparse.Namespace) -> int:
     """`tlamati model` — wizard interactivo: proveedor -> modelo -> config.yaml.
 
@@ -1013,7 +1070,7 @@ def _run_model(args: argparse.Namespace) -> int:
 
     selected: str | None = None
     while selected is None:
-        query = input("  busca (Enter = top por contexto, 's' = salir): ").strip().lower()
+        query = input("  busca (Enter = modelos principales, 's' = salir): ").strip().lower()
         if query in ("s", "salir"):
             print("(cancelado)")
             return 1
@@ -1024,13 +1081,14 @@ def _run_model(args: argparse.Namespace) -> int:
             ]
             matches += name_q
         else:
-            matches = sorted(models, key=lambda m: int(m.get("context_length") or 0), reverse=True)[
-                :15
-            ]
+            # Default: lista CURADA (flags principales por familia, sin variantes
+            # :batch/:free ni routers). Antes: top-15 por context_length, que
+            # mostraba openrouter/auto con precio negativo — ruido inútil.
+            matches = _curate_models(models)
         if not matches:
             print("  sin coincidencias, intenta otro término.")
             continue
-        for i, m in enumerate(matches[:20], 1):
+        for i, m in enumerate(matches[:40], 1):
             mid = m.get("id", "")
             ctx = m.get("context_length")
             pricing = m.get("pricing") or {}
@@ -1048,7 +1106,7 @@ def _run_model(args: argparse.Namespace) -> int:
             continue
         try:
             idx = int(pick) - 1
-            if 0 <= idx < min(len(matches), 20):
+            if 0 <= idx < min(len(matches), 40):
                 selected = matches[idx].get("id")
         except ValueError:
             # permite pegar el id completo en vez del número
