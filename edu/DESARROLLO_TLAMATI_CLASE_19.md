@@ -86,12 +86,12 @@ schema: los tool results viven en role='tool', no 'user'; emparejar por
 tool_call_id, no por "el mensaje siguiente".
 
 **C. El fix MODO_DIRECTO de proyecto-legal.** El dogfood destapó un bug de
-negocio: el frontend en modo directo (Jorge) envía `Authorization: Bearer
+negocio: el frontend en modo directo (el cliente) envía `Authorization: Bearer
 directo`, y el backend intentaba parsearlo como JWT de Supabase → 401 en la
 primera consulta. Fix en `~/code/proyecto-legal/auth.py` (commit 75e5e0a,
 pusheado a remote `mvp`): constante `MODO_DIRECTO = os.environ.get("MODO_DIRECTO", "") == "1"`
 y tres ramas gated — verificar_token acepta el literal "directo" como
-identidad `jorge-directo`; obtener_usuario devuelve usuario sintético
+identidad `cliente-directo`; obtener_usuario devuelve usuario sintético
 pro/999999; descontar_query es no-op (no hay fila en Supabase). Sin la
 variable de entorno, el comportamiento es byte-idéntico al anterior
 (no-regresión por construcción). Verificado con prueba ad-hoc de 3 casos
@@ -166,7 +166,7 @@ Tres, en orden de valor didáctico:
 Main queda en ec18bcd (README con sección skillopt, 624 tests verdes). La
 rama spike/skillopt en 6a50338 (apéndice S1.2 + script + resultados).
 Pendiente del fundador: (1) Redeploy manual de proyecto-legal en Railway + prueba
-e2e del modo directo para que Jorge pueda probar Producto A; (2) la
+e2e del modo directo para que el cliente pueda probar Producto A; (2) la
 publicación v0.1 de tlamati — checklist §5 del handoff (revisar qué NO se
 pushea, decisión filter-repo, push private→public); (3) rotar la service key
 de Supabase después del piloto (quedó expuesta en el chat de una sesión de

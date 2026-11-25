@@ -60,13 +60,13 @@ Causa raíz: el chunk nuevo empieza con `[Capitulo I]\n\n[Art. 67. | Frac. I] �
 
 ### El error del día (y la confusión del fundador)
 
-El harness vial (12 casos de tránsito, ~$0.26) dio 8/12 con tres fallos rarísimos: las consultas de CDMX buscaban dentro del índice CORPORATIVO y costaban $0.0000 (ni llamaron al modelo). El fundador lo vio y estalló con razón: "mezclaste todo, vial y escudo legal nunca se cruzaban". Diagnóstico en tres comandos: `git status router/` (limpio — no lo toqué hoy), `grep CIUDAD_DEFECTO router/ciudades.py` (= "CORPORATIVO"), `git log -S` (el cambio es del commit ea3605d, semanas atrás, INTENCIONAL del pivot a MVP). O sea: el harness vial local ya estaba roto ANTES de esta sesión; mi rebuild de FISCAL-SAT no tocó ni un byte del carril vial (07-index/embeddings/: 598 chunks, 100% CDMX, mtime de junio).
+El harness vial (12 casos de tránsito, ~$0.26) dio 8/12 con tres fallos rarísimos: las consultas de CDMX buscaban dentro del índice CORPORATIVO y costaban $0.0000 (ni llamaron al modelo). El fundador lo vio y estalló con razón: "mezclaste todo, vial y producto A nunca se cruzaban". Diagnóstico en tres comandos: `git status router/` (limpio — no lo toqué hoy), `grep CIUDAD_DEFECTO router/ciudades.py` (= "CORPORATIVO"), `git log -S` (el cambio es del commit ea3605d, semanas atrás, INTENCIONAL del pivot a MVP). O sea: el harness vial local ya estaba roto ANTES de esta sesión; mi rebuild de FISCAL-SAT no tocó ni un byte del carril vial (07-index/embeddings/: 598 chunks, 100% CDMX, mtime de junio).
 
 La lección doble: (1) cuando el usuario grita "rompiste X", la respuesta no es defenderse ni disculparse — es **fechar el cambio con git** (git log -S "texto" busca en qué commit se introdujo una cadena; es arqueología exacta, no opinión); (2) el fundador tenía razón en el fondo aunque no en la atribución: SÍ hubo una decisión de comunicación fallida —vender que "FASE B arreglaría el retrieval" sin aclarar que Boardy (el examen de escenarios de negocio) no se movería porque mide otra clase de gap. Expectativa mal calibrada = confianza quemada. Se anota y se corrige.
 
 ### Lo que NO se construyó hoy
 
-No se arregló el harness vial (decisión explícita del fundador: el producto vial está en pausa, el MVP de Jorge no lo usa). No se implementó el léxico escenario→concepto (opción A, $0, es la siguiente acción del handoff _6). No se re-chunkearon LABORAL/CONSUMIDOR/CONSTITUCION (sus recall ya son 3/3, 2/2 — quizá no urgen). Decir que no con razones es parte del trabajo.
+No se arregló el harness vial (decisión explícita del fundador: el producto vial está en pausa, el MVP de el cliente no lo usa). No se implementó el léxico escenario→concepto (opción A, $0, es la siguiente acción del handoff _6). No se re-chunkearon LABORAL/CONSUMIDOR/CONSTITUCION (sus recall ya son 3/3, 2/2 — quizá no urgen). Decir que no con razones es parte del trabajo.
 
 ### Cierre con números
 
