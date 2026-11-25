@@ -42,12 +42,14 @@ Toda restricción de seguridad del harness cayó en una de tres categorías:
   filesystem; promete AUDITAR (ledger append-only) y REVISAR (trifecta).
   La jaula del terminal es una **red-de-accidentes-shell** (protege de `rm -rf`
   accidental fuera del workdir, no de un agente malicioso con file tools).
-- **API keys visibles al comando enjaulado** (bwrap.py punto 3): la jaula
-  hereda el env del padre (PATH/HOME necesarios para que los comandos
-  funcionen). Un comando enjaulado puede leer `$OPENROUTER_API_KEY`.
-  Aceptable en un harness local mono-usuario; endurecible a futuro
-  (--clearenv + whitelist). Hasta entonces: no corras repos ajenos con
-  keys de producción en el env.
+- **API keys NO visibles al comando enjaulado** (endurecido 25-nov): la jaula
+  arranca con `--clearenv` y solo recibe una whitelist de variables inocuas
+  (PATH/HOME/LANG/TERM/...). Fail-closed: `OPENROUTER_API_KEY` y cualquier
+  otro secret del env del padre quedan fuera del comando enjaulado. El
+  harness llama al modelo FUERA de la jaula; los comandos enjaulados no
+  necesitan credenciales. OJO: esto aplica al tool *terminal* — los file
+  tools y plugins corren en el proceso del harness (puntos siguiente y
+  anterior), donde el env sí es visible.
 - **Plugins sin sandbox**: corren en el proceso del harness. Son código del
   DUEÑO de la máquina (mismo modelo que hermes-agent). Un plugin de un repo
   ajeno (`.tlamati/plugins/` clonado) es código de terceros con tus

@@ -35,6 +35,29 @@ class TestProfileArgv:
         argv = build_bwrap_argv(SandboxProfile(workdir=tmp_path, net=True))
         assert "--share-net" in argv
 
+    def test_clearenv_whitelist_keeps_secrets_out(self, tmp_path: Path) -> None:
+        """Endurecimiento 25-nov: --clearenv + whitelist. Una API key del env
+        del padre NO debe aparecer en el argv de bwrap (ni como --setenv)."""
+        fake_env = {
+            "PATH": "/usr/bin",
+            "HOME": "/home/usuario",
+            "OPENROUTER_API_KEY": "***",
+            "AWS_SECRET_ACCESS_KEY": "aws-super-secreto",
+        }
+        argv = build_bwrap_argv(SandboxProfile(workdir=tmp_path), environ=fake_env)
+        assert "--clearenv" in argv
+        # whitelist presentes
+        i = argv.index("--setenv")
+        assert argv[i + 1 : i + 3] == ["HOME", "/home/usuario"]  # sorted: HOME < PATH
+        assert "PATH" in argv
+        # secretos FUERA: ni nombre ni valor
+        for secret_name, secret_val in [
+            ("OPENROUTER_API_KEY", "sk-or-secreto"),
+            ("AWS_SECRET_ACCESS_KEY", "aws-super-secreto"),
+        ]:
+            assert secret_name not in argv
+            assert secret_val not in argv
+
     def test_wrap_returns_shell_line(self, tmp_path: Path) -> None:
         import shlex
 
@@ -89,6 +112,20 @@ class TestJailReal:
             "c1",
         )
         assert "[exit 0]" in res.content and "200" in res.content
+
+    async def test_secrets_not_visible_inside_jail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Jaula REAL: una secret del env del padre no es visible adentro
+        (--clearenv + whitelist, endurecimiento 25-nov)."""
+        monkeypatch.setenv("TLAMATI_TEST_SECRET", "valor-super-secreto")
+        reg = Registry(make_tools(tmp_path, sandbox=True))
+        res = await reg.execute("terminal", {"command": "env"}, "c1")
+        assert "[exit 0]" in res.content
+        assert "TLAMATI_TEST_SECRET" not in res.content
+        assert "valor-super-secreto" not in res.content
+        # y la whitelist sí entra (los comandos siguen funcionando)
+        assert "PATH=" in res.content
 
 
 class TestDegradacionHonesta:
