@@ -21,9 +21,9 @@ from pathlib import Path
 META_FILENAME = ".meta.json"
 VERSION = 1
 
-COLD_DAYS = 45          # > 45 días sin touch = COLD
-HOT_TOUCHES = 2         # touch_count >= 2 = HOT por más vieja que sea
-HOT_RECENT_DAYS = 14    # tocada hace <= 14 días = HOT
+COLD_DAYS = 45  # > 45 días sin touch = COLD
+HOT_TOUCHES = 2  # touch_count >= 2 = HOT por más vieja que sea
+HOT_RECENT_DAYS = 14  # tocada hace <= 14 días = HOT
 
 
 def _empty() -> dict:
@@ -111,18 +111,14 @@ class MemoryMeta:
         MEMORY.md + USER.md."""
         self._ensure_loaded()
         live_keys = {self.key(e) for e in live_entries}
-        self._data["entries"] = {
-            k: v for k, v in self._data["entries"].items() if k in live_keys
-        }
+        self._data["entries"] = {k: v for k, v in self._data["entries"].items() if k in live_keys}
 
     # ------------------------------------------------------------ save
     def save(self) -> None:
         """Atómico (tmp + replace), igual que store._write."""
         self._ensure_loaded()
         tmp = self.path.with_suffix(".json.tmp")
-        tmp.write_text(
-            json.dumps(self._data, ensure_ascii=False, indent=1), encoding="utf-8"
-        )
+        tmp.write_text(json.dumps(self._data, ensure_ascii=False, indent=1), encoding="utf-8")
         tmp.replace(self.path)
 
     # ------------------------------------------------------ M8b: tiers

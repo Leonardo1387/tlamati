@@ -20,9 +20,7 @@ from tlamati.context.late_instructions import (
     critical_paths_from_instructions,
 )
 
-pytestmark = pytest.mark.skipif(
-    shutil.which("git") is None, reason="git no está instalado"
-)
+pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git no está instalado")
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -88,18 +86,14 @@ class TestCommitAdvisory:
         assert "datos/comunes/x.txt" in texto
 
     def test_staged_sin_critico_silencio(self, git_repo: Path) -> None:
-        (git_repo / "AGENTS.md").write_text(
-            "datos/comunes/ es COMPARTIDO.\n", encoding="utf-8"
-        )
+        (git_repo / "AGENTS.md").write_text("datos/comunes/ es COMPARTIDO.\n", encoding="utf-8")
         (git_repo / "otro.py").write_text("x = 1", encoding="utf-8")
         _git(git_repo, "add", "otro.py")
         li = LateInstructions(git_repo)
         assert li.reminder("terminal", {"command": "git add otro.py"}) is None
 
     def test_sin_git_commit_silencio(self, git_repo: Path) -> None:
-        (git_repo / "AGENTS.md").write_text(
-            "datos/ es COMPARTIDO.\n", encoding="utf-8"
-        )
+        (git_repo / "AGENTS.md").write_text("datos/ es COMPARTIDO.\n", encoding="utf-8")
         (git_repo / "datos").mkdir()
         (git_repo / "datos" / "a.txt").write_text("v", encoding="utf-8")
         _git(git_repo, "add", "datos/a.txt")
@@ -122,16 +116,12 @@ class TestCommitAdvisory:
 
     def test_advisory_con_cd_a_otro_repo(self, git_repo: Path, tmp_path: Path) -> None:
         """El advisory sigue al repo del cd (mismo mecanismo que 1a)."""
-        (git_repo / "AGENTS.md").write_text(
-            "src/ es COMPARTIDO.\n", encoding="utf-8"
-        )
+        (git_repo / "AGENTS.md").write_text("src/ es COMPARTIDO.\n", encoding="utf-8")
         (git_repo / "src").mkdir()
         (git_repo / "src" / "m.py").write_text("v", encoding="utf-8")
         _git(git_repo, "add", "src/m.py")
         li = LateInstructions(tmp_path)  # workdir fuera del repo
-        texto = li.reminder(
-            "terminal", {"command": f"cd {git_repo} && git add src/m.py"}
-        )
+        texto = li.reminder("terminal", {"command": f"cd {git_repo} && git add src/m.py"})
         assert texto is not None and "src/m.py" in texto
 
     async def test_no_bloquea_el_comando(self, git_repo: Path) -> None:

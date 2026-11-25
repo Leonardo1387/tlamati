@@ -156,9 +156,7 @@ class LateInstructions:
         if not critical:
             return None
         staged = _git_staged_files(root)
-        hits = sorted(
-            {f for f in staged for c in critical if f == c or f.startswith(c + "/")}
-        )
+        hits = sorted({f for f in staged for c in critical if f == c or f.startswith(c + "/")})
         if not hits:
             return None
         return (

@@ -46,8 +46,10 @@ class TestTuiSandboxFlags:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         app = TlamatiApp(
-            workdir=tmp_path, session_db=str(tmp_path / "s.db"),
-            sandbox=True, sandbox_net=True,
+            workdir=tmp_path,
+            session_db=str(tmp_path / "s.db"),
+            sandbox=True,
+            sandbox_net=True,
         )
         async with app.run_test():
             assert _untrusted(app) is True
@@ -57,8 +59,10 @@ class TestTuiSandboxFlags:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         app = TlamatiApp(
-            workdir=tmp_path, session_db=str(tmp_path / "s.db"),
-            sandbox=True, sandbox_net=False,
+            workdir=tmp_path,
+            session_db=str(tmp_path / "s.db"),
+            sandbox=True,
+            sandbox_net=False,
         )
         async with app.run_test():
             assert _untrusted(app) is False
@@ -77,23 +81,15 @@ class TestTuiSandboxFlags:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr(
-            "tlamati.tui.app.load_config", lambda: {"sandbox": {"net": False}}
-        )
+        monkeypatch.setattr("tlamati.tui.app.load_config", lambda: {"sandbox": {"net": False}})
         app = TlamatiApp(workdir=tmp_path, session_db=str(tmp_path / "s.db"))
         async with app.run_test():
             assert _untrusted(app) is False
 
-    async def test_flag_pisa_config(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path
-    ) -> None:
+    async def test_flag_pisa_config(self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr(
-            "tlamati.tui.app.load_config", lambda: {"sandbox": {"net": False}}
-        )
-        app = TlamatiApp(
-            workdir=tmp_path, session_db=str(tmp_path / "s.db"), sandbox_net=True
-        )
+        monkeypatch.setattr("tlamati.tui.app.load_config", lambda: {"sandbox": {"net": False}})
+        app = TlamatiApp(workdir=tmp_path, session_db=str(tmp_path / "s.db"), sandbox_net=True)
         async with app.run_test():
             assert _untrusted(app) is True
 
@@ -104,8 +100,10 @@ class TestTuiSandboxFlags:
         real, cruce de frontera aunque sandbox_net=False)."""
         monkeypatch.chdir(tmp_path)
         app = TlamatiApp(
-            workdir=tmp_path, session_db=str(tmp_path / "s.db"),
-            sandbox=False, sandbox_net=False,
+            workdir=tmp_path,
+            session_db=str(tmp_path / "s.db"),
+            sandbox=False,
+            sandbox_net=False,
         )
         async with app.run_test():
             assert _untrusted(app) is True
@@ -128,9 +126,7 @@ class TestTuiPromptDeclaraRed:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr(
-            "tlamati.tui.app.load_config", lambda: {"sandbox": {"net": False}}
-        )
+        monkeypatch.setattr("tlamati.tui.app.load_config", lambda: {"sandbox": {"net": False}})
         app = TlamatiApp(workdir=tmp_path, session_db=str(tmp_path / "s.db"))
         async with app.run_test():
             assert "NO tiene acceso a red" in app._system_prompt

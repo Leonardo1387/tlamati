@@ -111,10 +111,10 @@ auto-scroll al final SOLO debe ocurrir si el usuario YA estaba al final.
 Se implementa capturando el estado ANTES de mutar el contenido:
 
 ```python
-follow = t.is_vertical_scroll_end   # ¿el usuario está abajo?
-t.mount(widget_nuevo)               # el contenido crece
+follow = t.is_vertical_scroll_end  # ¿el usuario está abajo?
+t.mount(widget_nuevo)  # el contenido crece
 if follow:
-    t.scroll_end(animate=False)     # solo seguir si estaba abajo
+    t.scroll_end(animate=False)  # solo seguir si estaba abajo
 ```
 
 Es el mismo patrón de `tail -f` inteligente en los visores de log serios.
