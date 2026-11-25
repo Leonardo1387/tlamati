@@ -41,8 +41,9 @@ ruff format --check + mypy --strict limpios.
 3. **Content guard (revisor LLM de descargas)** — Fase C+ pospuesta, anotado
    en fase-b-state. La trifecta B4 cubre el caso letal básico.
 4. **Env heredado a la jaula bwrap** (API keys visibles al comando enjaulado) —
-   aceptado y documentado en sandbox/bwrap.py; endurecer (--clearenv +
-   whitelist) queda anotado post-v0.1.
+   RESUELTO 25-nov: `--clearenv` + whitelist fail-closed en sandbox/bwrap.py
+   (test de jaula real incluido). Era "post-v0.1"; se adelantó porque el repo
+   ya es público.
 5. **MCP url: (Streamable HTTP)** — documentado como puerta abierta, NO
    construido (solo stdio).
 6. **Windows nativo fuera de WSL** — WON'T explícito del PRD §4.
