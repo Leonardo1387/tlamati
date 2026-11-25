@@ -154,7 +154,7 @@ desde ~ contra una tarea real de [REDACTED_PROYECTO] y verificar que 1a/2d/2e/2f
 funcionen en vivo, con autopsia posterior vía sessions.db) y la
 **publicación v0.1** (README honesto con la sección "qué sabemos / qué no"
 del spike, revisión de qué NO se pushea, decisión de filter-repo, push a
-leonardoGH/tlamati private→public). La rama `spike/skillopt` queda viva con
+mi-usuario/tlamati private→public). La rama `spike/skillopt` queda viva con
 su commit 7afb977 — no se mergea sola.
 
 **¿El último dogfood debería correrse contra [REDACTED_PROYECTO] (reglas conocidas, riesgo de romper producción) o contra un repo de juguete creado para la ocasión (riesgo cero, pero prueba menos)? ¿Qué probarías tú primero: el 1a desde home, o el gate 2e escribiendo a un 07-index/ real?**
