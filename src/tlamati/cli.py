@@ -1226,7 +1226,21 @@ def main(argv: list[str] | None = None) -> int:
     # defecto (el headless/CI nunca tiene tty → sigue viendo el help y su
     # contrato de exit codes intacto).
     if sys.stdin.isatty() and sys.stdout.isatty():
-        from tlamati.tui.app import run_tui  # import perezoso: el extra [tui]
+        try:
+            # import perezoso: la TUI vive en el extra [tui] y textual puede
+            # no estar instalado (pip install tlamati a secas).
+            from tlamati.tui.app import run_tui
+        except ModuleNotFoundError as exc:  # pragma: no branch
+            missing = exc.name or "textual"
+            print(
+                f"tlamati: la interfaz interactiva (TUI) necesita el módulo "
+                f"'{missing}', que no está instalado.\n"
+                f"  Instálalo con:  pip install 'tlamati[tui]'\n"
+                f"  (o: uv tool install --from 'tlamati[tui]' tlamati)\n"
+                f"  Mientras tanto puedes usar el modo headless:  tlamati -p \"tu prompt\"",
+                file=sys.stderr,
+            )
+            return 2
 
         # E3d PASO A: la TUI recibe --skills-dir igual que headless (antes lo
         # ignoraba — causa madre del dogfooding reprobado, sesión 20).

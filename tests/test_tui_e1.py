@@ -267,6 +267,34 @@ class TestCliGate:
         assert run_tui() == 2
         assert "tlamati[tui]" in capsys.readouterr().err
 
+    def test_main_tty_textual_missing_hint_and_rc2(
+        self, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regresión dogfood #9 (24-nov): el binario instalado SIN el extra
+        [tui] crasheaba con traceback crudo al lanzar la TUI por defecto.
+        main() con tty y textual ausente debe dar RC=2 + hint, no traceback."""
+        import builtins
+
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+        monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+
+        real_import = builtins.__import__
+
+        def _no_tui(name: str, *a: Any, **k: Any) -> Any:
+            if name == "tlamati.tui.app":
+                raise ModuleNotFoundError(
+                    "No module named 'textual'", name="textual"
+                )
+            return real_import(name, *a, **k)
+
+        monkeypatch.setattr(builtins, "__import__", _no_tui)
+        from tlamati.cli import main
+
+        assert main([]) == 2
+        err = capsys.readouterr().err
+        assert "tlamati[tui]" in err
+        assert "headless" in err
+
 
 class TestTuiSkillsE3d:
     """E3d PASO A: la TUI ve las skills (antes ignoraba --skills-dir —
