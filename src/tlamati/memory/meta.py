@@ -17,6 +17,7 @@ import hashlib
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 META_FILENAME = ".meta.json"
 VERSION = 1
@@ -26,7 +27,7 @@ HOT_TOUCHES = 2  # touch_count >= 2 = HOT por más vieja que sea
 HOT_RECENT_DAYS = 14  # tocada hace <= 14 días = HOT
 
 
-def _empty() -> dict:
+def _empty() -> dict[str, Any]:
     return {"version": VERSION, "entries": {}}
 
 
@@ -40,7 +41,7 @@ class MemoryMeta:
 
     def __init__(self, dir_path: Path) -> None:
         self.path = Path(dir_path) / META_FILENAME
-        self._data: dict = _empty()
+        self._data: dict[str, Any] = _empty()
         self._loaded = False
 
     def _ensure_loaded(self) -> None:
@@ -55,7 +56,7 @@ class MemoryMeta:
         return hashlib.sha1(norm.encode("utf-8")).hexdigest()[:16]
 
     # ------------------------------------------------------------ load
-    def load(self) -> dict:
+    def load(self) -> dict[str, Any]:
         """Tolerante total: ausente/corrupto/estructura inválida → vacío.
         Lee de disco UNA vez por instancia; llamadas posteriores devuelven el
         estado vivo en memoria (touch/forget/reconcile sin save intermedio)."""

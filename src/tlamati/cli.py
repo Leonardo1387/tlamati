@@ -937,7 +937,7 @@ def _fetch_openrouter_models(base_url: str, api_key: str) -> list[dict[str, Any]
     resp = httpx.get(url, headers=headers, timeout=30)
     resp.raise_for_status()
     data = resp.json()
-    return data.get("data", data if isinstance(data, list) else [])
+    return list(data.get("data", data if isinstance(data, list) else []))
 
 
 # Familias "principales" que el wizard muestra por default (Enter), en orden de
