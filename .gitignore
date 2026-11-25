@@ -49,3 +49,7 @@ research/07_POOL_DE_TALENTO.md
 # Salidas de dogfooding (video_build contiene narration.mp3 = voz del fundador)
 video_build*/
 evals/_local_sanitized/
+
+# Reglas locales de sanitización — NUNCA publicar (sdist las atrapaba)
+scripts/.filter_rules.local.txt
+scripts/audit_patterns_local.txt
