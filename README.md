@@ -17,6 +17,10 @@ pip install "tlamati[tui]"   # + interactive terminal UI (textual)
 Requires Python 3.12+. Optional system deps: `bwrap` (bubblewrap sandbox) and
 `rg` (ripgrep, for search_files) — both degrade honestly when missing.
 
+> **Measured, not marketed:** on long-horizon tasks, the reference harness cost
+> **8.6× more** (`gpt-6.2-sol`) and **1.9× more** (`claude-opus-5.5`) than
+> tlamati for the same verified work — [Evals](#evals).
+
 ## Quickstart
 
 ```bash
@@ -126,6 +130,15 @@ with history intact) or **"resumen"** (model-summarized compaction, cost
 counted) — never a dead stop.
 
 ## Evals
+
+**Frontier numbers (H9 v4 — long-horizon cascade task, 36-110 turns, ×3
+replicas):** for the same verified work, the reference harness (codex) cost
+**8.6× more** on `gpt-6.2-sol` and **1.9× more** on `claude-opus-5.5` than
+tlamati. The mechanism is measured, not claimed: codex re-sends history and
+re-reads files between reveals (3-4× input tokens); tlamati keeps the active
+window bounded. The advantage is model-dependent — `qwen3.8-max` inverts it —
+and the full protocol, raw costs and anti-cheat audit live in
+[EVALS.md](EVALS.md).
 
 `tlamati-eval` runs the fixture suite (terminal-bench-lite style: seeded bug →
 agent → `verify.py` decides, never assumed). Numbers with real costs, cache
