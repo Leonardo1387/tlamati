@@ -90,12 +90,14 @@ def test_environment_block_estable_entre_llamadas(tmp_path: Path) -> None:
 # puedo" aunque pueda. El bloque ambiental debe declarar el estado de red
 # del terminal, y ser byte-estable por corrida (cache sagrada, commit 7751663).
 
+
 def test_block_declara_red_on(tmp_path: Path) -> None:
     home = tmp_path / "home"
     home.mkdir()
     block = environment_block(tmp_path, home=home, wsl=False, net=True)
     assert "SÍ tiene acceso a red" in block
     assert "NO tiene acceso a red" not in block
+
 
 def test_block_declara_red_off_con_alternativa(tmp_path: Path) -> None:
     home = tmp_path / "home"
@@ -106,12 +108,14 @@ def test_block_declara_red_off_con_alternativa(tmp_path: Path) -> None:
     assert "alternativa" in block.lower()
     assert "exit 6" in block  # señal concreta del fallo (terminal.py ya la usa)
 
+
 def test_block_sin_net_no_declara_nada(tmp_path: Path) -> None:
     """net=None (default) → backward-compat: ni afirma ni niega."""
     home = tmp_path / "home"
     home.mkdir()
     block = environment_block(tmp_path, home=home, wsl=False)
     assert "acceso a red" not in block
+
 
 def test_block_red_byte_estable(tmp_path: Path) -> None:
     home = tmp_path / "home"

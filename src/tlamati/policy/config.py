@@ -62,9 +62,7 @@ DEFAULT_ASK_COMMAND_REGEX: tuple[str, ...] = (
 # 2e para tools de archivo (write_file/edit): path DENTRO de un dir de
 # artefactos indexados, sin necesitar operador de escritura (el tool YA
 # escribe). read_file/list_dir no pasan por aquí (no tienen efecto).
-DEFAULT_ASK_PATH_REGEX: tuple[str, ...] = (
-    r"(?:^|/)(?:07-index|dist)/",
-)
+DEFAULT_ASK_PATH_REGEX: tuple[str, ...] = (r"(?:^|/)(?:07-index|dist)/",)
 
 # Tools cuyo args["path"] se somete a ask_path_regex (solo los que escriben).
 _WRITE_PATH_TOOLS = frozenset({"write_file", "edit"})
@@ -137,15 +135,11 @@ class PolicyConfig:
                 tuple(str(p) for p in raw_cmd_re), key="permissions.ask_command_regex"
             )
             if raw_cmd_re is not None
-            else _compile_patterns(
-                DEFAULT_ASK_COMMAND_REGEX, key="permissions.ask_command_regex"
-            )
+            else _compile_patterns(DEFAULT_ASK_COMMAND_REGEX, key="permissions.ask_command_regex")
         )
         raw_path_re = data.get("ask_path_regex")
         path_re = (
-            _compile_patterns(
-                tuple(str(p) for p in raw_path_re), key="permissions.ask_path_regex"
-            )
+            _compile_patterns(tuple(str(p) for p in raw_path_re), key="permissions.ask_path_regex")
             if raw_path_re is not None
             else _compile_patterns(DEFAULT_ASK_PATH_REGEX, key="permissions.ask_path_regex")
         )

@@ -102,10 +102,7 @@ class TestNivel2eArtefactosShell:
 
 class TestNivel2eArtefactosFileTools:
     def test_write_file_en_dist_ask(self) -> None:
-        assert (
-            _resolve("write_file", {"path": "dist/app.js", "content": "x"})
-            is Permission.ASK
-        )
+        assert _resolve("write_file", {"path": "dist/app.js", "content": "x"}) is Permission.ASK
 
     def test_edit_en_07_index_ask(self) -> None:
         assert (
@@ -114,10 +111,7 @@ class TestNivel2eArtefactosFileTools:
         )
 
     def test_write_file_path_normal_auto(self) -> None:
-        assert (
-            _resolve("write_file", {"path": "src/main.py", "content": "x"})
-            is Permission.AUTO
-        )
+        assert _resolve("write_file", {"path": "src/main.py", "content": "x"}) is Permission.AUTO
 
     def test_read_file_no_gatea_aunque_lea_dist(self) -> None:
         """read_file NO escribe → fuera de _WRITE_PATH_TOOLS."""
@@ -126,13 +120,9 @@ class TestNivel2eArtefactosFileTools:
     def test_directorio_distinto_no_falso_positivo(self) -> None:
         """distribution/ o dist_old/ NO deben matchear el dir dist/."""
         assert (
-            _resolve("write_file", {"path": "distribution/x.txt", "content": ""})
-            is Permission.AUTO
+            _resolve("write_file", {"path": "distribution/x.txt", "content": ""}) is Permission.AUTO
         )
-        assert (
-            _resolve("write_file", {"path": "dist_old/x.txt", "content": ""})
-            is Permission.AUTO
-        )
+        assert _resolve("write_file", {"path": "dist_old/x.txt", "content": ""}) is Permission.AUTO
 
 
 class TestConfiguracion:

@@ -282,9 +282,7 @@ class TestCliGate:
 
         def _no_tui(name: str, *a: Any, **k: Any) -> Any:
             if name == "tlamati.tui.app":
-                raise ModuleNotFoundError(
-                    "No module named 'textual'", name="textual"
-                )
+                raise ModuleNotFoundError("No module named 'textual'", name="textual")
             return real_import(name, *a, **k)
 
         monkeypatch.setattr(builtins, "__import__", _no_tui)

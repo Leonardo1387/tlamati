@@ -148,9 +148,7 @@ class TestRegistryIntegration:
         (repo / "AGENTS.md").write_text(
             "SIEMPRE escribe la palabra BANANA en tu respuesta final", encoding="utf-8"
         )
-        registry = Registry(
-            _make_tools(), late_instructions=LateInstructions(home_dir)
-        )
+        registry = Registry(_make_tools(), late_instructions=LateInstructions(home_dir))
         result = await registry.execute(
             "edit", {"path": str(repo / "a.txt"), "old_string": "x", "new_string": "y"}, "t1"
         )
@@ -238,9 +236,7 @@ class TestLoopPrefijoIntacto:
                     yield MessageEnd(stop_reason="end_turn", usage=Usage(1, 1))
 
         provider = FakeProvider()
-        registry = Registry(
-            _make_tools(), late_instructions=LateInstructions(home_dir)
-        )
+        registry = Registry(_make_tools(), late_instructions=LateInstructions(home_dir))
         result = await run_loop(
             provider,
             system="PREFIJO-ORIGINAL",
@@ -300,9 +296,7 @@ class TestLoopPrefijoIntacto:
                     yield TextDelta(text="TERMINADO")
                     yield MessageEnd(stop_reason="end_turn", usage=Usage(1, 1))
 
-        registry = Registry(
-            _make_tools(), late_instructions=LateInstructions(home_dir)
-        )
+        registry = Registry(_make_tools(), late_instructions=LateInstructions(home_dir))
         await run_loop(
             FakeProvider(),
             system="PREFIJO-ORIGINAL",

@@ -602,9 +602,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
     # byte-estable.
     from tlamati.env_info import environment_block
 
-    system_prompt += "\n\n" + environment_block(
-        Path.cwd(), net=sandbox_net or not sandbox
-    )
+    system_prompt += "\n\n" + environment_block(Path.cwd(), net=sandbox_net or not sandbox)
 
     # C4: project instructions (AGENTS.md/CLAUDE.md) — outermost first,
     # versioned by content hash so the cacheable prefix is stable.
@@ -1188,8 +1186,8 @@ def _run_memory_lint(args: argparse.Namespace) -> int:
     for f in findings:
         a = f.entry_a if len(f.entry_a) <= 50 else f.entry_a[:47] + "..."
         b = f.entry_b if len(f.entry_b) <= 50 else f.entry_b[:47] + "..."
-        print(f"  [{f.target_a}] \"{a}\"")
-        print(f"  [{f.target_b}] \"{b}\"  — similitud {f.score:.0%}")
+        print(f'  [{f.target_a}] "{a}"')
+        print(f'  [{f.target_b}] "{b}"  — similitud {f.score:.0%}')
     print("Sugerencia: consolida con el tool `memory` (replace) en la próxima sesión.")
     return 0
 
@@ -1237,7 +1235,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"'{missing}', que no está instalado.\n"
                 f"  Instálalo con:  pip install 'tlamati[tui]'\n"
                 f"  (o: uv tool install --from 'tlamati[tui]' tlamati)\n"
-                f"  Mientras tanto puedes usar el modo headless:  tlamati -p \"tu prompt\"",
+                f'  Mientras tanto puedes usar el modo headless:  tlamati -p "tu prompt"',
                 file=sys.stderr,
             )
             return 2

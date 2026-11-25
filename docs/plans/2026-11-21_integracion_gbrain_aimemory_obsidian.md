@@ -158,6 +158,7 @@ completa; pedirle que además reporte huecos cuesta 0 llamadas extra.
 # tests/test_dream_gaps.py
 from tlamati.memory.dream import parse_dream_output, DreamReport
 
+
 def test_parse_extrae_gaps_junto_a_operations():
     raw = '{"operations": [], "gaps": ["El usuario mencionó Railway pero no hay nada guardado", "Posible contradicción: entrada X dice A, la sesión dijo B"]}'
     ops, gaps = parse_dream_output(raw)
@@ -165,9 +166,11 @@ def test_parse_extrae_gaps_junto_a_operations():
     assert len(gaps) == 2
     assert "Railway" in gaps[0]
 
+
 def test_parse_tolerante_sin_gaps():
     ops, gaps = parse_dream_output('{"operations": []}')
     assert ops == [] and gaps == []
+
 
 def test_report_humano_incluye_gaps():
     r = DreamReport(applied=1, gaps=("no hay clave OPENAI en memoria",))
@@ -243,11 +246,15 @@ API mínima (YAGNI — solo lo que M8b necesita):
 
 ```python
 class MemoryMeta:
-    def __init__(self, dir_path: Path): ...          # dir = mismo dir del MemoryStore
-    def load(self) -> dict: ...                       # tolerante: corrupto → {}
-    def touch(self, entry_text: str) -> None: ...     # crea-o-actualiza: last_touched_at=now, touch_count+=1; si es nuevo, created_at=now
-    def forget(self, entry_text: str) -> None: ...    # borra la clave (remove de entrada)
-    def save(self) -> None: ...                       # atómico
+    def __init__(self, dir_path: Path): ...  # dir = mismo dir del MemoryStore
+    def load(self) -> dict: ...  # tolerante: corrupto → {}
+    def touch(
+        self, entry_text: str
+    ) -> (
+        None
+    ): ...  # crea-o-actualiza: last_touched_at=now, touch_count+=1; si es nuevo, created_at=now
+    def forget(self, entry_text: str) -> None: ...  # borra la clave (remove de entrada)
+    def save(self) -> None: ...  # atómico
     @staticmethod
     def key(entry_text: str) -> str: ...
 ```
@@ -294,8 +301,9 @@ simplificado y ADVISORY (invariante 3 — aquí no se evicta nada):
 **Archivos:** Modify `src/tlamati/memory/meta.py`, Test `tests/test_memory_meta.py`.
 
 ```python
-def cold_entries(self, live: dict[str, list[str]], now: datetime | None = None,
-                 cold_days: int = 45) -> list[tuple[str, str, int]]:
+def cold_entries(
+    self, live: dict[str, list[str]], now: datetime | None = None, cold_days: int = 45
+) -> list[tuple[str, str, int]]:
     """live = {"memory": [entradas...], "user": [...]}.
     Devuelve [(target, entrada, días_sin_touch)] para entradas COLD.
     now inyectable para tests deterministas."""
@@ -417,6 +425,7 @@ from pathlib import Path
 from tlamati.memory.skills import parse_skill  # ajustar import real de SkillLibrary
 
 FIXTURE = Path(__file__).parent.parent / "fixtures" / "agentskills_compat"
+
 
 def test_todos_los_skills_del_fixture_parsean():
     skills = [d for d in FIXTURE.iterdir() if (d / "SKILL.md").is_file()]
