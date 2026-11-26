@@ -19,6 +19,7 @@ from typing import Any
 
 import httpx
 
+from tlamati.core.images import ImageBlock
 from tlamati.core.messages import (
     Event,
     Message,
@@ -53,6 +54,27 @@ def _is_anthropic(model: str) -> bool:
     markers = 99% hit, 19x cheaper). Other families (OpenAI/Qwen/DeepSeek)
     auto-cache, so sending them markers would be noise."""
     return model.startswith(("anthropic/", "claude-"))
+
+
+def _openai_content_blocks(text: str, images: Sequence[ImageBlock]) -> list[dict[str, Any]]:
+    """Vision v2.1: text + images → OpenAI-style content block list.
+
+    Images travel as data-URLs (the wire form every OpenAI-compatible vision
+    gateway accepts, OpenRouter included). The text marker goes FIRST so a
+    gateway sin visión que degrade a texto aún muestra el registro honesto
+    de qué imagen era.
+    """
+    blocks: list[dict[str, Any]] = []
+    if text:
+        blocks.append({"type": "text", "text": text})
+    for im in images:
+        blocks.append(
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:{im.media_type};base64,{im.data}"},
+            }
+        )
+    return blocks
 
 
 @dataclass(frozen=True)
@@ -149,20 +171,27 @@ class OpenAICompat:
                 }
             ]
         last_tool = next((m for m in reversed(converted) if m["role"] == "tool"), None)
-        if last_tool is not None and isinstance(last_tool["content"], str):
-            last_tool["content"] = [
-                {
-                    "type": "text",
-                    "text": last_tool["content"],
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ]
+        if last_tool is not None:
+            c = last_tool["content"]
+            if isinstance(c, str):
+                last_tool["content"] = [
+                    {"type": "text", "text": c, "cache_control": {"type": "ephemeral"}}
+                ]
+            elif isinstance(c, list) and c:
+                # Vision v2.1: tool result con imágenes = lista de bloques; el
+                # breakpoint rolling va al ÚLTIMO bloque (el de visión).
+                c[-1] = {**c[-1], "cache_control": {"type": "ephemeral"}}
 
     @staticmethod
     def _convert_message(m: Message) -> dict[str, Any]:
         if m.role == "system":
             return {"role": "system", "content": m.content}
         if m.role == "user":
+            if m.images:
+                return {
+                    "role": "user",
+                    "content": _openai_content_blocks(m.content, m.images),
+                }
             return {"role": "user", "content": m.content}
         if m.role == "assistant":
             out: dict[str, Any] = {"role": "assistant", "content": m.content or None}
@@ -182,7 +211,12 @@ class OpenAICompat:
         if m.role == "tool":
             tr = m.tool_result
             assert tr is not None  # Message.__post_init__ guarantees
-            return {"role": "tool", "tool_call_id": tr.tool_call_id, "content": tr.content}
+            content: Any = tr.content
+            if tr.images:
+                # OpenAI-style: el tool message acepta lista de bloques
+                # text + image_url (data-URL) en gateways con visión.
+                content = _openai_content_blocks(tr.content, tr.images)
+            return {"role": "tool", "tool_call_id": tr.tool_call_id, "content": content}
         raise ProviderError(f"unknown role {m.role!r}", kind="config")
 
     async def stream(

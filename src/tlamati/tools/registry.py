@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any
 import jsonschema
 from jsonschema.exceptions import SchemaError
 
+from tlamati.core.images import ImageBlock
 from tlamati.core.messages import ToolResult
 from tlamati.plugins import HookRegistry
 from tlamati.plugins.internal.ledger_plugin import register_ledger_hooks
@@ -42,6 +43,21 @@ if TYPE_CHECKING:  # B4: policy.config importa Permission de aquí → ciclo evi
     from tlamati.policy.ledger import Ledger
 
 MAX_OUTPUT_CHARS = 50_000  # M1: truncate at the spout, honest marker
+
+
+@dataclass(frozen=True)
+class ToolOutput:
+    """Rich tool return (vision v2.1): text + native payloads.
+
+    A tool's ``run`` may return a plain str (the common case) or a ToolOutput
+    when it produces structured payloads the model must receive natively —
+    today only image blocks. The text in ``content`` stays the honest marker;
+    the pixels travel in ``images`` and the adapter renders them per wire
+    format. Kept frozen like everything else at the waist.
+    """
+
+    content: str
+    images: tuple[ImageBlock, ...] = ()
 
 
 class Permission(StrEnum):
@@ -64,7 +80,7 @@ class Tool:
     name: str
     description: str
     input_schema: dict[str, Any]
-    run: Callable[[dict[str, Any]], Awaitable[str]]
+    run: Callable[[dict[str, Any]], Awaitable[str | ToolOutput]]
     permission: Permission = Permission.AUTO
     sandboxable: bool = False
     produces_untrusted: bool = False  # B4: sus resultados OK marcan la trifecta
@@ -277,8 +293,13 @@ class Registry:
                 )
 
         # 3. Run — any exception becomes an honest error result.
+        images: tuple[ImageBlock, ...] = ()
         try:
-            content = await tool.run(args)
+            out = await tool.run(args)
+            if isinstance(out, ToolOutput):
+                content, images = out.content, out.images
+            else:
+                content = out
             is_error = content.startswith("ERROR:")
         except Exception as e:
             # D2: on_error OBSERVA (plugins), el comportamiento no cambia —
@@ -286,6 +307,8 @@ class Registry:
             self.hooks.fire_on_error(name, args, e)
             content = f"ERROR: tool {name} raised {type(e).__name__}: {e}"
             is_error = True
+        if is_error:
+            images = ()  # un error con píxeles adjuntos sería ruido, no señal
         content, truncated = truncate(content)
         # NIVEL 1a (dogfood #6): si el tool tocó un repo con AGENTS.md fuera
         # del cwd inicial, adjuntar sus reglas al result — mensaje NUEVO en la
@@ -308,5 +331,6 @@ class Registry:
                 is_error=is_error,
                 untrusted=untrusted,
                 truncated=truncated,
+                images=images,
             ),
         )

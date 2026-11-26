@@ -172,12 +172,18 @@ def microcompact(history: Sequence[Message], config: CompactionConfig) -> tuple[
             and not tr.is_error
             and not tr.microcompacted
             and not _is_cleared(tr.content)
-            and len(tr.content) >= config.min_chars_to_clear
+            # Vision v2.1: un resultado con imágenes se limpia aunque su texto
+            # sea corto (el marker) — los píxeles son el costo, y read_file los
+            # re-obtiene. Limpiar SOLO el texto dejaría el bloque de visión
+            # vivo: una evicción a medias, peor que no evictar.
+            and (len(tr.content) >= config.min_chars_to_clear or bool(tr.images))
             and names.get(tr.tool_call_id, "") in config.compactable_tools
         ):
             m = replace(
                 m,
-                tool_result=replace(tr, content=CLEARED_PLACEHOLDER, microcompacted=True),
+                tool_result=replace(
+                    tr, content=CLEARED_PLACEHOLDER, microcompacted=True, images=()
+                ),
             )
             cleared += 1
         out.append(m)
@@ -195,7 +201,10 @@ def render_for_summary(messages: Sequence[Message], max_chars_per_result: int = 
             calls = "; ".join(f"{tc.name}({tc.raw_arguments[:200]})" for tc in m.tool_calls)
             lines.append(f"[assistant] {m.content}\n[calls] {calls}")
         else:
-            lines.append(f"[{m.role}] {m.content}")
+            # Vision v2.1: el summarizer es ciego a píxeles; los markers de
+            # texto viajan para que el resumen diga QUÉ imágenes hubo.
+            imgs = "".join(f" {im.marker()}" for im in m.images)
+            lines.append(f"[{m.role}] {m.content}{imgs}")
     return "\n".join(lines)
 
 

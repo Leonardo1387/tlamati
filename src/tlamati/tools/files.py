@@ -261,10 +261,11 @@ def _resolve(workdir: Path, path_str: str) -> Path:
 
 
 def make_file_tools(workdir: Path) -> list[Any]:
-    from tlamati.tools.registry import Permission, Tool
+    from tlamati.core.images import detect_media_type, load_image
+    from tlamati.tools.registry import Permission, Tool, ToolOutput
     from tlamati.tools.winpath import WinPathError
 
-    async def read_file(args: dict[str, Any]) -> str:
+    async def read_file(args: dict[str, Any]) -> str | ToolOutput:
         try:
             path = _resolve(workdir, str(args.get("path", "")))
         except WinPathError as e:
@@ -273,6 +274,20 @@ def make_file_tools(workdir: Path) -> list[Any]:
             from tlamati.tools.winpath import windows_dir_hint
 
             return f"ERROR: no such file: {path}{windows_dir_hint(path)}"
+        # Vision v2.1: magic bytes deciden, no la extensión. Una imagen se
+        # entrega como bloque nativo (ToolOutput) con su marker de texto; los
+        # errores de load_image (binario no-imagen, cap rebasado) son el
+        # resultado honesto del tool.
+        try:
+            head = path.read_bytes()[:12]
+        except OSError as e:
+            return f"ERROR: {e}"
+        if detect_media_type(head) is not None:
+            try:
+                block = load_image(path)
+            except ValueError as e:
+                return f"ERROR: {e}"
+            return ToolOutput(content=block.marker(), images=(block,))
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError as e:
@@ -356,7 +371,10 @@ def make_file_tools(workdir: Path) -> list[Any]:
             description=(
                 "Read a text file with numbered lines. Optional offset (1-indexed "
                 f"start line) and limit (max lines, default {MAX_LINES_DEFAULT}). "
-                "Large reads are truncated honestly with a next-offset hint."
+                "Large reads are truncated honestly with a next-offset hint. "
+                "Image files (png/jpeg/gif/webp, detected by magic bytes, not "
+                "extension) are returned as a native vision block you can SEE, "
+                "plus a text marker with dimensions and size."
             ),
             input_schema={
                 "type": "object",

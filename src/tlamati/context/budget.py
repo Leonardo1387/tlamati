@@ -57,6 +57,10 @@ def _message_tokens(m: Message) -> int:
         total += count_tokens(tc.name) + count_tokens(tc.raw_arguments or json.dumps(tc.arguments))
     if m.tool_result is not None:
         total += count_tokens(m.tool_result.content)
+        # Vision v2.1: los píxeles cuestan (w*h/750 en Anthropic); ignorarlos
+        # haría mentir al budget justo cuando más caro es el turno.
+        total += sum(im.token_estimate() for im in m.tool_result.images)
+    total += sum(im.token_estimate() for im in m.images)
     return total + 4  # per-message protocol overhead estimate
 
 

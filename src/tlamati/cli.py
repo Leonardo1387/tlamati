@@ -178,6 +178,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Headless one-shot prompt",
     )
     p.add_argument("--model", metavar="ID", help=f"model id (default: {DEFAULT_MODEL})")
+    p.add_argument(
+        "--image",
+        action="append",
+        default=[],
+        metavar="PATH",
+        dest="images",
+        help="attach a local image (png/jpeg/gif/webp) to the first user "
+        "message as a native vision block; repeatable",
+    )
     p.add_argument("--base-url", metavar="URL", help="provider base URL (default: OpenRouter)")
     p.add_argument(
         "--max-turns",
@@ -814,6 +823,22 @@ async def _run_headless(args: argparse.Namespace) -> int:
 
     run_messages: list[Message] = []
 
+    # Vision v2.1: --image carga píxeles ANTES del loop; un path roto o un
+    # binario que no es imagen aborta la corrida con el motivo visible
+    # (mejor que arrancar ciego sin la imagen que el usuario pidió mostrar).
+    cli_images: tuple[Any, ...] = ()
+    if args.images:
+        from tlamati.core.images import load_image as _load_image
+
+        img_blocks = []
+        for img_path in args.images:
+            try:
+                img_blocks.append(_load_image(Path(os.path.expanduser(img_path))))
+            except ValueError as e:
+                print(f"tlamati: --image falló: {e}", file=sys.stderr)
+                return 2
+        cli_images = tuple(img_blocks)
+
     def _persist(m: Any) -> None:
         run_messages.append(m)
         if store is not None and session_id is not None:
@@ -839,6 +864,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
         compactor=compactor,
         history=resumed_history or None,
         on_message=_persist,
+        user_images=cli_images,
     )
 
     # D3: cierre limpio de servidores MCP al terminar la corrida (terminate →

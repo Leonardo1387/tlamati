@@ -22,6 +22,7 @@ from typing import Any
 
 import httpx
 
+from tlamati.core.images import ImageBlock
 from tlamati.core.messages import (
     Event,
     Message,
@@ -48,6 +49,14 @@ _STOP_MAP: dict[str, str] = {
     "refusal": "refusal",
     "pause_turn": "end_turn",
 }
+
+
+def _image_block_anthropic(im: ImageBlock) -> dict[str, Any]:
+    """Vision v2.1: ImageBlock → Anthropic base64 source block."""
+    return {
+        "type": "image",
+        "source": {"type": "base64", "media_type": im.media_type, "data": im.data},
+    }
 
 
 def _merge_consecutive_roles(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -155,6 +164,8 @@ class AnthropicMessages:
                 blocks: list[dict[str, Any]] = []
                 if m.content:
                     blocks.append({"type": "text", "text": m.content})
+                for im in m.images:
+                    blocks.append(_image_block_anthropic(im))
                 for tc in m.tool_calls:
                     blocks.append(
                         {
@@ -168,10 +179,17 @@ class AnthropicMessages:
             elif m.role == "tool":
                 tr = m.tool_result
                 assert tr is not None  # Message.__post_init__ guarantees
+                if tr.images:
+                    # Anthropic acepta una LISTA de bloques como content del
+                    # tool_result: el marker de texto + los píxeles nativos.
+                    inner: Any = [{"type": "text", "text": tr.content}]
+                    inner += [_image_block_anthropic(im) for im in tr.images]
+                else:
+                    inner = tr.content
                 block: dict[str, Any] = {
                     "type": "tool_result",
                     "tool_use_id": tr.tool_call_id,
-                    "content": tr.content,
+                    "content": inner,
                 }
                 if tr.is_error:
                     block["is_error"] = True
