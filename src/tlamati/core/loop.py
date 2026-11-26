@@ -121,7 +121,7 @@ class _TurnRetryable(Exception):
 
     def __init__(
         self,
-        result: tuple["Message", "MessageEnd | None", "str | None"],
+        result: tuple[Message, MessageEnd | None, str | None],
         reason: str,
     ) -> None:
         super().__init__(reason)

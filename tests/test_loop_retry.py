@@ -19,15 +19,14 @@ Backoff parcheado a 0 para tests rápidos (asyncio.sleep mockeado).
 from __future__ import annotations
 
 import asyncio
-import json
 from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from tlamati.core import loop as loop_mod
 from tlamati.context.budget import Budget
+from tlamati.core import loop as loop_mod
 from tlamati.core.loop import _is_transient_error, run_loop
 from tlamati.core.messages import (
     Event,

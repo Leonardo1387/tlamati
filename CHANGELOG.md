@@ -8,6 +8,26 @@ Los cambios que rompen la superficie estable (STABILITY.md) se etiquetan
 
 (vacío)
 
+## v2.1.0 (2026-11-26)
+
+### Agregado
+
+- **Visión nativa v2.1** — `ImageBlock` en el waist del loop: `read_file`
+  ve imágenes, `--image` en CLI las adjunta al primer mensaje. Los adapters
+  las serializan al formato nativo de cada proveedor (OpenAI content blocks
+  / Anthropic image blocks).
+
+### Arreglado
+
+- **Retry con backoff en errores transitorios del proveedor** — un rate
+  limit del upstream (p.ej. Alibaba vía OpenRouter) mataba la corrida con
+  respuesta vacía (`stop=error`, `in=0 out=0`): el loop nunca consultaba
+  `ProviderError.retryable`. Ahora `_stream_one_turn` reintenta hasta 4
+  veces con backoff exponencial 4s·2^n + jitter ante 429/5xx/transporte o
+  mensajes transitorios en `MessageEnd(error)` ("rate limit", "overloaded",
+  "upstream error", in-flight credits). Errores deterministas no se
+  reintentan. Nuevo evento `retry` {attempt, delay_s, error} para TUI/JSON.
+
 ## v2.0.0 (2026-11-26)
 
 Release de especialización creativa: el arnés ya habla con aplicaciones
