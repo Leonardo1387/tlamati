@@ -71,7 +71,31 @@ LoopEvent = Callable[[str, dict[str, Any]], None]
 
 
 class _Abort(Exception):
-    pass
+    """Corte por usuario (SIGINT x2 o control.abort). Carga el texto parcial."""
+
+    def __init__(self, final_text: str = "") -> None:
+        super().__init__(final_text)
+        self.final_text = final_text
+
+
+@dataclass
+class LoopControl:
+    """Canal de control UI→loop (B3/B4, dogfood #9).
+
+    La TUI corre el terminal en modo raw: Ctrl+C NUNCA llega como SIGINT, así
+    que el handler de señal es código muerto ahí. LoopControl es el equivalente
+    portable: la UI muta estos campos desde su propio event loop (mismo hilo
+    asyncio que run_loop — sin locks) y el loop los lee en fronteras seguras:
+    - ``abort``: corte inmediato (se chequea entre deltas del stream, antes de
+      cada tool call y al inicio de turno) → stop_reason="aborted".
+    - ``pending_interjection``: mensaje del usuario escrito A MITAD de turno;
+      entra como user message al INICIO del siguiente turno (invariante hermes:
+      nunca se inyecta mid-stream). SIGINT y LoopControl comparten el campo de
+      LoopState — una sola vía de entrega.
+    """
+
+    abort: bool = False
+    pending_interjection: str | None = None
 
 
 def _install_sigint(
@@ -104,6 +128,7 @@ async def _stream_one_turn(
     state: LoopState,
     tools: Registry,
     on_event: LoopEvent,
+    control: LoopControl | None = None,
 ) -> tuple[Message, MessageEnd | None, str | None]:
     """Consume one provider turn → (assistant Message, MessageEnd, error).
 
@@ -128,6 +153,11 @@ async def _stream_one_turn(
             tool_args.setdefault(ev.id, []).append(ev.args_json)
         elif isinstance(ev, MessageEnd):
             end = ev
+        # B3: abort entre deltas — corte a media generación, sin esperar al
+        # fin del stream. Va DESPUÉS de procesar el evento: el delta que ya
+        # llegó es texto parcial rescatable, no se tira.
+        if control is not None and control.abort:
+            raise _Abort("".join(text_parts))
 
     tool_calls: list[ToolCall] = []
     parse_error: str | None = None
@@ -168,6 +198,7 @@ async def run_loop(
     compactor: Compactor | None = None,
     history: list[Message] | None = None,
     on_message: Callable[[Message], None] | None = None,
+    control: LoopControl | None = None,
 ) -> LoopResult:
     """Run the agent until end_turn, budget, max_turns, stall, abort, or error.
 
@@ -206,10 +237,11 @@ async def run_loop(
             compactor,
             on_message,
             stall_repeats=stall_repeats,
+            control=control,
         )
-    except _Abort:
+    except _Abort as ab:
         return LoopResult(
-            final_text="(ejecución abortada por el usuario)",
+            final_text=ab.final_text or "(ejecución abortada por el usuario)",
             stop_reason="aborted",
             turns=state.turns,
             usage=state.usage,
@@ -253,6 +285,7 @@ async def _run_inner(
     on_message: Callable[[Message], None] | None = None,
     *,
     stall_repeats: int = 3,
+    control: LoopControl | None = None,
 ) -> LoopResult:
     last_text = ""
     tool_specs = tools.specs()
@@ -263,6 +296,14 @@ async def _run_inner(
     prev_signature: str | None = None
     repeat_count = 0
     while max_turns <= 0 or state.turns < max_turns:
+        # B4: la UI encola steering por LoopControl (la TUI nunca ve SIGINT —
+        # modo raw). Se drena hacia el mismo canal que SIGINT: una sola vía.
+        if control is not None:
+            if control.abort:
+                raise _Abort(last_text)
+            if control.pending_interjection and state.pending_interjection is None:
+                state.pending_interjection = control.pending_interjection
+                control.pending_interjection = None
         # Interjection v1: pending user message enters at turn start.
         if state.pending_interjection:
             interj = Message(role="user", content=state.pending_interjection)
@@ -306,7 +347,9 @@ async def _run_inner(
                 error=breakdown.human(),
             )
 
-        assistant, end, parse_error = await _stream_one_turn(provider, state, tools, on_event)
+        assistant, end, parse_error = await _stream_one_turn(
+            provider, state, tools, on_event, control
+        )
         state.turns += 1
         state.history.append(assistant)
         if on_message is not None:
@@ -343,6 +386,20 @@ async def _run_inner(
             )
 
         if not assistant.tool_calls:
+            # B4 (steering Hermes): si el usuario escribió a mitad de turno y
+            # el modelo ya cerró, el mensaje NO se pierde — entra como user
+            # message y el loop sigue un turno más.
+            steer = None
+            if control is not None and control.pending_interjection:
+                steer = control.pending_interjection
+                control.pending_interjection = None
+            if steer:
+                steer_msg = Message(role="user", content=steer)
+                state.history.append(steer_msg)
+                if on_message is not None:
+                    on_message(steer_msg)
+                on_event("steering", {"text": steer})
+                continue
             return LoopResult(
                 final_text=last_text,
                 stop_reason="end_turn",
@@ -352,6 +409,8 @@ async def _run_inner(
 
         # Execute tools sequentially (deterministic, audit-friendly).
         for tc in assistant.tool_calls:
+            if control is not None and control.abort:
+                raise _Abort(assistant.content or last_text)
             if parse_error and not tc.arguments and tc.raw_arguments:
                 result = ToolResult(
                     tool_call_id=tc.id, content=f"ERROR: {parse_error}", is_error=True

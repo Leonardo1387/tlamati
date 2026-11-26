@@ -67,7 +67,7 @@ from tlamati.cli import (
 from tlamati.context.budget import Budget
 from tlamati.context.compaction import CompactionConfig, Compactor, ModelSummarizer
 from tlamati.context.instructions import load_instructions, render_for_prompt
-from tlamati.core.loop import LoopResult, run_loop
+from tlamati.core.loop import LoopControl, LoopResult, run_loop
 from tlamati.core.messages import Message
 from tlamati.core.model_router import ModelRouter
 from tlamati.memory.meta import open_meta
@@ -222,6 +222,7 @@ class TlamatiApp(App[None]):
         Binding("ctrl+enter", "submit", "Enviar", priority=True),
         Binding("ctrl+j", "submit", "Enviar (alt)", priority=True),
         Binding("ctrl+s", "toggle_sessions", "Sesiones"),
+        Binding("ctrl+c", "interrupt", "Detener", priority=True),
     ]
 
     def __init__(
@@ -257,6 +258,7 @@ class TlamatiApp(App[None]):
         self._turn_md: Markdown | None = None
         self._stream_dirty = False
         self._busy = False
+        self._control = LoopControl()  # canal UI→loop (B3/B4); vive entre turnos
         self._last_result: LoopResult | None = None
         self._total_turns = 0  # turnos acumulados de TODA la sesión TUI
         # Componentes de corrida (se construyen en on_mount).
@@ -286,7 +288,7 @@ class TlamatiApp(App[None]):
             with VerticalScroll(id="transcript"):
                 yield Static(
                     f"[b]tlamati {__version__}[/b] — ctrl+enter envía, "
-                    "ctrl+s sesiones, ctrl+q sale",
+                    "ctrl+c detiene al agente, ctrl+s sesiones, ctrl+q sale",
                     markup=True,
                     classes="note-line",
                 )
@@ -604,7 +606,15 @@ class TlamatiApp(App[None]):
     def action_submit(self) -> None:
         ta = self.query_one("#prompt", TextArea)
         text = ta.text.strip()
-        if not text or self._busy or self.registry is None:
+        if not text or self.registry is None:
+            return
+        if self._busy:
+            # B4: mensaje a mitad de producción NO se pierde — se encola y el
+            # loop lo entrega al inicio del siguiente turno (o al cierre).
+            self._control.pending_interjection = text
+            ta.clear()
+            self._add_user(text)
+            self._note("[steering] mensaje encolado: entra al siguiente turno", cls="tool-line")
             return
         if self._handle_slash(text):
             ta.clear()
@@ -626,6 +636,16 @@ class TlamatiApp(App[None]):
         self._add_user(text)
         self.run_worker(self._run_prompt(text), exclusive=True)
 
+    def action_interrupt(self) -> None:
+        """Ctrl+C (B3): la TUI corre en modo raw y SIGINT nunca llega — este
+        binding ES el Ctrl+C. Con corrida activa: abort (stop_reason=aborted).
+        Sin corrida: salida de la app (comportamiento terminal esperado)."""
+        if self._busy:
+            self._control.abort = True
+            self._note("[stop] deteniendo al agente… (ctrl+c de nuevo fuerza)", cls="tool-error")
+        else:
+            self.exit()
+
     def action_toggle_sessions(self) -> None:
         panel = self.query_one("#sessions", ListView)
         panel.toggle_class("visible")
@@ -643,6 +663,7 @@ class TlamatiApp(App[None]):
     async def _run_prompt(self, text: str) -> None:
         assert self.registry is not None and self.provider is not None
         assert self.budget is not None
+        self._control = LoopControl()  # fresca: abort de la corrida anterior no contagia
         try:
             result = await run_loop(
                 self.provider,
@@ -656,6 +677,7 @@ class TlamatiApp(App[None]):
                 compactor=self.compactor,
                 history=list(self._history) or None,
                 on_message=self._persist_message,
+                control=self._control,
             )
         except Exception as e:  # un bug nunca cuelga la app (loop invariant)
             self._note(f"corrida falló: {type(e).__name__}: {e}", cls="tool-error")
