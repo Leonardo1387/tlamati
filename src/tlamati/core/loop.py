@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 import signal
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -69,6 +70,63 @@ class LoopResult:
 
 # Loop events for UI consumers (print callback in headless mode).
 LoopEvent = Callable[[str, dict[str, Any]], None]
+
+# Retry de errores transitorios del proveedor (rate limit Alibaba vía
+# OpenRouter, 26-nov). Backoff exponencial 4s·2^n + jitter, 4 reintentos
+# (4+8+16+32 ≈ 60s de ventana) — suficiente para que un bucket de rate
+# limit se recupere sin duplicar gasto en errores deterministas.
+_MAX_PROVIDER_RETRIES = 4
+_RETRY_BASE_S = 4.0
+
+# Patrones de error TRANSITORIO en el mensaje de MessageEnd(error). Los
+# gateways (OpenRouter) a veces entregan HTTP 200 + cuerpo de error SSE:
+# en ese camino no hay status code, solo texto. Mayúsculas/minúsculas no
+# importan; coincidencia de subcadena.
+_TRANSIENT_PATTERNS = (
+    "rate limit",
+    "rate_limit",
+    "too many requests",
+    "overloaded",
+    "capacity",
+    "temporarily unavailable",
+    "in-flight",
+    "please slow down",
+    "retry after",
+    "http 429",
+    "http 500",
+    "http 502",
+    "http 503",
+    "http 504",
+    "502 bad gateway",
+    "503 service",
+    "504 gateway",
+    "upstream error",
+    "model serving",
+    "connection reset",
+    "timed out",
+    "timeout",
+)
+
+
+def _is_transient_error(message: str | None) -> bool:
+    if not message:
+        return False
+    low = message.lower()
+    return any(p in low for p in _TRANSIENT_PATTERNS)
+
+
+class _TurnRetryable(Exception):
+    """Error transitorio detectado al FINAL del stream (MessageEnd error).
+    Carga el resultado parcial para devolverlo si se agotan los reintentos."""
+
+    def __init__(
+        self,
+        result: tuple["Message", "MessageEnd | None", "str | None"],
+        reason: str,
+    ) -> None:
+        super().__init__(reason)
+        self.result = result
+        self.reason = reason
 
 
 class _Abort(Exception):
@@ -135,7 +193,55 @@ async def _stream_one_turn(
 
     Assembles streamed deltas into a normalized Message so the history only
     ever contains internal types (invariant: adapters normalize; loop is
-    provider-blind)."""
+    provider-blind).
+
+    Retry con backoff exponencial (fix rate-limit Alibaba 26-nov): reintenta
+    el turno COMPLETO cuando (a) el provider lanza ProviderError(retryable)
+    — HTTP 429/5xx/transporte — o (b) el stream termina en
+    MessageEnd(stop_reason="error") con un mensaje que matchea patrones
+    transitorios (rate limit, overloaded, upstream 429/5xx, in-flight
+    credits). Los errores deterministas (refusal, finish_reason desconocido,
+    argumentos inválidos) NO se reintentan: reintentar lo idéntico esperando
+    otro resultado es el bucle que el detector de estancamiento prohíbe.
+    """
+    last_error: str | None = None
+    for attempt in range(_MAX_PROVIDER_RETRIES + 1):
+        if attempt > 0:
+            delay = _RETRY_BASE_S * (2 ** (attempt - 1)) + random.uniform(0, 1.0)
+            on_event(
+                "retry",
+                {
+                    "attempt": attempt,
+                    "max_attempts": _MAX_PROVIDER_RETRIES,
+                    "delay_s": round(delay, 1),
+                    "error": (last_error or "")[:300],
+                },
+            )
+            if control is not None and control.abort:
+                raise _Abort("")
+            await asyncio.sleep(delay)
+        try:
+            return await _consume_turn(provider, state, tools, on_event, control)
+        except ProviderError as e:
+            if not e.retryable or attempt >= _MAX_PROVIDER_RETRIES:
+                raise
+            last_error = f"{e.kind}: {e}"
+        except _TurnRetryable as tr:
+            # Error transitorio detectado en el MessageEnd (HTTP 200 + body
+            # de error, patrón OpenRouter/Alibaba). Reintento completo.
+            if attempt >= _MAX_PROVIDER_RETRIES:
+                return tr.result
+            last_error = tr.reason
+    raise AssertionError("unreachable: retry loop must return or raise")
+
+
+async def _consume_turn(
+    provider: Provider,
+    state: LoopState,
+    tools: Registry,
+    on_event: LoopEvent,
+    control: LoopControl | None = None,
+) -> tuple[Message, MessageEnd | None, str | None]:
     text_parts: list[str] = []
     tool_starts: dict[str, str] = {}  # id -> name (order preserved)
     tool_args: dict[str, list[str]] = {}  # id -> json fragments
@@ -183,7 +289,14 @@ async def _stream_one_turn(
         content=text if (text or tool_calls) else "(sin contenido)",
         tool_calls=tuple(tool_calls),
     )
-    return assistant, end, parse_error
+    result = (assistant, end, parse_error)
+    # Error transitorio al final del stream (HTTP 200 + error body, o SSE que
+    # mapeó a stop_reason="error" con mensaje de rate limit/overload): se
+    # señala hacia _stream_one_turn para backoff+reintento. Si no matchea,
+    # el resultado vuelve tal cual (error determinista → loop decide).
+    if end is not None and end.stop_reason == "error" and _is_transient_error(end.error):
+        raise _TurnRetryable(result, end.error or "transient provider error")
+    return result
 
 
 async def run_loop(
