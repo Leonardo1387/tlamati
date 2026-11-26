@@ -30,6 +30,7 @@ from typing import Any
 
 from tlamati.context.budget import Budget
 from tlamati.context.compaction import Compactor
+from tlamati.core.images import ImageBlock
 from tlamati.core.messages import (
     Message,
     MessageEnd,
@@ -199,6 +200,7 @@ async def run_loop(
     history: list[Message] | None = None,
     on_message: Callable[[Message], None] | None = None,
     control: LoopControl | None = None,
+    user_images: tuple[ImageBlock, ...] = (),
 ) -> LoopResult:
     """Run the agent until end_turn, budget, max_turns, stall, abort, or error.
 
@@ -219,7 +221,15 @@ async def run_loop(
     state = LoopState(system=system)
     if history:
         state.history.extend(history)
-    first = Message(role="user", content=user_prompt)
+    # Vision v2.1: las imágenes del usuario viajan NATIVAS en el primer
+    # mensaje; sus markers de texto se adjuntan al content para que la sesión
+    # persistida (que guarda metadata, no píxeles) conserve el registro de
+    # qué se mostró.
+    prompt_text = user_prompt
+    if user_images:
+        markers = "\n".join(im.marker() for im in user_images)
+        prompt_text = f"{user_prompt}\n{markers}" if user_prompt else markers
+    first = Message(role="user", content=prompt_text, images=user_images)
     state.history.append(first)
     if on_message is not None:
         on_message(first)

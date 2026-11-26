@@ -20,6 +20,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from tlamati.core.images import ImageBlock
+
 Role = Literal["system", "user", "assistant", "tool"]
 
 
@@ -55,6 +57,9 @@ class ToolResult:
     replaced by a placeholder because it is re-fetchable). Donor: qwen-code
     microcompact.ts — an eviction that is not reported is a silent data-loss bug
     (their issue #4239), so the flag travels with the result forever.
+    ``images`` (vision v2.1): native image blocks attached to the result (e.g.
+    read_file on a png). Text stays the honest marker; the pixels travel here
+    and each provider adapter renders them in its own wire format.
     """
 
     tool_call_id: str
@@ -63,6 +68,35 @@ class ToolResult:
     untrusted: bool = False
     truncated: bool = False
     microcompacted: bool = False
+    images: tuple[ImageBlock, ...] = ()
+
+
+def _restore_images(raw: Any) -> tuple[ImageBlock, ...]:
+    """Reload persisted image metadata into live blocks (vision v2.1).
+
+    Pixels are never stored in the session DB; on resume we re-read the file
+    at ``source_path``. If it is gone (or changed beyond the cap) the image is
+    DROPPED here: the text marker in ``content`` already told the model a
+    image existed, and re-attaching stale bytes would be a lie.
+    """
+    if not isinstance(raw, list):
+        return ()
+    from pathlib import Path
+
+    from tlamati.core.images import load_image
+
+    out: list[ImageBlock] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        src = item.get("source_path")
+        if not isinstance(src, str):
+            continue
+        try:
+            out.append(load_image(Path(src)))
+        except ValueError:
+            continue  # archivo muerto o mutado: el marker de texto queda
+    return tuple(out)
 
 
 @dataclass(frozen=True)
@@ -74,6 +108,10 @@ class Message:
     - role="assistant" may carry ``tool_calls`` (content may be empty).
     - role="tool" carries exactly one ``tool_result``.
     - role="system" is reserved for the cacheable prefix builder.
+    - ``images`` (vision v2.1): native vision blocks. Only "user" messages and
+      tool results carry them (the two places both providers accept images);
+      adapters render them per-wire-format. Text in ``content`` stays the
+      honest marker describing each block (never a silent pixel).
     """
 
     role: Role
@@ -81,12 +119,15 @@ class Message:
     id: str = field(default_factory=lambda: _new_id("msg"))
     tool_calls: tuple[ToolCall, ...] = ()
     tool_result: ToolResult | None = None
+    images: tuple[ImageBlock, ...] = ()
 
     def __post_init__(self) -> None:
         if self.role == "assistant" and not self.content and not self.tool_calls:
             raise ValueError("assistant message must carry content or tool_calls")
         if self.role == "tool" and self.tool_result is None:
             raise ValueError("tool message must carry a tool_result")
+        if self.images and self.role not in ("user", "tool"):
+            raise ValueError("only user messages and tool results carry images")
 
     # -- serialization (sessions SQLite + evals JSONL) -------------------
 
@@ -112,6 +153,22 @@ class Message:
                 "truncated": tr.truncated,
                 "microcompacted": tr.microcompacted,
             }
+        if self.images:
+            # Vision v2.1: los píxeles NO se persisten (base64 de 4 MB por
+            # mensaje reventaría la sesión). Viaja el metadata; al reanudar,
+            # from_dict recarga desde source_path si el archivo sigue vivo —
+            # si no, el marker de texto en ``content`` queda como registro
+            # honesto de que hubo una imagen ahí.
+            d["images"] = [
+                {
+                    "media_type": im.media_type,
+                    "width": im.width,
+                    "height": im.height,
+                    "source_path": im.source_path,
+                    "size_bytes": im.size_bytes,
+                }
+                for im in self.images
+            ]
         return d
 
     @classmethod
@@ -138,12 +195,14 @@ class Message:
             if tr_d is not None
             else None
         )
+        images = _restore_images(d.get("images"))
         return cls(
             role=d["role"],
             content=d.get("content", ""),
             id=d.get("id") or _new_id("msg"),
             tool_calls=tool_calls,
             tool_result=tool_result,
+            images=images,
         )
 
 
