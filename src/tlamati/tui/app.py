@@ -222,7 +222,10 @@ class TlamatiApp(App[None]):
         Binding("ctrl+enter", "submit", "Enviar", priority=True),
         Binding("ctrl+j", "submit", "Enviar (alt)", priority=True),
         Binding("ctrl+s", "toggle_sessions", "Sesiones"),
-        Binding("ctrl+c", "interrupt", "Detener", priority=True),
+        # NO priority: deja que TextArea (copiar selección) y Screen
+        # (copiar selección del transcript) consuman ctrl+c primero vía
+        # SkipAction; el binding solo dispara cuando NO hay selección.
+        Binding("ctrl+c", "interrupt", "Detener / copiar"),
     ]
 
     def __init__(
@@ -288,7 +291,7 @@ class TlamatiApp(App[None]):
             with VerticalScroll(id="transcript"):
                 yield Static(
                     f"[b]tlamati {__version__}[/b] — ctrl+enter envía, "
-                    "ctrl+c detiene al agente, ctrl+s sesiones, ctrl+q sale",
+                    "ctrl+c copia selección o detiene al agente, ctrl+s sesiones, ctrl+q sale",
                     markup=True,
                     classes="note-line",
                 )
@@ -637,14 +640,23 @@ class TlamatiApp(App[None]):
         self.run_worker(self._run_prompt(text), exclusive=True)
 
     def action_interrupt(self) -> None:
-        """Ctrl+C (B3): la TUI corre en modo raw y SIGINT nunca llega — este
-        binding ES el Ctrl+C. Con corrida activa: abort (stop_reason=aborted).
-        Sin corrida: salida de la app (comportamiento terminal esperado)."""
+        """Ctrl+C (B3 → fix ctrl-c-copy): la TUI corre en modo raw y SIGINT
+        nunca llega — este binding ES el Ctrl+C, pero NO es priority: si hay
+        selección (en el TextArea o en el transcript), el copiado de Textual
+        consume la tecla primero vía SkipAction y esto no se ejecuta.
+
+        Con corrida activa: abort (stop_reason=aborted).
+        Sin corrida: aviso, NO salida — salir es ctrl+q (cierra la sesión
+        honestamente en on_unmount; ctrl+c ocioso mataba la app sin permitir
+        copiar y era una trampa para dedos)."""
         if self._busy:
             self._control.abort = True
             self._note("[stop] deteniendo al agente… (ctrl+c de nuevo fuerza)", cls="tool-error")
         else:
-            self.exit()
+            self._note(
+                "[ctrl+c] nada activo; ctrl+q sale, con selección copia",
+                cls="note-line",
+            )
 
     def action_toggle_sessions(self) -> None:
         panel = self.query_one("#sessions", ListView)

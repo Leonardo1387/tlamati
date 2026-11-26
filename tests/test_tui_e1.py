@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import pytest
+from textual.widgets import Static, TextArea
 
 from tlamati.core.messages import Event, Message, MessageEnd, TextDelta, Usage
 from tlamati.providers.base import ToolSpec
@@ -500,9 +501,10 @@ class TestStopAndSteer:
             assert not app._busy
             assert any("ojo con eso" in (m.content or "") for m in app._history)
 
-    async def test_ctrl_c_idle_exits_app(
+    async def test_ctrl_c_idle_does_not_exit_app(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        """fix ctrl-c-copy: ocioso, ctrl+c AVISA (ctrl+q sale) — no mata la app."""
         monkeypatch.chdir(tmp_path)
         monkeypatch.setenv("OPENROUTER_API_KEY", "dummy")
         app = TlamatiApp(workdir=tmp_path, session_db=str(tmp_path / "s.db"))
@@ -510,4 +512,57 @@ class TestStopAndSteer:
             assert not app._busy
             await pilot.press("ctrl+c")
             await pilot.pause(0.2)
-            # exit() pide cerrar la app; run_test lo materializa al salir del bloque
+            assert not app._exit  # la app sigue viva
+            # el aviso va al transcript como Static recién montado
+            notes = [str(s.content) for s in app.query(Static)]
+            assert any("ctrl+q sale" in n for n in notes)
+
+    async def test_ctrl_c_copies_textarea_selection(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """fix ctrl-c-copy: con selección en el TextArea, ctrl+c COPIA
+        (binding no-priority → TextArea.action_copy gana vía SkipAction)."""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("OPENROUTER_API_KEY", "dummy")
+        app = TlamatiApp(workdir=tmp_path, session_db=str(tmp_path / "s.db"))
+        async with app.run_test() as pilot:
+            ta = app.query_one("#prompt", TextArea)
+            ta.focus()
+            await pilot.press(*"copiame")
+            ta.select_all()
+            await pilot.press("ctrl+c")
+            await pilot.pause(0.2)
+            assert app._clipboard == "copiame"
+            assert not app._exit  # y no salió de la app
+
+    async def test_ctrl_c_no_selection_still_interrupts(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """fix ctrl-c-copy: SIN selección el flujo B3 se conserva — corrida
+        activa aborta; ocioso no aborta ni sale (solo aviso)."""
+        import asyncio
+
+        gate = asyncio.Event()
+        monkeypatch.chdir(tmp_path)
+
+        class P(_SlowProvider):
+            def __init__(self) -> None:
+                super().__init__([[("text", "largo ")]], gate=gate)
+
+        monkeypatch.setattr("tlamati.tui.app.OpenAICompat", lambda **kw: P())
+        monkeypatch.setenv("OPENROUTER_API_KEY", "dummy")
+        app = TlamatiApp(workdir=tmp_path, session_db=str(tmp_path / "s.db"))
+        async with app.run_test() as pilot:
+            ta = app.query_one("#prompt", TextArea)
+            ta.focus()
+            # tecleo y luego SUelto la selección (click-equivalente: cursor plano)
+            await pilot.press(*"haz algo")
+            await pilot.press("ctrl+enter")
+            await pilot.pause(0.2)
+            assert app._busy
+            await pilot.press("ctrl+c")  # sin selección → interrupt → abort
+            gate.set()
+            await pilot.pause(0.3)
+            assert not app._busy
+            assert app._last_result is not None
+            assert app._last_result.stop_reason == "aborted"
