@@ -1,0 +1,695 @@
+{
+ "spent_usd": 1.43829,
+ "items": [
+  {
+   "label": "run smoke2",
+   "usd": 0.00769,
+   "ts": "22:04:47"
+  },
+  {
+   "label": "run seed-flash-0",
+   "usd": 0.0039,
+   "ts": "22:07:18"
+  },
+  {
+   "label": "run seed-flash-1",
+   "usd": 0.0075,
+   "ts": "22:08:00"
+  },
+  {
+   "label": "run seed-flash-2",
+   "usd": 0.0066,
+   "ts": "22:08:03"
+  },
+  {
+   "label": "run seed-flash-3",
+   "usd": 0.00537,
+   "ts": "22:08:47"
+  },
+  {
+   "label": "run seed-flash-4",
+   "usd": 0.0061,
+   "ts": "22:09:31"
+  },
+  {
+   "label": "run seed-coder-0",
+   "usd": 0.0073,
+   "ts": "22:09:33"
+  },
+  {
+   "label": "run seed-flash-5",
+   "usd": 0.0038,
+   "ts": "22:09:35"
+  },
+  {
+   "label": "run seed-coder-3",
+   "usd": 0.0075,
+   "ts": "22:09:59"
+  },
+  {
+   "label": "run seed-coder-2",
+   "usd": 0.02214,
+   "ts": "22:10:36"
+  },
+  {
+   "label": "run seed-coder-1",
+   "usd": 0.03314,
+   "ts": "22:10:42"
+  },
+  {
+   "label": "propose mut1",
+   "usd": 0.00093,
+   "ts": "22:16:06"
+  },
+  {
+   "label": "propose mut2",
+   "usd": 0.00164,
+   "ts": "22:16:34"
+  },
+  {
+   "label": "propose mut2",
+   "usd": 0.0012,
+   "ts": "22:17:35"
+  },
+  {
+   "label": "run bench-v0-flash-7",
+   "usd": 0.00455,
+   "ts": "22:19:34"
+  },
+  {
+   "label": "run bench-v0-flash-8",
+   "usd": 0.0062,
+   "ts": "22:19:57"
+  },
+  {
+   "label": "run bench-v0-flash-6",
+   "usd": 0.00713,
+   "ts": "22:20:18"
+  },
+  {
+   "label": "run bench-v0-flash-9",
+   "usd": 0.007,
+   "ts": "22:21:19"
+  },
+  {
+   "label": "run bench-v0-flash-10",
+   "usd": 0.00637,
+   "ts": "22:21:20"
+  },
+  {
+   "label": "run bench-v0-flash-11",
+   "usd": 0.0047,
+   "ts": "22:21:26"
+  },
+  {
+   "label": "run bench-v0-flash-13",
+   "usd": 0.00498,
+   "ts": "22:22:33"
+  },
+  {
+   "label": "run bench-v0-flash-12",
+   "usd": 0.00565,
+   "ts": "22:22:44"
+  },
+  {
+   "label": "run bench-v0-flash-14",
+   "usd": 0.00664,
+   "ts": "22:22:58"
+  },
+  {
+   "label": "run bench-v0-flash-15",
+   "usd": 0.00723,
+   "ts": "22:24:35"
+  },
+  {
+   "label": "run bench-v0-flash-17",
+   "usd": 0.00541,
+   "ts": "22:24:59"
+  },
+  {
+   "label": "run bench-v0-flash-16",
+   "usd": 0.00809,
+   "ts": "22:25:10"
+  },
+  {
+   "label": "run bench-v0-flash-19",
+   "usd": 0.0047,
+   "ts": "22:26:12"
+  },
+  {
+   "label": "run bench-v0-flash-18",
+   "usd": 0.00658,
+   "ts": "22:26:25"
+  },
+  {
+   "label": "run bench-v0-flash-20",
+   "usd": 0.00548,
+   "ts": "22:26:33"
+  },
+  {
+   "label": "run bench-v0-flash-21",
+   "usd": 0.00441,
+   "ts": "22:27:10"
+  },
+  {
+   "label": "run bench-v0-flash-22",
+   "usd": 0.0049,
+   "ts": "22:27:35"
+  },
+  {
+   "label": "run bench-v0-flash-23",
+   "usd": 0.00373,
+   "ts": "22:27:57"
+  },
+  {
+   "label": "run bench-v0-flash-24",
+   "usd": 0.00446,
+   "ts": "22:28:30"
+  },
+  {
+   "label": "run bench-mut1-flash-0",
+   "usd": 0.00769,
+   "ts": "22:29:44"
+  },
+  {
+   "label": "run bench-mut1-flash-1",
+   "usd": 0.00812,
+   "ts": "22:29:52"
+  },
+  {
+   "label": "run bench-mut1-flash-2",
+   "usd": 0.00413,
+   "ts": "22:30:02"
+  },
+  {
+   "label": "run bench-mut1-flash-4",
+   "usd": 0.00474,
+   "ts": "22:31:13"
+  },
+  {
+   "label": "run bench-mut1-flash-5",
+   "usd": 0.00434,
+   "ts": "22:31:38"
+  },
+  {
+   "label": "run bench-mut1-flash-6",
+   "usd": 0.0035,
+   "ts": "22:32:05"
+  },
+  {
+   "label": "run bench-mut1-flash-3",
+   "usd": 0.00912,
+   "ts": "22:32:14"
+  },
+  {
+   "label": "run bench-mut1-flash-7",
+   "usd": 0.00467,
+   "ts": "22:32:52"
+  },
+  {
+   "label": "run bench-mut1-flash-8",
+   "usd": 0.00376,
+   "ts": "22:33:05"
+  },
+  {
+   "label": "run bench-mut1-flash-9",
+   "usd": 0.00426,
+   "ts": "22:33:14"
+  },
+  {
+   "label": "run bench-mut1-flash-12",
+   "usd": 0.00433,
+   "ts": "22:34:21"
+  },
+  {
+   "label": "run bench-mut1-flash-10",
+   "usd": 0.00636,
+   "ts": "22:34:30"
+  },
+  {
+   "label": "run bench-mut1-flash-13",
+   "usd": 0.00552,
+   "ts": "22:36:00"
+  },
+  {
+   "label": "run bench-mut1-flash-14",
+   "usd": 0.00693,
+   "ts": "22:36:08"
+  },
+  {
+   "label": "run bench-mut1-flash-16",
+   "usd": 0.00539,
+   "ts": "22:37:35"
+  },
+  {
+   "label": "run bench-mut1-flash-11",
+   "usd": 0.01096,
+   "ts": "22:38:01"
+  },
+  {
+   "label": "run bench-mut1-flash-15",
+   "usd": 0.00592,
+   "ts": "22:38:34"
+  },
+  {
+   "label": "run bench-mut1-flash-18",
+   "usd": 0.005,
+   "ts": "22:39:23"
+  },
+  {
+   "label": "run bench-mut1-flash-19",
+   "usd": 0.00645,
+   "ts": "22:39:58"
+  },
+  {
+   "label": "run bench-mut1-flash-20",
+   "usd": 0.00491,
+   "ts": "22:40:35"
+  },
+  {
+   "label": "run bench-mut1-flash-22",
+   "usd": 0.00423,
+   "ts": "22:41:42"
+  },
+  {
+   "label": "run bench-mut1-flash-17",
+   "usd": 0.00554,
+   "ts": "22:41:50"
+  },
+  {
+   "label": "run bench-mut1-flash-21",
+   "usd": 0.00473,
+   "ts": "22:42:01"
+  },
+  {
+   "label": "run bench-mut1-flash-24",
+   "usd": 0.00411,
+   "ts": "22:42:46"
+  },
+  {
+   "label": "run bench-mut1-flash-23",
+   "usd": 0.0068,
+   "ts": "22:43:10"
+  },
+  {
+   "label": "run bench-mut2-flash-0",
+   "usd": 0.00415,
+   "ts": "22:43:39"
+  },
+  {
+   "label": "run bench-mut2-flash-1",
+   "usd": 0.0056,
+   "ts": "22:44:05"
+  },
+  {
+   "label": "run bench-mut2-flash-3",
+   "usd": 0.00623,
+   "ts": "22:45:16"
+  },
+  {
+   "label": "run bench-mut2-flash-4",
+   "usd": 0.006,
+   "ts": "22:45:41"
+  },
+  {
+   "label": "run bench-mut2-flash-2",
+   "usd": 0.00631,
+   "ts": "22:46:01"
+  },
+  {
+   "label": "run bench-mut2-flash-6",
+   "usd": 0.00485,
+   "ts": "22:46:37"
+  },
+  {
+   "label": "run bench-mut2-flash-5",
+   "usd": 0.00588,
+   "ts": "22:46:37"
+  },
+  {
+   "label": "run bench-mut2-flash-8",
+   "usd": 0.00479,
+   "ts": "22:48:00"
+  },
+  {
+   "label": "run bench-mut2-flash-7",
+   "usd": 0.00528,
+   "ts": "22:48:23"
+  },
+  {
+   "label": "run bench-mut2-flash-9",
+   "usd": 0.00636,
+   "ts": "22:48:26"
+  },
+  {
+   "label": "run bench-mut2-flash-10",
+   "usd": 0.00708,
+   "ts": "22:49:46"
+  },
+  {
+   "label": "run bench-mut2-flash-11",
+   "usd": 0.00543,
+   "ts": "22:49:54"
+  },
+  {
+   "label": "run bench-mut2-flash-14",
+   "usd": 0.00442,
+   "ts": "22:51:05"
+  },
+  {
+   "label": "run bench-mut2-flash-13",
+   "usd": 0.0053,
+   "ts": "22:51:07"
+  },
+  {
+   "label": "run bench-mut2-flash-12",
+   "usd": 0.00876,
+   "ts": "22:51:30"
+  },
+  {
+   "label": "run bench-mut2-flash-16",
+   "usd": 0.00744,
+   "ts": "22:52:59"
+  },
+  {
+   "label": "run bench-mut2-flash-17",
+   "usd": 0.00577,
+   "ts": "22:53:19"
+  },
+  {
+   "label": "run bench-mut2-flash-15",
+   "usd": 0.00586,
+   "ts": "22:53:34"
+  },
+  {
+   "label": "run bench-mut2-flash-18",
+   "usd": 0.00373,
+   "ts": "22:53:47"
+  },
+  {
+   "label": "run bench-mut2-flash-19",
+   "usd": 0.00512,
+   "ts": "22:55:03"
+  },
+  {
+   "label": "run bench-mut2-flash-21",
+   "usd": 0.00578,
+   "ts": "22:55:07"
+  },
+  {
+   "label": "run bench-mut2-flash-20",
+   "usd": 0.00664,
+   "ts": "22:55:19"
+  },
+  {
+   "label": "run bench-mut2-flash-22",
+   "usd": 0.00744,
+   "ts": "22:56:55"
+  },
+  {
+   "label": "run bench-v0-coder-4",
+   "usd": 0.00394,
+   "ts": "22:57:06"
+  },
+  {
+   "label": "run bench-v0-coder-5",
+   "usd": 0.00708,
+   "ts": "22:57:20"
+  },
+  {
+   "label": "run bench-mut2-flash-24",
+   "usd": 0.00631,
+   "ts": "22:57:38"
+  },
+  {
+   "label": "run bench-v0-coder-6",
+   "usd": 0.00699,
+   "ts": "22:57:40"
+  },
+  {
+   "label": "run bench-v0-coder-7",
+   "usd": 0.01327,
+   "ts": "22:58:06"
+  },
+  {
+   "label": "run bench-v0-coder-9",
+   "usd": 0.01446,
+   "ts": "22:58:58"
+  },
+  {
+   "label": "run bench-v0-coder-8",
+   "usd": 0.03865,
+   "ts": "22:59:01"
+  },
+  {
+   "label": "run bench-v0-coder-10",
+   "usd": 0.01292,
+   "ts": "22:59:39"
+  },
+  {
+   "label": "run bench-v0-coder-12",
+   "usd": 0.00386,
+   "ts": "22:59:51"
+  },
+  {
+   "label": "run bench-v0-coder-13",
+   "usd": 0.01023,
+   "ts": "23:00:28"
+  },
+  {
+   "label": "run bench-v0-coder-14",
+   "usd": 0.00952,
+   "ts": "23:00:53"
+  },
+  {
+   "label": "run bench-v0-coder-11",
+   "usd": 0.03061,
+   "ts": "23:01:16"
+  },
+  {
+   "label": "run bench-v0-coder-17",
+   "usd": 0.00544,
+   "ts": "23:02:24"
+  },
+  {
+   "label": "run bench-v0-coder-18",
+   "usd": 0.00331,
+   "ts": "23:02:36"
+  },
+  {
+   "label": "run bench-v0-coder-15",
+   "usd": 0.03724,
+   "ts": "23:02:47"
+  },
+  {
+   "label": "run bench-v0-coder-16",
+   "usd": 0.0401,
+   "ts": "23:03:00"
+  },
+  {
+   "label": "run bench-v0-coder-19",
+   "usd": 0.00765,
+   "ts": "23:03:01"
+  },
+  {
+   "label": "run bench-mut1-coder-0",
+   "usd": 0.00657,
+   "ts": "23:03:09"
+  },
+  {
+   "label": "run bench-mut1-coder-3",
+   "usd": 0.0042,
+   "ts": "23:03:20"
+  },
+  {
+   "label": "run bench-mut1-coder-2",
+   "usd": 0.00554,
+   "ts": "23:03:20"
+  },
+  {
+   "label": "run bench-mut1-coder-1",
+   "usd": 0.00657,
+   "ts": "23:03:21"
+  },
+  {
+   "label": "run bench-mut1-coder-4",
+   "usd": 0.00619,
+   "ts": "23:03:34"
+  },
+  {
+   "label": "run bench-mut1-coder-7",
+   "usd": 0.00491,
+   "ts": "23:03:46"
+  },
+  {
+   "label": "run bench-mut1-coder-5",
+   "usd": 0.02489,
+   "ts": "23:04:46"
+  },
+  {
+   "label": "run bench-mut1-coder-8",
+   "usd": 0.02144,
+   "ts": "23:04:52"
+  },
+  {
+   "label": "run bench-mut1-coder-6",
+   "usd": 0.03606,
+   "ts": "23:05:01"
+  },
+  {
+   "label": "run bench-mut1-coder-11",
+   "usd": 0.00374,
+   "ts": "23:05:14"
+  },
+  {
+   "label": "run bench-mut1-coder-10",
+   "usd": 0.0078,
+   "ts": "23:05:18"
+  },
+  {
+   "label": "run bench-mut1-coder-9",
+   "usd": 0.02802,
+   "ts": "23:05:52"
+  },
+  {
+   "label": "run bench-mut1-coder-14",
+   "usd": 0.00821,
+   "ts": "23:06:21"
+  },
+  {
+   "label": "run bench-mut1-coder-13",
+   "usd": 0.02075,
+   "ts": "23:06:36"
+  },
+  {
+   "label": "run bench-mut1-coder-16",
+   "usd": 0.03209,
+   "ts": "23:07:53"
+  },
+  {
+   "label": "run bench-mut1-coder-15",
+   "usd": 0.03179,
+   "ts": "23:08:03"
+  },
+  {
+   "label": "run bench-mut1-coder-12",
+   "usd": 0.0506,
+   "ts": "23:08:06"
+  },
+  {
+   "label": "run bench-mut1-coder-18",
+   "usd": 0.00551,
+   "ts": "23:08:25"
+  },
+  {
+   "label": "run bench-mut1-coder-17",
+   "usd": 0.01142,
+   "ts": "23:08:28"
+  },
+  {
+   "label": "run bench-mut2-coder-0",
+   "usd": 0.00652,
+   "ts": "23:08:54"
+  },
+  {
+   "label": "run bench-mut2-coder-1",
+   "usd": 0.01124,
+   "ts": "23:08:58"
+  },
+  {
+   "label": "run bench-mut1-coder-19",
+   "usd": 0.01976,
+   "ts": "23:09:11"
+  },
+  {
+   "label": "run bench-mut2-coder-3",
+   "usd": 0.00713,
+   "ts": "23:09:20"
+  },
+  {
+   "label": "run bench-mut2-coder-2",
+   "usd": 0.00851,
+   "ts": "23:09:23"
+  },
+  {
+   "label": "run bench-mut2-coder-4",
+   "usd": 0.00544,
+   "ts": "23:09:30"
+  },
+  {
+   "label": "run bench-mut2-coder-7",
+   "usd": 0.00416,
+   "ts": "23:09:47"
+  },
+  {
+   "label": "run bench-mut2-coder-5",
+   "usd": 0.00822,
+   "ts": "23:09:55"
+  },
+  {
+   "label": "run bench-mut2-coder-9",
+   "usd": 0.00764,
+   "ts": "23:10:16"
+  },
+  {
+   "label": "run bench-mut2-coder-6",
+   "usd": 0.01466,
+   "ts": "23:10:25"
+  },
+  {
+   "label": "run bench-mut2-coder-8",
+   "usd": 0.03725,
+   "ts": "23:11:14"
+  },
+  {
+   "label": "run bench-mut2-coder-10",
+   "usd": 0.02954,
+   "ts": "23:11:37"
+  },
+  {
+   "label": "run bench-mut2-coder-11",
+   "usd": 0.04414,
+   "ts": "23:12:25"
+  },
+  {
+   "label": "run bench-mut2-coder-12",
+   "usd": 0.04279,
+   "ts": "23:13:36"
+  },
+  {
+   "label": "run bench-mut2-coder-13",
+   "usd": 0.03963,
+   "ts": "23:14:04"
+  },
+  {
+   "label": "run bench-mut2-coder-16",
+   "usd": 0.00847,
+   "ts": "23:14:30"
+  },
+  {
+   "label": "run bench-mut2-coder-14",
+   "usd": 0.02586,
+   "ts": "23:14:44"
+  },
+  {
+   "label": "run bench-mut2-coder-17",
+   "usd": 0.00418,
+   "ts": "23:14:49"
+  },
+  {
+   "label": "run bench-mut2-coder-19",
+   "usd": 0.00763,
+   "ts": "23:15:10"
+  },
+  {
+   "label": "run bench-mut2-coder-15",
+   "usd": 0.02604,
+   "ts": "23:15:21"
+  },
+  {
+   "label": "run bench-mut2-coder-18",
+   "usd": 0.01285,
+   "ts": "23:15:34"
+  }
+ ]
+}

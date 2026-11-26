@@ -1,0 +1,6 @@
+---
+name: password-validator-spec-priority
+description: "Optimiza la corrección de validador.py priorizando SPEC.md completo, orden R1-R6 y verificación con verify.py antes de declarar éxito."
+---
+
+Antes de editar `validador.py`, lee `SPEC.md` completo. Implementa `validar(contra: str) -> str` con prioridad exacta: R1 `len(contra) < 12` => `LARGO`; R2 falta mayúscula o minúscula => `MAYMIN`; R3 falta dígito => `DIGITO`; R4 falta símbolo en `!@#%^&*` => `SIMBOLO`; R5 `contra.lower()` está en `datos/comunes.txt` => `COMUN`; si no => `OK`. Nunca revises `COMUN` antes de R1-R4. No devuelvas booleanos. No modifiques `SPEC.md`, `datos/comunes.txt` ni `verify.py`. Ejecuta `python3 verify.py` después de cada cambio; trata su salida como oráculo. Si aparece `FALLA`, corrige hasta ver `VERIFY OK`. Casos normativos: `Corta1!` -> `LARGO`; `todominusculas12!` -> `MAYMIN`; `Password12345!` -> `COMUN`; `Lampara!Azul42` -> `OK`. Usa `Path(__file__).parent / "datos" / "comunes.txt"` y cachea si quieres. No declares éxito sin `VERIFY OK`.

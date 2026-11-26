@@ -151,31 +151,39 @@ We asked whether a harness can improve its own skills — propose a better
 SKILL.md from observed failures, benchmark it, keep it only if it wins — and we
 measured the answer instead of assuming it.
 
-Three rounds, one fixture, two models (qwen3.8-flash, qwen3-coder), 190 total
-runs, $2.85 total spend:
+Three rounds plus a replication, one fixture, two models (qwen3.8-flash,
+qwen3-coder), 325 total runs, $4.29 total spend:
 
 | Round | n per arm | What it said |
 |---|---|---|
 | S1.0 | 3 | "+67 points!" — a story small samples tell |
 | S1.1 | 10/5 | baseline was really ~80%, not 33%; effect shrank, p=0.24, not significant |
 | S1.2 | 35/30 | **mutated skill 97-100% vs baseline 83-90%, pooled Fisher p=0.0085** |
+| S1.3 (replication, 2026-11-25) | 25/20 | **baseline hit 100% on flash — ceiling effect; both mutations DROP** (mut2 fell to 65% on coder, the gate caught it) |
 
 What the numbers mean:
 
 - The propose→bench→keep cycle works, and the effect is real but modest
-  (+12-14 points), with fewer turns per task (11.8 vs 14.4) — cheaper, not
-  just better.
+  (+12-14 points) *when the baseline is weak*, with fewer turns per task
+  (11.8 vs 14.4) — cheaper, not just better.
 - One mutation made things *worse* (74-80%). The "keep only if the bench
   improves" gate is not optional: without a statistical judge, a
   self-improving harness degrades itself.
+- The replication says the same thing from the other side: once flash solved
+  the fixture 25/25 *without* any skill, no mutation could show gains
+  (ceiling effect) — and the previously-winning mutation would have cost 20
+  points on coder. The gate caught it. Twice measured, twice true.
 - The n=3 round was wrong and we say so. Benchmarks with tiny n are
   storytelling. The eval rig here (resumable, isolated HOME, Fisher's exact
   test from the stdlib) costs cents and tells the truth.
 
-skillopt is **not a v0.1 feature** — it lives on the `spike/skillopt` branch
-with full appendices (`dev/SPIKE_SKILLOPT.md`). It is the validated pilot for
-v2's evidence-gated self-improvement (proposer + statistical judge + ledger).
-Replication caveat: one fixture, two models; broader tasks before shipping.
+skillopt is **not a v0.1 feature**. The original spike branch was lost in the
+pre-publication filter-repo; the 2026-11 replication (135 runs, $1.44, full
+protocol + raw artifacts) lives on the `spike/skillopt-v2` branch with
+appendices in `dev/SPIKE_V2.md` and the rebuilt, resumable rig in
+`dev/spike_v2.py`. It is the validated pilot for v2's evidence-gated
+self-improvement (proposer + statistical judge + ledger). Replication caveat:
+one fixture, two models; broader tasks before shipping.
 
 ## Security
 
