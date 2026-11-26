@@ -10,8 +10,8 @@ changes alone. Tlamati is that idea, built in ~5k lines of dependency-light
 Python (stdlib + httpx), Apache-2.0.
 
 ```
-pip install tlamati          # core (headless)
-pip install "tlamati[tui]"   # + interactive terminal UI (textual)
+pip install "git+https://github.com/Leonardo1387/tlamati"          # core (headless)
+pip install "git+https://github.com/Leonardo1387/tlamati[tui]"     # + interactive terminal UI (textual)
 ```
 
 Requires Python 3.12+. Optional system deps: `bwrap` (bubblewrap sandbox) and
@@ -76,7 +76,15 @@ Claude models today.
 - **Subagents** (`delegate_task`) — child is read-only by construction, depth 1,
   hard token/turn caps that block BEFORE spending.
 - **Everything-plugin hooks** (`before_tool` can only veto) + **MCP client**
-  (stdio; remote tools are ASK + untrusted always).
+  over **stdio and Streamable HTTP** — remote tools are ASK + untrusted
+  always. Three meta-tools per server (`list_toolsets` / `describe_toolset` /
+  `call_tool`) keep hundreds of upstream tools out of the context window
+  until needed. Verified live against **Unreal Engine 5.8's official MCP
+  server** (HTTP, 53 toolsets) and **Blender** (stdio, ~4,200 operators):
+  one harness, any creative app that speaks MCP.
+- **`web_fetch`.** The model can read a URL (GET, text only, 200 KB cap at
+  the source) — always ASK, always `produces_untrusted`, outside the jail
+  (the network gate is the permission, not bwrap).
 - **Windows paths on WSL.** `C:\Users\me\Desktop\notes.txt` pasted as-is is
   normalized to `/mnt/c/Users/me/Desktop/notes.txt` across all path-taking
   tools. Unmounted drive = honest error, never an invented path.
@@ -114,9 +122,11 @@ subagent:
   max_total_tokens: 200000
 
 mcp:
-  servers:
-    my_server:
-      command: ["npx", "-y", "@some/mcp-server"]
+  servers:                    # LISTA (no mapa); cada entrada: name + command O url
+    - name: my_server
+      command: ["npx", "-y", "@some/mcp-server"]   # stdio
+    - name: unreal
+      url: "http://127.0.0.1:8000/mcp"             # Streamable HTTP (Unreal 5.8 official MCP)
 ```
 
 Key flags: `--max-turns N`, `--stall-repeats N`, `--plan-mode` (explore →
