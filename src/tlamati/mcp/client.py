@@ -26,9 +26,12 @@ como un Tool local. Reglas innegociables del handoff D3:
 - Auditoría: sin trabajo extra — son Tools normales; el plugin interno D2 las
   registra en el ledger automáticamente.
 
-Puerta abierta documentada (NO construida, regla anti-speculative): la config
-aceptará en el futuro ``url:`` (Streamable HTTP, p.ej. OpenCrawl) además de
-``command:`` (stdio). Hoy stdio es el único consumidor concreto.
+Puerta ``url:`` (Streamable HTTP) — CONSTRUIDA en v2 (26-nov): la config acepta
+``url:`` además de ``command:`` (XOR, nunca ambos). El transporte HTTP vive en
+``mcp/http_client.py`` (MCPHTTPClient, misma interfaz pública que MCPClient);
+``load_mcp_servers`` elige por config. Primer consumidor real: el MCP oficial
+de Unreal (127.0.0.1:8000/mcp, protocolVersion 2025-06-18, Mcp-Session-Id
+obligatorio tras initialize — evidencia real en HANDOFF_V2_MCP_HTTP.md §1).
 """
 
 from __future__ import annotations
@@ -38,7 +41,7 @@ import json
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from tlamati import __version__
 from tlamati.tools.registry import Permission, Tool
@@ -52,20 +55,55 @@ class MCPError(Exception):
     """Fallo honesto de un servidor MCP (arranque, handshake o llamada)."""
 
 
+def content_to_text(result: dict[str, Any]) -> str:
+    """Lógica de PROTOCOLO (no de transporte): content[] + structuredContent
+    → string. Compartida por MCPClient (stdio) y MCPHTTPClient (v2 HTTP)."""
+    parts: list[str] = []
+    content = result.get("content")
+    if isinstance(content, list):
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+            if item.get("type") == "text" and isinstance(item.get("text"), str):
+                parts.append(item["text"])
+            else:
+                parts.append(json.dumps(item, ensure_ascii=False))
+    structured = result.get("structuredContent")
+    if structured is not None:
+        parts.append(json.dumps(structured, ensure_ascii=False))
+    return "\n".join(parts) if parts else ""
+
+
 @dataclass(frozen=True)
 class MCPServerConfig:
-    """Un servidor declarado por el dueño. ``command`` es argv (sin shell)."""
+    """Un servidor declarado por el dueño. ``command`` es argv (sin shell);
+    ``url`` es Streamable HTTP (v2). Exactamente uno de los dos (XOR)."""
 
     name: str
-    command: tuple[str, ...]
+    command: tuple[str, ...] = ()
+    url: str | None = None
     call_timeout_s: float = DEFAULT_CALL_TIMEOUT_S
+
+
+class MCPTransport(Protocol):
+    """Interfaz común de los dos transportes (stdio MCPClient, HTTP
+    MCPHTTPClient v2). Duck-typing tipado: make_mcp_tools/load/close aceptan
+    cualquiera de los dos sin herencia compartida."""
+
+    config: MCPServerConfig
+    tools: list[dict[str, Any]]
+    server_info: str
+
+    async def connect(self) -> None: ...
+    async def call_tool(self, name: str, args: dict[str, Any]) -> str: ...
+    async def close(self) -> None: ...
 
 
 @dataclass
 class MCPReport:
     """Evidencia honesta de la carga (log del CLI + tests)."""
 
-    clients: list[MCPClient] = field(default_factory=list)
+    clients: list[MCPTransport] = field(default_factory=list)
     tools: list[Tool] = field(default_factory=list)
     errors: list[tuple[str, str]] = field(default_factory=list)  # (servidor, motivo)
 
@@ -86,19 +124,38 @@ def parse_mcp_config(raw: Any) -> tuple[list[MCPServerConfig], list[str]]:
         return configs, ["'mcp.servers' debe ser una lista"]
     for i, entry in enumerate(servers):
         if not isinstance(entry, dict):
-            errors.append(f"mcp.servers[{i}]: debe ser un mapa con name/command")
+            errors.append(f"mcp.servers[{i}]: debe ser un mapa con name y command o url")
             continue
         name = entry.get("name")
         command = entry.get("command")
+        url = entry.get("url")
         if not isinstance(name, str) or not name.strip():
             errors.append(f"mcp.servers[{i}]: 'name' ausente o vacío")
             continue
-        if (
-            not isinstance(command, list)
-            or not command
-            or not all(isinstance(c, str) for c in command)
-        ):
-            errors.append(f"mcp.servers[{i}] ({name}): 'command' debe ser argv no vacío")
+        has_command = isinstance(command, list) and bool(command)
+        has_url = isinstance(url, str) and bool(url.strip())
+        if command is not None and url is not None:
+            errors.append(
+                f"mcp.servers[{i}] ({name}): 'command' y 'url' son mutuamente "
+                "excluyentes (stdio XOR Streamable HTTP)"
+            )
+            continue
+        argv: tuple[str, ...] = ()
+        clean_url: str | None = None
+        if has_command:
+            assert isinstance(command, list)
+            if not all(isinstance(c, str) for c in command):
+                errors.append(f"mcp.servers[{i}] ({name}): 'command' debe ser argv de strings")
+                continue
+            argv = tuple(command)
+        elif has_url:
+            assert isinstance(url, str)
+            if not url.strip().lower().startswith(("http://", "https://")):
+                errors.append(f"mcp.servers[{i}] ({name}): 'url' debe ser http:// o https://")
+                continue
+            clean_url = url.strip()
+        else:
+            errors.append(f"mcp.servers[{i}] ({name}): falta 'command' (argv stdio) o 'url' (HTTP)")
             continue
         timeout = DEFAULT_CALL_TIMEOUT_S
         raw_timeout = entry.get("timeout_s")
@@ -114,7 +171,7 @@ def parse_mcp_config(raw: Any) -> tuple[list[MCPServerConfig], list[str]]:
                 )
                 timeout = DEFAULT_CALL_TIMEOUT_S
         configs.append(
-            MCPServerConfig(name=name.strip(), command=tuple(command), call_timeout_s=timeout)
+            MCPServerConfig(name=name.strip(), command=argv, url=clean_url, call_timeout_s=timeout)
         )
     return configs, errors
 
@@ -200,20 +257,8 @@ class MCPClient:
 
     @staticmethod
     def _content_to_text(result: dict[str, Any]) -> str:
-        parts: list[str] = []
-        content = result.get("content")
-        if isinstance(content, list):
-            for item in content:
-                if not isinstance(item, dict):
-                    continue
-                if item.get("type") == "text" and isinstance(item.get("text"), str):
-                    parts.append(item["text"])
-                else:
-                    parts.append(json.dumps(item, ensure_ascii=False))
-        structured = result.get("structuredContent")
-        if structured is not None:
-            parts.append(json.dumps(structured, ensure_ascii=False))
-        return "\n".join(parts) if parts else ""
+        # v2: la lógica vive en content_to_text (módulo) — compartida con HTTP.
+        return content_to_text(result)
 
     async def close(self) -> None:
         """Cierre limpio: terminate → wait con timeout → kill. Nunca raise."""
@@ -286,7 +331,7 @@ class MCPClient:
             raise MCPError(f"stdin roto al enviar {method}: {e}") from e
 
 
-def make_mcp_tools(client: MCPClient) -> list[Tool]:
+def make_mcp_tools(client: MCPTransport) -> list[Tool]:
     """Envuelve cada tool remota como Tool local: nombre ``mcp_<server>_<tool>``
     (prefijo anti-colisiones), ASK + produces_untrusted SIEMPRE (innegociable,
     handoff D3), input_schema = el que declare el servidor (validate_schema B1
@@ -302,7 +347,7 @@ def make_mcp_tools(client: MCPClient) -> list[Tool]:
         description = str(raw.get("description") or f"(servidor MCP {server} no dio descripción)")
 
         async def _run(
-            args: dict[str, Any], _client: MCPClient = client, _remote: str = remote_name
+            args: dict[str, Any], _client: MCPTransport = client, _remote: str = remote_name
         ) -> str:
             return await _client.call_tool(_remote, args)
 
@@ -326,7 +371,13 @@ async def load_mcp_servers(
     falla = error honesto anotado + aviso stderr + corrida SIN ese servidor."""
     report = MCPReport()
     for cfg in configs:
-        client = MCPClient(cfg)
+        client: MCPTransport
+        if cfg.url:
+            from tlamati.mcp.http_client import MCPHTTPClient
+
+            client = MCPHTTPClient(cfg)
+        else:
+            client = MCPClient(cfg)
         try:
             await client.connect()
         except MCPError as e:
@@ -348,7 +399,7 @@ async def load_mcp_servers(
     return report
 
 
-async def close_mcp(clients: Sequence[MCPClient]) -> None:
+async def close_mcp(clients: Sequence[MCPTransport]) -> None:
     """Cierra todos los servidores al terminar la corrida (nunca raise)."""
     for client in clients:
         await client.close()
