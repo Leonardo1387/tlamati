@@ -231,3 +231,145 @@ class TestRunLoop:
         ]
         assert interjections, "la interjección SIGINT no llegó al siguiente turno"
         assert result.stop_reason == "end_turn"
+
+
+class ControlProvider(FakeProvider):
+    """FakeProvider que puede mutar un LoopControl a mitad del stream."""
+
+    def __init__(
+        self,
+        turns: list[list[tuple[Any, ...]]],
+        control: Any = None,
+        on_first_delta: Any = None,
+    ) -> None:
+        super().__init__(turns)
+        self.control = control
+        self.on_first_delta = on_first_delta
+
+    async def stream(
+        self, messages: Sequence[Message], tools: Sequence[ToolSpec] = ()
+    ) -> AsyncIterator[Event]:
+        self.calls.append(list(messages))
+        script = self.turns.pop(0) if self.turns else [("text", "fin")]
+        has_tools = False
+        for step in script:
+            if self.on_first_delta is not None:
+                cb, self.on_first_delta = self.on_first_delta, None  # una sola vez
+                cb(self.control)
+            if step[0] == "text":
+                yield TextDelta(text=str(step[1]))
+                await asyncio.sleep(0)  # cede el control al que aborta
+            elif step[0] == "tool":
+                tid, name, args = str(step[1]), str(step[2]), step[3]
+                yield ToolCallStart(id=tid, name=name)
+                yield ToolCallArgsDelta(id=tid, args_json=json.dumps(args))
+                has_tools = True
+        yield MessageEnd(
+            stop_reason="tool_use" if has_tools else "end_turn",
+            usage=Usage(input_tokens=10, output_tokens=5),
+        )
+
+
+import asyncio  # noqa: E402
+
+from tlamati.core.loop import LoopControl  # noqa: E402
+
+
+class TestLoopControl:
+    """B3/B4: abort y steering por LoopControl (el canal de la TUI, donde
+    SIGINT nunca llega porque Textual corre el terminal en modo raw)."""
+
+    async def test_abort_mid_stream_returns_partial_text(self, workdir: Path) -> None:
+        ctrl = LoopControl()
+        p = ControlProvider(
+            [[("text", "primera parte "), ("text", "nunca debe salir")]],
+            control=ctrl,
+            on_first_delta=lambda c: setattr(c, "abort", True),
+        )
+        result = await run_loop(
+            p,
+            system="s",
+            user_prompt="x",
+            tools=Registry(make_tools(workdir)),
+            budget=Budget(100_000),
+            control=ctrl,
+        )
+        assert result.stop_reason == "aborted"
+        assert "primera parte" in result.final_text
+        assert "nunca debe salir" not in result.final_text
+
+    async def test_abort_before_tool_skips_execution(self, workdir: Path) -> None:
+        ctrl = LoopControl()
+        p = ControlProvider(
+            [
+                [("tool", "c1", "write_file", {"path": "peligro.txt", "content": "x"})],
+                [("text", "no debe llegar")],
+            ],
+            control=ctrl,
+            on_first_delta=None,
+        )
+
+        p.on_first_delta = lambda c: setattr(c, "abort", True)
+        result = await run_loop(
+            p,
+            system="s",
+            user_prompt="x",
+            tools=Registry(make_tools(workdir)),
+            budget=Budget(100_000),
+            control=ctrl,
+        )
+        assert result.stop_reason == "aborted"
+        assert not (workdir / "peligro.txt").exists()
+
+    async def test_steering_at_end_turn_delivers_and_continues(self, workdir: Path) -> None:
+        """B4: el usuario escribe a mitad de producción; el modelo cierra el
+        turno → el mensaje NO se pierde: entra como user message y el loop
+        sigue un turno más (donor: steering mid-turn de Hermes)."""
+        ctrl = LoopControl()
+
+        def steer(c: Any) -> None:
+            c.pending_interjection = "ojo: usa pathlib, no open()"
+
+        p = ControlProvider(
+            [[("text", "voy a terminar")], [("text", "recibí el steering")]],
+            control=ctrl,
+            on_first_delta=steer,
+        )
+        result = await run_loop(
+            p,
+            system="s",
+            user_prompt="x",
+            tools=Registry(make_tools(workdir)),
+            budget=Budget(100_000),
+            control=ctrl,
+        )
+        assert result.stop_reason == "end_turn"
+        # el steering entró como user message en la 2a llamada al provider
+        steered = [m for m in p.calls[1] if m.role == "user" and "pathlib" in m.content]
+        assert steered, "el steering no llegó al siguiente turno"
+
+    async def test_steering_mid_tools_enters_next_turn(self, workdir: Path) -> None:
+        ctrl = LoopControl()
+
+        def steer(c: Any) -> None:
+            c.pending_interjection = "mejor no toques eso"
+
+        p = ControlProvider(
+            [
+                [("tool", "c1", "read_file", {"path": "buggy.py"})],
+                [("text", "ajustado")],
+            ],
+            control=ctrl,
+            on_first_delta=steer,
+        )
+        result = await run_loop(
+            p,
+            system="s",
+            user_prompt="x",
+            tools=Registry(make_tools(workdir)),
+            budget=Budget(100_000),
+            control=ctrl,
+        )
+        assert result.stop_reason == "end_turn"
+        steered = [m for m in p.calls[1] if m.role == "user" and "mejor no" in m.content]
+        assert steered

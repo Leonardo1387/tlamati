@@ -409,3 +409,105 @@ class TestTuiFinishSession:
             mine = next(s for s in sessions if s.id == app.session_id)
             assert mine.stop_reason == "end_turn"
             assert mine.turns >= 2  # turnos ACUMULADOS de las 2 corridas
+
+
+class _SlowProvider(FakeProvider):
+    """Provider que se traba a mitad del stream hasta que un Event lo libere —
+    permite a Pilot simular ctrl+c / steering DURANTE la producción."""
+
+    def __init__(self, turns: Any, gate: Any = None) -> None:
+        super().__init__(turns)
+        self.gate = gate
+
+    async def stream(
+        self, messages: Sequence[Message], tools: Sequence[ToolSpec] = ()
+    ) -> AsyncIterator[Event]:
+        for step in self.turns.pop(0) if self.turns else [("text", "fin")]:
+            if step[0] == "text":
+                yield TextDelta(text=str(step[1]))
+                if self.gate is not None:
+                    await self.gate.wait()
+        yield MessageEnd(stop_reason="end_turn", usage=Usage(input_tokens=10, output_tokens=5))
+
+
+class TestStopAndSteer:
+    """B3/B4 en la cara humana: ctrl+c detiene, mensaje a mitad encola."""
+
+    async def test_ctrl_c_mid_stream_aborts_run(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        import asyncio
+
+        gate = asyncio.Event()
+        monkeypatch.chdir(tmp_path)
+
+        class P(_SlowProvider):
+            def __init__(self) -> None:
+                super().__init__(
+                    [[("text", "generando algo largo "), ("text", "y más")]], gate=gate
+                )
+
+        monkeypatch.setattr("tlamati.tui.app.OpenAICompat", lambda **kw: P())
+        monkeypatch.setenv("OPENROUTER_API_KEY", "dummy")
+        app = TlamatiApp(workdir=tmp_path, session_db=str(tmp_path / "s.db"))
+        async with app.run_test() as pilot:
+            ta = app.query_one("#prompt")
+            ta.focus()
+            await pilot.press(*"haz algo largo")
+            await pilot.press("ctrl+enter")
+            await pilot.pause(0.2)
+            assert app._busy
+            await pilot.press("ctrl+c")  # ← el binding, no SIGINT (modo raw)
+            gate.set()  # libera el stream para que el abort se materialice
+            await pilot.pause(0.3)
+            assert not app._busy
+            assert app._last_result is not None
+            assert app._last_result.stop_reason == "aborted"
+
+    async def test_message_mid_run_is_queued_not_dropped(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        import asyncio
+
+        gate = asyncio.Event()
+        monkeypatch.chdir(tmp_path)
+
+        class P(_SlowProvider):
+            def __init__(self) -> None:
+                super().__init__(
+                    [[("text", "trabajando ")], [("text", "ajusté según tu nota")]],
+                    gate=gate,
+                )
+
+        monkeypatch.setattr("tlamati.tui.app.OpenAICompat", lambda **kw: P())
+        monkeypatch.setenv("OPENROUTER_API_KEY", "dummy")
+        app = TlamatiApp(workdir=tmp_path, session_db=str(tmp_path / "s.db"))
+        async with app.run_test() as pilot:
+            ta = app.query_one("#prompt")
+            ta.focus()
+            await pilot.press(*"tarea")
+            await pilot.press("ctrl+enter")
+            await pilot.pause(0.2)
+            assert app._busy
+            # mensaje a mitad de producción: NO se descarta en silencio
+            ta.focus()
+            await pilot.press(*"ojo con eso")
+            await pilot.press("ctrl+enter")
+            await pilot.pause(0.2)
+            assert app._control.pending_interjection == "ojo con eso"
+            gate.set()  # el turno cierra → el steering entra y el loop sigue
+            await pilot.pause(0.5)
+            assert not app._busy
+            assert any("ojo con eso" in (m.content or "") for m in app._history)
+
+    async def test_ctrl_c_idle_exits_app(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("OPENROUTER_API_KEY", "dummy")
+        app = TlamatiApp(workdir=tmp_path, session_db=str(tmp_path / "s.db"))
+        async with app.run_test() as pilot:
+            assert not app._busy
+            await pilot.press("ctrl+c")
+            await pilot.pause(0.2)
+            # exit() pide cerrar la app; run_test lo materializa al salir del bloque
