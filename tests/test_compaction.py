@@ -288,7 +288,8 @@ class TestLoopCompaction:
             # (pitfall documentado: prefijo crece → budget se recalibra; la
             # INTENCIÓN del test sigue: M2 no basta → exceeded → resumen).
             # 20-nov: description de terminal declara sh/POSIX + red (+~90 tok).
-            budget=Budget(1350),
+            # v2 (26-nov): web_fetch añade ~130 tok al prefijo → budget ajustado.
+            budget=Budget(1500),
             max_turns=20,
             on_event=lambda k, d: events.append((k, d)),
             compactor=Compactor(

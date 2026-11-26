@@ -16,6 +16,7 @@ from tlamati.tools.files import make_file_tools
 from tlamati.tools.registry import Tool
 from tlamati.tools.search import make_search_tools
 from tlamati.tools.terminal import make_terminal_tools
+from tlamati.tools.webfetch import make_web_fetch_tools
 
 
 def make_tools(
@@ -26,4 +27,5 @@ def make_tools(
         *make_file_tools(workdir),
         *make_search_tools(workdir),
         *make_terminal_tools(workdir, sandbox=sandbox, sandbox_net=sandbox_net),
+        *make_web_fetch_tools(),
     ]

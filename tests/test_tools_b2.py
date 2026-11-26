@@ -26,6 +26,7 @@ class TestToolsetShape:
             "list_dir",
             "search_files",
             "terminal",
+            "web_fetch",  # v2: se añade al final — prefijo cacheable intacto
         ]
 
     def test_only_terminal_sandboxable(self, reg: Registry) -> None:
@@ -37,6 +38,7 @@ class TestToolsetShape:
             "list_dir": False,
             "search_files": False,
             "terminal": True,
+            "web_fetch": False,  # v2: la red sale del arnés, no de la jaula
         }
 
 
