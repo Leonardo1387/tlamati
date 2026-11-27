@@ -28,6 +28,10 @@ sessions/
 vendor/
 rea-out/*.json
 
+# Scratch / caches locales (no se versionan)
+data-gym-cache/
+pytest-of-*/
+
 # Campañas de bench EN CURSO (parciales engañosos; al completar se versionan
 # los JSONL finales con git add -f junto a la tabla de EVALS.md)
 evals/campaign_*/
