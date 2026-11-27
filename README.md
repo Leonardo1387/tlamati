@@ -148,12 +148,12 @@ tlamati. The mechanism is measured, not claimed: codex re-sends history and
 re-reads files between reveals (3-4× input tokens); tlamati keeps the active
 window bounded. The advantage is model-dependent — `qwen3.8-max` inverts it —
 and the full protocol, raw costs and anti-cheat audit live in
-[EVALS.md](EVALS.md).
+[EVALS.md](EVALS.md) ([EN](EVALS.en.md)).
 
 `tlamati-eval` runs the fixture suite (terminal-bench-lite style: seeded bug →
 agent → `verify.py` decides, never assumed). Numbers with real costs, cache
 rates and honest failure attribution (upstream provider errors are NOT counted
-as harness failures) live in [EVALS.md](EVALS.md).
+as harness failures) live in [EVALS.md](EVALS.md) ([EN](EVALS.en.md)).
 
 ## The skillopt experiment (self-improvement, honestly measured)
 
@@ -189,17 +189,22 @@ Replication caveat: one fixture, two models; broader tasks before shipping.
 
 ## Security
 
-Read [SECURITY.md](SECURITY.md): trust model, sandbox guarantees, plugin/MCP
+Read [SECURITY.md](SECURITY.md) ([EN](SECURITY.en.md)): trust model, sandbox
+guarantees, plugin/MCP
 threat surface, audit ledger. Report vulnerabilities privately — see the
 reporting section there.
 
 ## Project docs
 
 - `PRD_TLAMATI.md` — product requirements, MoSCoW features, no-goals
+  ([EN](PRD_TLAMATI.en.md))
 - `research/` — harness anatomy studies (8 vendor harnesses), token-saving
   mechanisms, benchmarks landscape
 - `edu/` — the "class of the day" series: each development session explained
   as a textbook chapter for a non-technical learner (Spanish)
+- English translations (`*.en.md`) exist for CHANGELOG, SECURITY, STABILITY,
+  NOTICE, EVALS, PRD, GUIA_IMPLEMENTACION, AUDITORIA_E4 and the eval/bench
+  reports; the Spanish originals are authoritative
 
 ## License
 
