@@ -101,7 +101,7 @@ provider:                     # all keys optional; flags override
   api_key_env: OPENROUTER_API_KEY   # env var holding the key (default: this one)
 
 general:
-  max_turns: 60               # turn wall; <=0 = yolo (context budget still caps)
+  max_turns: 90               # turn wall; <=0 = yolo (context budget still caps)
   stall_repeats: 3            # stall detector; 0 disables
 
 stall:                        # quasi-stall detector (near-identical tool calls)

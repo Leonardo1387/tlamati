@@ -156,6 +156,13 @@ QUASI_ASK_OPTIONS: tuple[str, ...] = ("seguir", "redirigir", "parar")
 # el diálogo; headless sin handler = degradación honesta a stop_reason stall.
 QuasiAskHandler = Callable[[int], Any]
 
+# T3: handler async (turns:int)->int que la UI usa al topar el muro de
+# max_turns. Devuelve el número de turnos EXTRA a conceder (0 = cerrar).
+# La extensión ocurre DENTRO de la misma corrida: el LoopState (y con él la
+# ventana cuasi-stall de T1 y los contadores del detector exacto) NUNCA se
+# reinicia — "seguir" no es una ruta para evadir detectores.
+TurnLimitAskHandler = Callable[[int], Any]
+
 # Dígitos a placeholder: timeouts/sleeps/puertos/contadores mutados son la
 # variación típica del bucle cuasi-repetitivo (timeout 90→110, intento 3→4).
 _DIGITS_RE = re.compile(r"\d+")
@@ -410,10 +417,11 @@ async def run_loop(
     user_prompt: str,
     tools: Registry,
     budget: Budget,
-    max_turns: int = 60,
+    max_turns: int = 90,
     stall_repeats: int = 3,
     quasi_stall: QuasiStallConfig | None = None,
     quasi_ask: QuasiAskHandler | None = None,
+    turn_limit_ask: TurnLimitAskHandler | None = None,
     on_event: LoopEvent | None = None,
     compactor: Compactor | None = None,
     history: list[Message] | None = None,
@@ -450,6 +458,14 @@ async def run_loop(
     umbral de ASK. Sin handler (headless) el umbral de ASK degrada a un corte
     honesto stop_reason="stall". El aviso SOFT se inyecta al final del turno
     como user message (NUNCA muta el prefijo cacheable — caching is sacred).
+
+    T3 (muro interactivo): al topar ``max_turns`` se emite
+    ``turn_limit_reached``; si hay ``turn_limit_ask`` (handler async
+    turns→int), su respuesta son turnos EXTRA concedidos DENTRO de la misma
+    corrida (LoopState intacto: la ventana cuasi-stall y los contadores del
+    detector exacto NO se reinician — "seguir" nunca evade detectores).
+    Respuesta ≤0 o sin handler = cierre honesto stop_reason="max_turns"
+    (headless nunca cuelga esperando input).
     """
     noop: LoopEvent = lambda kind, data: None  # noqa: E731
     on_event = on_event or noop
@@ -489,6 +505,7 @@ async def run_loop(
             on_summary=on_summary,
             quasi_stall=quasi_stall,
             quasi_ask=quasi_ask,
+            turn_limit_ask=turn_limit_ask,
         )
     except _Abort as ab:
         return _result(
@@ -560,6 +577,7 @@ async def _run_inner(
     on_summary: SummarySink | None = None,
     quasi_stall: QuasiStallConfig | None = None,
     quasi_ask: QuasiAskHandler | None = None,
+    turn_limit_ask: TurnLimitAskHandler | None = None,
 ) -> LoopResult:
     last_text = ""
     tool_specs = tools.specs()
@@ -569,7 +587,26 @@ async def _run_inner(
     # <= 0 desactiva el detector.
     prev_signature: str | None = None
     repeat_count = 0
-    while max_turns <= 0 or state.turns < max_turns:
+    while True:
+        # T3 — muro de max_turns interactivo: al topar el límite se emite
+        # turn_limit_reached y, SI hay handler (TUI), se pregunta cuántos
+        # turnos EXTRA conceder. La extensión muta el tope local SIN tocar
+        # LoopState: la ventana cuasi-stall (T1) y los contadores del detector
+        # exacto siguen intactos — "seguir" no es una ruta para evadirlos.
+        # Sin handler (headless) o respuesta ≤0 → cierre honesto stop=max_turns.
+        if max_turns > 0 and state.turns >= max_turns:
+            on_event("turn_limit_reached", {"turns": state.turns, "max_turns": max_turns})
+            extra = 0
+            if turn_limit_ask is not None:
+                try:
+                    extra = int(await turn_limit_ask(state.turns))
+                except (TypeError, ValueError):
+                    extra = 0  # respuesta inválida = cierre honesto
+            if extra <= 0:
+                break
+            max_turns += extra
+            on_event("turn_limit_extended", {"extra": extra, "max_turns": max_turns})
+            continue
         # B4: la UI encola steering por LoopControl (la TUI nunca ve SIGINT —
         # modo raw). Se drena hacia el mismo canal que SIGINT: una sola vía.
         if control is not None:

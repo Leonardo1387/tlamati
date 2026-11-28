@@ -191,7 +191,7 @@ class TestResolveTurnLimits:
         return ns
 
     def test_defaults(self) -> None:
-        assert resolve_turn_limits({}, self._args()) == (60, 3)
+        assert resolve_turn_limits({}, self._args()) == (90, 3)  # T3: 60→90
 
     def test_flag_wins_over_config(self) -> None:
         cfg = {"general": {"max_turns": 30, "stall_repeats": 5}}
@@ -203,7 +203,7 @@ class TestResolveTurnLimits:
 
     def test_bad_config_falls_back(self) -> None:
         cfg = {"general": {"max_turns": "abc", "stall_repeats": None}}
-        assert resolve_turn_limits(cfg, self._args()) == (60, 3)
+        assert resolve_turn_limits(cfg, self._args()) == (90, 3)
 
 
 class TestTuiWallFlow:
@@ -234,6 +234,11 @@ class TestTuiWallFlow:
             ta.focus()
             await pilot.press(*"trabaja")
             await pilot.press("ctrl+enter")
+            await pilot.pause(0.4)
+            # T3: al topar el muro AHORA se abre el modal mid-run (seguir/
+            # cerrar). Elegimos cerrar → la corrida termina stop=max_turns y
+            # el flujo post-muro de E3d (continúa/resumen) sigue vigente.
+            await pilot.press("c")
             await pilot.pause(0.4)
             assert app._awaiting_wall_choice
             # Mensaje honesto visible en el transcript.
@@ -278,6 +283,10 @@ class TestTuiWallFlow:
             ta.focus()
             await pilot.press(*"trabaja")
             await pilot.press("ctrl+enter")
+            await pilot.pause(0.4)
+            # T3: cerrar el modal del muro mid-run para llegar al flujo
+            # post-muro (resumen) de E3d.
+            await pilot.press("c")
             await pilot.pause(0.4)
             assert app._awaiting_wall_choice
             await pilot.press(*"resumen")
