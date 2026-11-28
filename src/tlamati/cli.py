@@ -35,7 +35,7 @@ from tlamati.core.json_events import (
     exit_code_for,
     result_event,
 )
-from tlamati.core.loop import LoopResult, run_loop
+from tlamati.core.loop import LoopResult, QuasiStallConfig, run_loop
 from tlamati.core.messages import Message
 from tlamati.mcp.client import close_mcp, load_mcp_servers, parse_mcp_config
 from tlamati.memory.dream import dream
@@ -163,6 +163,40 @@ def resolve_turn_limits(cfg: dict[str, Any], args: argparse.Namespace) -> tuple[
             return default
 
     return _int(args.max_turns, "max_turns", 60), _int(args.stall_repeats, "stall_repeats", 3)
+
+
+def resolve_quasi_stall(cfg: dict[str, Any]) -> QuasiStallConfig | None:
+    """T1: config `stall.*` → QuasiStallConfig (None = desactivado).
+
+    Keys: ``stall.quasi_similarity`` (default 0.85), ``stall.quasi_window``
+    (15), ``stall.quasi_warn_count`` (5), ``stall.quasi_ask_count`` (8).
+    similarity ≤ 0 desactiva el detector. Mismo config para headless Y TUI
+    (pitfall #5 sesión 20: los límites divergentes fueron trampa)."""
+    cfg_stall = cfg.get("stall") or {}
+    if not isinstance(cfg_stall, dict):
+        cfg_stall = {}
+
+    def _float(key: str, default: float) -> float:
+        val = cfg_stall.get(key)
+        try:
+            return float(val) if val is not None else default
+        except (TypeError, ValueError):
+            return default
+
+    def _int(key: str, default: int) -> int:
+        val = cfg_stall.get(key)
+        try:
+            return int(val) if val is not None else default
+        except (TypeError, ValueError):
+            return default
+
+    qsc = QuasiStallConfig(
+        similarity=_float("quasi_similarity", 0.85),
+        window=_int("quasi_window", 15),
+        warn_count=_int("quasi_warn_count", 5),
+        ask_count=_int("quasi_ask_count", 8),
+    )
+    return qsc if qsc.enabled else None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -508,6 +542,9 @@ async def _run_headless(args: argparse.Namespace) -> int:
     base_url = args.base_url or cfg_provider.get("base_url") or DEFAULT_BASE_URL
     api_key = _resolve_api_key(cfg_provider)
     max_turns, stall_repeats = resolve_turn_limits(cfg, args)
+    # T1: detector cuasi-stall (config stall.*); headless NO pasa quasi_ask →
+    # al umbral de ASK degrada a corte honesto stop_reason=stall.
+    quasi_stall = resolve_quasi_stall(cfg)
     if emitter is not None:
         # Primer evento del stream: qué corrida es esta (consumidor de CI).
         emitter.emit(
@@ -870,6 +907,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
         budget=budget,
         max_turns=max_turns,
         stall_repeats=stall_repeats,
+        quasi_stall=quasi_stall,
         on_event=_ledger_wrapper(ledger, args.quiet, emitter),
         compactor=compactor,
         history=resumed_history or None,
@@ -1288,6 +1326,9 @@ def main(argv: list[str] | None = None) -> int:
             skills_extra_dirs=skills_extra,
             max_turns=tui_max_turns,
             stall_repeats=tui_stall,
+            # T1: mismo config stall.* que headless (pitfall #5: límites que
+            # divergen entre caras = trampa). La TUI añade el modal quasi_ask.
+            quasi_stall=resolve_quasi_stall(load_config()),
             # SEC.2: los flags de sandbox llegan a la TUI (antes morían aquí).
             sandbox=False if args.no_sandbox else None,
             sandbox_net=args.sandbox_net,

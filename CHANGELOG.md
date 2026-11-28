@@ -8,6 +8,24 @@ Los cambios que rompen la superficie estable (STABILITY.md) se etiquetan
 
 ### Agregado
 
+- **Detector de cuasi-stall (T1)** — el agente que reintentaba la misma
+  estrategia con mutaciones menores (timeout 90→110, un flag extra, ruta
+  cambiada) quemaba el presupuesto entero: el detector exacto
+  (`stall_repeats`, firma idéntica) nunca lo cazaba. Ahora el loop firma
+  cada turno NORMALIZADO (dígitos→`#`, whitespace colapsado) y compara
+  similitud (`SequenceMatcher`) contra una ventana deslizante. Umbrales:
+  ≥5 cuasi-idénticas en las últimas 15 (similitud ≥0.85) → aviso SOFT
+  inyectado al modelo como user message al final del turno (prefijo
+  cacheable intacto); ≥8 → ASK al usuario. Configurable vía
+  `stall.quasi_similarity` / `stall.quasi_window` / `stall.quasi_warn_count`
+  / `stall.quasi_ask_count` en `tlamati.yaml` (`quasi_similarity: 0`
+  desactiva). En la TUI el ASK abre un modal seguir/redirigir/parar
+  (donor: ApproveScreen); en headless degrada a corte honesto
+  `stop_reason=stall` con exit code 8. "seguir"/"redirigir" limpian la
+  ventana y continúan — NUNCA hay corte duro por cuasi-similitud (el
+  detector exacto sigue operando independiente). Eventos nuevos:
+  `quasi_stall_warning`, `quasi_stall_ask`, `quasi_stall_stop`.
+
 - **examples/skills/** — tres skills de apps creativas saneadas para
   publicación (clon + sustitución de rutas/nombres de proyecto; los
   originales locales quedan intactos): `unreal-engine-playbook` (UE 5.8

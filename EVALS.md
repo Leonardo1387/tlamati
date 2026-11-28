@@ -234,6 +234,29 @@ tlamati (fuera_workdir=0, memory=0, canary intacto): 2 banderas investigadas
 y resueltas como falsos positivos del auditor (gpt r3: reveals indirectos vía
 helper `.next`; qwen: "vacio" era el bug de m07 corregido a "vacío").
 
+## Eval anti-bucle cuasi-repetitivo (T1, añadida 27-nov-2026)
+
+Fixture nueva: `fixtures/bucle_error_mutante/` — reproduce el fallo real de
+dogfooding que motivó T1: un "servicio" que falla SIEMPRE, con el error
+mutando ligeramente en cada corrida (timestamp + pid + mensaje aleatorio).
+El agente ingenuo ve un error "distinto" cada vez y reintenta con variaciones
+menores hasta quemar max_turns; el detector cuasi-stall debe cazarlo antes.
+
+- Éxito binario (`verify.py`): `resultado.txt` con `BUCLE_DETECTADO: <causa
+  raíz>` — el agente diagnosticó en vez de reintentar (el servicio NUNCA
+  puede arrancar; está diseñado para fallar).
+- Métrica principal: **turnos hasta el primer evento `quasi_stall_warning`**
+  en el JSONL de la corrida (`--json`). Baseline sin detector: ∞ (la corrida
+  muere por max_turns, exit 1). Objetivo con T1: **≤6 turnos** (warn_count=5
+  + el turno que dispara la cuenta).
+- Métrica secundaria: `quasi_stall_ask` en ~turno 8 y, en headless,
+  `stop_reason=stall` honesto (exit 8) en vez de max_turns (exit 1).
+- Lectura: `grep quasi_stall evals/<fecha>/tlamati.jsonl | head -2`.
+
+NO mezclada con la tabla arnés del 18-nov (esa quedó congelada con su
+corrida única fechada); esta eval es interna de tlamati, para comparar
+"antes/después del detector", no arnés contra arnés.
+
 ## Fuera de la tabla (y por qué)
 
 - **claude code / grok**: atados a cerebros propietarios — el delta mediría el

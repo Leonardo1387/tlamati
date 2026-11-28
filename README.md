@@ -104,6 +104,12 @@ general:
   max_turns: 60               # turn wall; <=0 = yolo (context budget still caps)
   stall_repeats: 3            # stall detector; 0 disables
 
+stall:                        # quasi-stall detector (near-identical tool calls)
+  quasi_similarity: 0.85      # SequenceMatcher ratio; 0 disables
+  quasi_window: 15            # sliding window of turn signatures
+  quasi_warn_count: 5         # >=N near-identical: soft warning injected
+  quasi_ask_count: 8          # >=N: ask the user (TUI modal; headless stops)
+
 sandbox:
   enabled: true               # bwrap jail for the terminal tool
   net: true                   # network inside the jail (default ON, SEC.1;

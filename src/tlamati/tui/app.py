@@ -67,7 +67,7 @@ from tlamati.cli import (
 from tlamati.context.budget import Budget
 from tlamati.context.compaction import CompactionConfig, Compactor, ModelSummarizer
 from tlamati.context.instructions import load_instructions, render_for_prompt
-from tlamati.core.loop import LoopControl, LoopResult, run_loop
+from tlamati.core.loop import LoopControl, LoopResult, QuasiAskDecision, QuasiStallConfig, run_loop
 from tlamati.core.messages import Message
 from tlamati.core.model_router import ModelRouter
 from tlamati.memory.meta import open_meta
@@ -100,6 +100,10 @@ ApproveScreen > Vertical { width: 96; height: auto; max-height: 80%;
     border: thick $warning; background: $surface; padding: 1 2; }
 #diff { height: auto; max-height: 26; overflow-y: auto; color: $text; }
 #ask-buttons { height: 3; align: center middle; }
+QuasiAskScreen { align: center middle; }
+QuasiAskScreen > Vertical { width: 88; height: auto;
+    border: thick $error; background: $surface; padding: 1 2; }
+#quasi-buttons { height: 3; align: center middle; }
 """
 
 
@@ -182,6 +186,59 @@ class ApproveScreen(ModalScreen[str]):
         self.dismiss("reject")
 
 
+class QuasiAskScreen(ModalScreen[QuasiAskDecision]):
+    """T1: diálogo seguir/redirigir/parar al umbral de ASK del cuasi-stall.
+
+    Donor: ApproveScreen (mismo patrón push_screen_wait — bloquea el worker
+    del loop hasta que el usuario elige, exactamente como la aprobación ASK
+    de tools que YA ocurre mid-run). Escape = "parar" (fail closed: ante la
+    duda, la corrida se detiene honestamente, nunca sigue gastando)."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("s", "seguir", "Seguir", priority=True),
+        Binding("r", "redirigir", "Redirigir", priority=True),
+        Binding("p", "parar", "Parar", priority=True),
+        Binding("escape", "parar", "Parar", priority=True),
+    ]
+
+    def __init__(self, matches: int, window: int, similarity: float) -> None:
+        super().__init__()
+        self.matches = matches
+        self.window = window
+        self.similarity = similarity
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="quasi-ask"):
+            yield Static(
+                f"[b]Bucle cuasi-repetitivo[/b]: {self.matches} llamadas "
+                f"cuasi-idénticas (similitud ≥{self.similarity:.0%}) en las "
+                f"últimas {self.window}. El agente podría estar atascado.",
+                markup=True,
+            )
+            yield Static("")
+            with Horizontal(id="quasi-buttons"):
+                yield Button("Seguir (s)", id="b-seguir", variant="primary")
+                yield Button("Redirigir (r)", id="b-redirigir", variant="warning")
+                yield Button("Parar (p)", id="b-parar", variant="error")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        mapping: dict[str, QuasiAskDecision] = {
+            "b-seguir": "seguir",
+            "b-redirigir": "redirigir",
+            "b-parar": "parar",
+        }
+        self.dismiss(mapping.get(str(event.button.id), "parar"))
+
+    def action_seguir(self) -> None:
+        self.dismiss("seguir")
+
+    def action_redirigir(self) -> None:
+        self.dismiss("redirigir")
+
+    def action_parar(self) -> None:
+        self.dismiss("parar")
+
+
 class ModelPalette(ModalScreen[int]):
     """F1: selector de modelo (lista OptionsView). Dismiss con el indice
     elegido; Escape = None (no cambia nada, fail closed como ApproveScreen).
@@ -235,6 +292,7 @@ class TlamatiApp(App[None]):
         skills_extra_dirs: list[Path] | None = None,
         max_turns: int = 60,
         stall_repeats: int = 3,
+        quasi_stall: QuasiStallConfig | None = None,
         sandbox: bool | None = None,
         sandbox_net: bool | None = None,
     ) -> None:
@@ -255,6 +313,10 @@ class TlamatiApp(App[None]):
         # frenazo seco). max_turns <= 0 = yolo; stall_repeats = detector de
         # bucles muertos (mismo tool call N turnos seguidos → corte + aviso).
         self._stall_repeats = stall_repeats
+        # T1: detector cuasi-stall (None = desactivado). La TUI SÍ pasa
+        # handler quasi_ask (modal seguir/redirigir/parar) — a diferencia del
+        # headless, que degrada a corte honesto.
+        self._quasi_stall = quasi_stall
         self._always_allow: set[str] = set()
         self._history: list[Message] = []
         # T2: lista paralela posición→seq de DB (None = marker de resumen);
@@ -481,6 +543,18 @@ class TlamatiApp(App[None]):
         self._note(f"tool {name!r} RECHAZADA por el usuario", cls="tool-error")
         return False
 
+    async def _quasi_ask(self, matches: int) -> QuasiAskDecision:
+        """T1: handler del umbral de ASK del cuasi-stall. Se ejecuta DENTRO
+        del loop (mid-run) — push_screen_wait bloquea este coroutine hasta
+        que el usuario elige en el modal (mismo mecanismo que _approver, que
+        ya prueba que pausar el loop para pedir input funciona)."""
+        assert self._quasi_stall is not None  # el loop solo llama si está activo
+        decision = await self.push_screen_wait(
+            QuasiAskScreen(matches, self._quasi_stall.window, self._quasi_stall.similarity)
+        )
+        self._note(f"[cuasi-stall] decisión del usuario: {decision}", cls="note-line")
+        return decision
+
     # ------------------------------------------------------------- F1: modelos
 
     def _make_provider(self, model: str) -> OpenAICompat | AnthropicMessages:
@@ -688,6 +762,8 @@ class TlamatiApp(App[None]):
                 budget=self.budget,
                 max_turns=self.max_turns,
                 stall_repeats=self._stall_repeats,
+                quasi_stall=self._quasi_stall,
+                quasi_ask=self._quasi_ask,
                 on_event=self._handle_event,
                 compactor=self.compactor,
                 history=list(self._history) or None,
@@ -849,6 +925,26 @@ class TlamatiApp(App[None]):
                 f"resumidos={data['summarized']} tokens "
                 f"{data['tokens_before']}→{data['tokens_after']}"
             )
+        elif kind == "quasi_stall_warning":
+            # T1: el aviso SOFT ya va inyectado al modelo; aquí solo la línea
+            # técnica para que el usuario vea POR QUÉ el agente cambia de tono.
+            self._note(
+                f"[cuasi-stall] aviso al modelo: {data['matches']} llamadas "
+                f"cuasi-idénticas (≥{data['similarity']:.0%}) en las últimas "
+                f"{data['window']}",
+                cls="note-line",
+            )
+        elif kind == "quasi_stall_ask":
+            self._note(
+                f"[cuasi-stall] umbral de ASK alcanzado ({data['matches']} "
+                "cuasi-idénticas) — esperando tu decisión…",
+                cls="note-line",
+            )
+        elif kind == "quasi_stall_stop":
+            self._note(
+                f"[cuasi-stall] corrida detenida ({data['matches']} llamadas cuasi-idénticas)",
+                cls="tool-error",
+            )
 
     # ------------------------------------------------------- transcript
 
@@ -897,6 +993,7 @@ def run_tui(
     skills_extra_dirs: list[Path] | None = None,
     max_turns: int = 60,
     stall_repeats: int = 3,
+    quasi_stall: QuasiStallConfig | None = None,
     sandbox: bool | None = None,
     sandbox_net: bool | None = None,
 ) -> int:
@@ -915,6 +1012,7 @@ def run_tui(
         skills_extra_dirs=skills_extra_dirs,
         max_turns=max_turns,
         stall_repeats=stall_repeats,
+        quasi_stall=quasi_stall,
         sandbox=sandbox,
         sandbox_net=sandbox_net,
     )
