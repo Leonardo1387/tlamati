@@ -44,6 +44,8 @@ FIXTURE_NAMES = {
     "ducto_reglas_l2",  # 30 etapas con dependencias; contrato solo en docs/REGLAS.md
     # H9 v3: cascada ciega (fallos runtime secuenciales + docs únicos por módulo)
     "ducto_cascada_l3",  # 34 módulos, guardavas que excepcionan en cascada, 150 turnos
+    # T1: anti-bucle cuasi-repetitivo (error mutante; éxito = diagnosticar, no reintentar)
+    "bucle_error_mutante",
 }
 
 
