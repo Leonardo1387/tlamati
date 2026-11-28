@@ -110,10 +110,17 @@ class SessionInfo:
 
 @dataclass
 class StoredSession:
-    """Everything needed to RESUME: messages + cumulative usage."""
+    """Everything needed to RESUME: messages + cumulative usage.
+
+    T2: ``history_seqs`` es la lista paralela posición→seq de ``messages``
+    (None = marker de resumen reconstruido desde la tabla summaries; NO vive
+    en messages). El loop la re-siembra para que la próxima compactación
+    pueda traducir posiciones a rangos de seq.
+    """
 
     session_id: str
     messages: list[Message] = field(default_factory=list)
+    history_seqs: list[int | None] = field(default_factory=list)
     usage: Usage = field(default_factory=Usage)
 
 
@@ -234,18 +241,22 @@ class SessionStore:
         *,
         retention: bool = True,
         content_cleared: bool = False,
-    ) -> None:
+    ) -> int | None:
+        """Persiste un mensaje y devuelve el seq asignado (None = store roto).
+
+        T2: el loop usa el seq para mantener su lista paralela posición→seq,
+        con la que traduce una compactación a rangos persistibles."""
         cur = self._exec(
             "SELECT COALESCE(MAX(seq), -1) + 1 FROM messages WHERE session_id=?",
             (session_id,),
         )
         if cur is None:
-            return
+            return None
         try:
             seq = int(cur.fetchone()[0])
         except (TypeError, sqlite3.Error):
             self.broken = "no se pudo leer el próximo seq"
-            return
+            return None
         body = json.dumps(message.as_dict(), ensure_ascii=False, sort_keys=True)
         # Retention default (GUIA C1): tool results that are re-fetchable from
         # disk (read_file/search/skill_view output) could be retention=0 in a
@@ -260,6 +271,7 @@ class SessionStore:
             " VALUES(?,?,?,?,?,?)",
             (session_id, seq, message.role, body, int(retention), int(cleared)),
         )
+        return seq
 
     def append_messages(
         self, session_id: str, messages: list[Message], *, retention: bool = True
@@ -268,12 +280,25 @@ class SessionStore:
             self.append_message(session_id, m, retention=retention)
 
     def load_session(self, session_id: str) -> StoredSession | None:
-        """Rebuild Message objects + cumulative usage for a resume."""
+        """Rebuild Message objects + cumulative usage for a resume.
+
+        T2 (persistencia de compactación, append-only): los mensajes crudos de
+        la tabla messages NUNCA se borran; la tabla summaries gana filas
+        (from_seq, to_seq, texto del marker). Aquí se reconstruye la history
+        que el loop tenía al cerrar: para cada resumen (en orden de creación)
+        se sustituye su rango de seqs por el marker, y un resumen posterior
+        que ABSORBE el rango de uno anterior supersede su marker (el texto del
+        nuevo ya incluye al viejo — render_for_summary del loop vio el marker).
+        Los microcompacteos no se reconstruyen: microcompact() es idempotente
+        y vuelve a limpiarlos en runtime en cuanto el budget lo pida (los
+        placeholders viajan con ToolResult.microcompacted=False al cargar el
+        body crudo; la limpieza se repite gratis, sin llamada a modelo).
+        """
         if self._db is None:
             return None
         try:
             rows = self._db.execute(
-                "SELECT body_json FROM messages WHERE session_id=? ORDER BY seq",
+                "SELECT seq, body_json FROM messages WHERE session_id=? ORDER BY seq",
                 (session_id,),
             ).fetchall()
             usage_rows = self._db.execute(
@@ -281,22 +306,61 @@ class SessionStore:
                 " cost_usd FROM usage WHERE session_id=? ORDER BY turn",
                 (session_id,),
             ).fetchall()
+            summary_rows = self._db.execute(
+                "SELECT from_seq, to_seq, summary FROM summaries"
+                " WHERE session_id=? ORDER BY created_at",
+                (session_id,),
+            ).fetchall()
         except sqlite3.Error as e:
             self.broken = f"load falló: {e}"
             return None
-        messages: list[Message] = []
-        for (body,) in rows:
+        # items: (seq | None, Message). None = marker de resumen (no vive en messages).
+        items: list[tuple[int | None, Message]] = []
+        for seq, body in rows:
             try:
-                messages.append(Message.from_dict(json.loads(body)))
+                items.append((int(seq), Message.from_dict(json.loads(body))))
             except (json.JSONDecodeError, KeyError, ValueError, TypeError) as e:
                 # A corrupt row is skipped honestly, not fatal: resume degrades
                 # with the rest of the conversation intact.
-                messages.append(
-                    Message(
-                        role="user",
-                        content=f"[mensaje corrupto omitido al cargar: {e}]",
+                items.append(
+                    (
+                        int(seq),
+                        Message(
+                            role="user",
+                            content=f"[mensaje corrupto omitido al cargar: {e}]",
+                        ),
                     )
                 )
+        # Reconstrucción con summaries (orden de creación). Dinámica del loop:
+        # el head anchor (retain_first mensajes crudos) nunca se compacta y los
+        # from_seq son no-decrecientes; un resumen posterior ABSORBE al marker
+        # anterior (render_for_summary vio su texto), así que cada aplicación
+        # reemplaza en el sitio del marker viejo o del primer crudo del rango.
+        for from_seq, to_seq, summary_text in summary_rows:
+            marker = (None, Message(role="user", content=str(summary_text)))
+            kept: list[tuple[int | None, Message]] = []
+            inserted = False
+            for s, m in items:
+                if s is None:
+                    # marker anterior: su contenido fue absorbido por este
+                    # resumen → lo sustituye en su misma posición.
+                    if not inserted:
+                        kept.append(marker)
+                        inserted = True
+                    continue
+                if int(from_seq) <= s <= int(to_seq):
+                    if not inserted:
+                        kept.append(marker)
+                        inserted = True
+                    continue  # crudo cubierto por el resumen
+                kept.append((s, m))
+            if not inserted:
+                # rango sin supervivientes previos (sesión íntegramente dentro
+                # del rango): el marker encabeza la history reconstruida.
+                kept.insert(0, marker)
+            items = kept
+        messages = [m for _, m in items]
+        history_seqs: list[int | None] = [s for s, _ in items]
         usage = Usage()
         for r in usage_rows:
             usage = usage + Usage(
@@ -306,7 +370,12 @@ class SessionStore:
                 cache_write_tokens=r[3],
                 cost_usd=r[4],
             )
-        return StoredSession(session_id=session_id, messages=messages, usage=usage)
+        return StoredSession(
+            session_id=session_id,
+            messages=messages,
+            history_seqs=history_seqs,
+            usage=usage,
+        )
 
     # -- usage / summaries --------------------------------------------------
 

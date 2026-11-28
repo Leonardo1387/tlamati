@@ -48,10 +48,17 @@ from tlamati.tools.registry import Registry
 
 @dataclass
 class LoopState:
-    """Everything the loop carries across turns."""
+    """Everything the loop carries across turns.
+
+    T2: ``history_seqs`` es la lista paralela posición→seq de DB de
+    ``history`` (None = mensaje que no vive en la tabla messages, p.ej. el
+    marker de resumen). Viaja con la history para que una compactación pueda
+    traducir posiciones a rangos de seq persistidos (record_summary).
+    """
 
     system: str
     history: list[Message] = field(default_factory=list)
+    history_seqs: list[int | None] = field(default_factory=list)
     usage: Usage = field(default_factory=Usage)
     turns: int = 0
     pending_interjection: str | None = None
@@ -59,17 +66,36 @@ class LoopState:
 
 @dataclass(frozen=True)
 class LoopResult:
-    """Terminal accounting of one run — feeds evals JSONL (A7) and the TUI."""
+    """Terminal accounting of one run — feeds evals JSONL (A7) and the TUI.
+
+    T2: ``history`` trae la history FINAL (post-compactación) para que el
+    consumidor multi-turno (TUI) re-siembre la siguiente corrida con el
+    contexto compactado en vez de la historia cruda completa.
+    ``history_seqs`` es la lista paralela posición→seq de DB (None = mensaje
+    que NO vive en la tabla messages, p.ej. el marker de resumen: su contenido
+    se persiste en la tabla summaries vía record_summary).
+    """
 
     final_text: str
     stop_reason: str  # end_turn | max_turns | stall | budget_exceeded | aborted | error | refusal
     turns: int
     usage: Usage
     error: str | None = None
+    history: list[Message] = field(default_factory=list)
+    history_seqs: list[int | None] = field(default_factory=list)
 
 
 # Loop events for UI consumers (print callback in headless mode).
 LoopEvent = Callable[[str, dict[str, Any]], None]
+
+# T2: persistencia de compactación. ``on_message`` devuelve el seq de DB que
+# el store asignó al mensaje (None si no se persiste / store roto); el loop lo
+# usa para mantener ``history_seqs`` alineada posición a posición. ``on_summary``
+# recibe (from_seq, to_seq, texto del marker) cuando una compactación reemplaza
+# un rango de mensajes crudos por un resumen — el llamador lo persiste con
+# store.record_summary (append-only: los crudos NUNCA se borran).
+MessageSink = Callable[[Message], "int | None"]
+SummarySink = Callable[[int, int, str], None]
 
 # Retry de errores transitorios del proveedor (rate limit Alibaba vía
 # OpenRouter, 26-nov). Backoff exponencial 4s·2^n + jitter, 4 reintentos
@@ -311,7 +337,9 @@ async def run_loop(
     on_event: LoopEvent | None = None,
     compactor: Compactor | None = None,
     history: list[Message] | None = None,
-    on_message: Callable[[Message], None] | None = None,
+    history_seqs: list[int | None] | None = None,
+    on_message: MessageSink | None = None,
+    on_summary: SummarySink | None = None,
     control: LoopControl | None = None,
     user_images: tuple[ImageBlock, ...] = (),
 ) -> LoopResult:
@@ -328,12 +356,24 @@ async def run_loop(
     for every message appended (user prompt, assistant turns, tool results)
     so the caller can persist DURING the run — a crashed run keeps everything
     written up to the crash (same robustness lesson as the B5 ledger).
+
+    T2 (persistencia de compactación): ``on_message`` devuelve el seq de DB
+    asignado (None si no persiste); ``history_seqs`` siembra la lista paralela
+    posición→seq al retomar; ``on_summary(from_seq, to_seq, texto)`` avisa
+    cuando una compactación reemplaza un rango crudo por un resumen (el
+    llamador lo persiste con store.record_summary). ``LoopResult.history``
+    trae la history FINAL compactada para que la TUI no re-infle en memoria.
     """
     noop: LoopEvent = lambda kind, data: None  # noqa: E731
     on_event = on_event or noop
     state = LoopState(system=system)
     if history:
         state.history.extend(history)
+        state.history_seqs.extend(
+            history_seqs
+            if history_seqs and len(history_seqs) == len(history)
+            else [None] * len(history)
+        )
     # Vision v2.1: las imágenes del usuario viajan NATIVAS en el primer
     # mensaje; sus markers de texto se adjuntan al content para que la sesión
     # persistida (que guarda metadata, no píxeles) conserve el registro de
@@ -343,9 +383,7 @@ async def run_loop(
         markers = "\n".join(im.marker() for im in user_images)
         prompt_text = f"{user_prompt}\n{markers}" if user_prompt else markers
     first = Message(role="user", content=prompt_text, images=user_images)
-    state.history.append(first)
-    if on_message is not None:
-        on_message(first)
+    _append(state, first, on_message)
     abort_flag = {"set": False}
     prev_handler = _install_sigint(state, abort_flag)
 
@@ -361,25 +399,46 @@ async def run_loop(
             on_message,
             stall_repeats=stall_repeats,
             control=control,
+            on_summary=on_summary,
         )
     except _Abort as ab:
-        return LoopResult(
+        return _result(
+            state,
             final_text=ab.final_text or "(ejecución abortada por el usuario)",
             stop_reason="aborted",
-            turns=state.turns,
-            usage=state.usage,
         )
     except ProviderError as e:
-        return LoopResult(
-            final_text="",
-            stop_reason="error",
-            turns=state.turns,
-            usage=state.usage,
-            error=f"{e.kind}: {e}",
-        )
+        return _result(state, final_text="", stop_reason="error", error=f"{e.kind}: {e}")
     finally:
         if prev_handler is not None:
             signal.signal(signal.SIGINT, prev_handler)
+
+
+def _append(state: LoopState, message: Message, on_message: MessageSink | None) -> None:
+    """T2: añade a la history Y a la lista paralela posición→seq de DB.
+
+    ``on_message`` devuelve el seq asignado por el store (o None si no se
+    persiste). Las dos listas crecen en lockstep: la compactación necesita
+    traducir posiciones de history a rangos de seq para record_summary."""
+    state.history.append(message)
+    seq = on_message(message) if on_message is not None else None
+    state.history_seqs.append(seq)
+
+
+def _result(
+    state: LoopState, *, final_text: str, stop_reason: str, error: str | None = None
+) -> LoopResult:
+    """T2: LoopResult SIEMPRE carga la history final (post-compactación) y sus
+    seqs paralelos — la TUI los re-siembra en la siguiente corrida."""
+    return LoopResult(
+        final_text=final_text,
+        stop_reason=stop_reason,
+        turns=state.turns,
+        usage=state.usage,
+        error=error,
+        history=list(state.history),
+        history_seqs=list(state.history_seqs),
+    )
 
 
 def _calls_signature(assistant: Message) -> str | None:
@@ -405,10 +464,11 @@ async def _run_inner(
     max_turns: int,
     on_event: LoopEvent,
     compactor: Compactor | None = None,
-    on_message: Callable[[Message], None] | None = None,
+    on_message: MessageSink | None = None,
     *,
     stall_repeats: int = 3,
     control: LoopControl | None = None,
+    on_summary: SummarySink | None = None,
 ) -> LoopResult:
     last_text = ""
     tool_specs = tools.specs()
@@ -430,9 +490,7 @@ async def _run_inner(
         # Interjection v1: pending user message enters at turn start.
         if state.pending_interjection:
             interj = Message(role="user", content=state.pending_interjection)
-            state.history.append(interj)
-            if on_message is not None:
-                on_message(interj)
+            _append(state, interj, on_message)
             state.pending_interjection = None
 
         # Budget check BEFORE spending (A5 inversion fix).
@@ -450,6 +508,27 @@ async def _run_inner(
             )
             if report is not None:
                 state.usage = state.usage + report.usage
+                # T2: si un rango crudo fue reemplazado por un resumen, avisar
+                # al sink de persistencia con el rango de seqs de DB cubierto
+                # (append-only: los crudos siguen en messages; summaries gana
+                # la fila from_seq→to_seq + texto del marker). El marker tiene
+                # seq None en history_seqs (no vive en messages).
+                if (
+                    report.summarized > 0
+                    and report.summary_text is not None
+                    and report.head_end >= 0
+                    and on_summary is not None
+                ):
+                    span = state.history_seqs[report.head_end : report.tail_start]
+                    nums = [s for s in span if s is not None]
+                    if nums:
+                        on_summary(nums[0], nums[-1], report.summary_text)
+                if report.summarized > 0 and report.head_end >= 0:
+                    state.history_seqs = [
+                        *state.history_seqs[: report.head_end],
+                        None,
+                        *state.history_seqs[report.tail_start :],
+                    ]
                 on_event(
                     "compaction",
                     {
@@ -462,11 +541,10 @@ async def _run_inner(
                 )
                 breakdown = budget.breakdown(state.system, tool_specs, state.history)
         if breakdown.status == "exceeded":
-            return LoopResult(
+            return _result(
+                state,
                 final_text=last_text,
                 stop_reason="budget_exceeded",
-                turns=state.turns,
-                usage=state.usage,
                 error=breakdown.human(),
             )
 
@@ -474,9 +552,7 @@ async def _run_inner(
             provider, state, tools, on_event, control
         )
         state.turns += 1
-        state.history.append(assistant)
-        if on_message is not None:
-            on_message(assistant)
+        _append(state, assistant, on_message)
         if end is not None:
             state.usage = state.usage + end.usage
         on_event("turn_end", {"turn": state.turns, "usage": end.usage if end else Usage()})
@@ -486,27 +562,11 @@ async def _run_inner(
 
         if end is None or end.stop_reason == "error":
             err = (end.error if end else "stream ended without MessageEnd") or parse_error
-            return LoopResult(
-                final_text=last_text,
-                stop_reason="error",
-                turns=state.turns,
-                usage=state.usage,
-                error=err,
-            )
+            return _result(state, final_text=last_text, stop_reason="error", error=err)
         if end.stop_reason == "refusal":
-            return LoopResult(
-                final_text=last_text,
-                stop_reason="refusal",
-                turns=state.turns,
-                usage=state.usage,
-            )
+            return _result(state, final_text=last_text, stop_reason="refusal")
         if end.stop_reason == "max_tokens" and not assistant.tool_calls:
-            return LoopResult(
-                final_text=last_text,
-                stop_reason="max_tokens",
-                turns=state.turns,
-                usage=state.usage,
-            )
+            return _result(state, final_text=last_text, stop_reason="max_tokens")
 
         if not assistant.tool_calls:
             # B4 (steering Hermes): si el usuario escribió a mitad de turno y
@@ -518,17 +578,10 @@ async def _run_inner(
                 control.pending_interjection = None
             if steer:
                 steer_msg = Message(role="user", content=steer)
-                state.history.append(steer_msg)
-                if on_message is not None:
-                    on_message(steer_msg)
+                _append(state, steer_msg, on_message)
                 on_event("steering", {"text": steer})
                 continue
-            return LoopResult(
-                final_text=last_text,
-                stop_reason="end_turn",
-                turns=state.turns,
-                usage=state.usage,
-            )
+            return _result(state, final_text=last_text, stop_reason="end_turn")
 
         # Execute tools sequentially (deterministic, audit-friendly).
         for tc in assistant.tool_calls:
@@ -544,9 +597,7 @@ async def _run_inner(
                 result = await tools.execute(tc.name, tc.arguments, tc.id)
             on_event("tool_result", {"id": tc.id, "is_error": result.is_error})
             tool_msg = Message(role="tool", tool_result=result)
-            state.history.append(tool_msg)
-            if on_message is not None:
-                on_message(tool_msg)
+            _append(state, tool_msg, on_message)
 
         # Detector de estancamiento: firma idéntica N turnos seguidos = corte.
         if stall_repeats > 0 and assistant.tool_calls:
@@ -564,22 +615,11 @@ async def _run_inner(
                     "Corrida detenida (stop_reason=stall)."
                 )
                 on_event("stall", {"repeats": repeat_count, "tools": nombres})
-                return LoopResult(
-                    final_text=last_text,
-                    stop_reason="stall",
-                    turns=state.turns,
-                    usage=state.usage,
-                    error=msg,
-                )
+                return _result(state, final_text=last_text, stop_reason="stall", error=msg)
         elif stall_repeats > 0:
             prev_signature = None
             repeat_count = 0
 
         await asyncio.sleep(0)  # yield to event loop (signal delivery)
 
-    return LoopResult(
-        final_text=last_text,
-        stop_reason="max_turns",
-        turns=state.turns,
-        usage=state.usage,
-    )
+    return _result(state, final_text=last_text, stop_reason="max_turns")

@@ -257,6 +257,9 @@ class TlamatiApp(App[None]):
         self._stall_repeats = stall_repeats
         self._always_allow: set[str] = set()
         self._history: list[Message] = []
+        # T2: lista paralela posición→seq de DB (None = marker de resumen);
+        # se re-siembra desde LoopResult.history_seqs tras cada corrida.
+        self._history_seqs: list[int | None] = []
         self._turn_text: list[str] = []
         self._turn_md: Markdown | None = None
         self._stream_dirty = False
@@ -688,7 +691,9 @@ class TlamatiApp(App[None]):
                 on_event=self._handle_event,
                 compactor=self.compactor,
                 history=list(self._history) or None,
+                history_seqs=list(self._history_seqs) or None,
                 on_message=self._persist_message,
+                on_summary=self._persist_summary,
                 control=self._control,
             )
         except Exception as e:  # un bug nunca cuelga la app (loop invariant)
@@ -696,6 +701,13 @@ class TlamatiApp(App[None]):
             self._busy = False
             return
         self._last_result = result
+        # T2: si hubo compactación, la history del loop es MÁS CORTA que
+        # self._history (que solo crece por _persist_message). Re-sincronizar
+        # con la versión final evita re-hinchar el contexto EN MEMORIA en la
+        # siguiente corrida (la DB sigue append-only; summaries reconstruye).
+        if result.history:
+            self._history = list(result.history)
+            self._history_seqs = list(result.history_seqs)
         # Bug 2 dogfooding #2: la TUI NUNCA llamaba finish_session → sessions.db
         # quedaba con stop_reason='' y turns=0 (forensia post-sesión rota; cli.py
         # sí lo hace). Fix: actualizar tras CADA corrida (crash-safe: si la app
@@ -773,14 +785,23 @@ class TlamatiApp(App[None]):
             self._turn_text = []
         self._busy = False
 
-    def _persist_message(self, m: Message) -> None:
+    def _persist_message(self, m: Message) -> int | None:
         # La historia de la app crece con CADA mensaje (multi-turno real);
         # run_loop recibe copia, así que aquí mantenemos la fuente de verdad.
         # OJO nombre: `_on_*` en Textual es convención de message handlers —
         # NUNCA usar prefijo _on_ para callbacks propios (colisión silenciosa).
+        # T2: devuelve el seq de DB para la lista paralela posición→seq del loop.
         self._history.append(m)
         if self.store is not None and self.session_id is not None:
-            self.store.append_message(self.session_id, m)
+            return self.store.append_message(self.session_id, m)
+        return None
+
+    def _persist_summary(self, from_seq: int, to_seq: int, text: str) -> None:
+        # T2: la compactación reemplazó el rango [from_seq, to_seq] por un
+        # resumen — se registra en la tabla summaries (append-only) para que
+        # load_session reconstruya la misma history al retomar la sesión.
+        if self.store is not None and self.session_id is not None:
+            self.store.record_summary(self.session_id, from_seq, to_seq, text)
 
     def _handle_event(self, kind: str, data: dict[str, Any]) -> None:
         """Consumidor de eventos del loop (mismo vocabulario que E2 --json)."""
