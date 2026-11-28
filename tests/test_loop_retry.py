@@ -96,44 +96,52 @@ def empty_registry(tmp_path: Path) -> Registry:
 
 
 class TestRetryableProviderError:
-    async def test_retryable_error_retries_and_succeeds(
-        self, empty_registry: Registry
-    ) -> None:
+    async def test_retryable_error_retries_and_succeeds(self, empty_registry: Registry) -> None:
         p = ScriptedProvider(
             [
-                ("raise", ProviderError("HTTP 429: rate limit", kind="http",
-                                        retryable=True, status=429)),
+                (
+                    "raise",
+                    ProviderError("HTTP 429: rate limit", kind="http", retryable=True, status=429),
+                ),
                 ("ok", "recuperado"),
             ]
         )
         result = await run_loop(
-            p, system="s", user_prompt="hi", tools=empty_registry,
-            budget=Budget(100_000), max_turns=5,
+            p,
+            system="s",
+            user_prompt="hi",
+            tools=empty_registry,
+            budget=Budget(100_000),
+            max_turns=5,
         )
         assert result.stop_reason == "end_turn"
         assert result.final_text == "recuperado"
         assert p.stream_calls == 2
 
-    async def test_non_retryable_error_fails_immediately(
-        self, empty_registry: Registry
-    ) -> None:
+    async def test_non_retryable_error_fails_immediately(self, empty_registry: Registry) -> None:
         p = ScriptedProvider(
             [
-                ("raise", ProviderError("HTTP 401: invalid key", kind="http",
-                                        retryable=False, status=401)),
+                (
+                    "raise",
+                    ProviderError(
+                        "HTTP 401: invalid key", kind="http", retryable=False, status=401
+                    ),
+                ),
                 ("ok", "no debería llegar"),
             ]
         )
         result = await run_loop(
-            p, system="s", user_prompt="hi", tools=empty_registry,
-            budget=Budget(100_000), max_turns=5,
+            p,
+            system="s",
+            user_prompt="hi",
+            tools=empty_registry,
+            budget=Budget(100_000),
+            max_turns=5,
         )
         assert result.stop_reason == "error"
         assert p.stream_calls == 1  # sin reintento en error determinista
 
-    async def test_exhausted_retries_returns_error(
-        self, empty_registry: Registry
-    ) -> None:
+    async def test_exhausted_retries_returns_error(self, empty_registry: Registry) -> None:
         # 1 inicial + _MAX_PROVIDER_RETRIES reintentos, todos fallan
         steps: list[tuple[Any, ...]] = [
             ("raise", ProviderError("429 rate limit", kind="http", retryable=True))
@@ -141,36 +149,43 @@ class TestRetryableProviderError:
         ]
         p = ScriptedProvider(steps)
         result = await run_loop(
-            p, system="s", user_prompt="hi", tools=empty_registry,
-            budget=Budget(100_000), max_turns=5,
+            p,
+            system="s",
+            user_prompt="hi",
+            tools=empty_registry,
+            budget=Budget(100_000),
+            max_turns=5,
         )
         assert result.stop_reason == "error"
         assert p.stream_calls == loop_mod._MAX_PROVIDER_RETRIES + 1
 
 
 class TestTransientMessageEnd:
-    async def test_rate_limit_message_end_retries(
-        self, empty_registry: Registry
-    ) -> None:
+    async def test_rate_limit_message_end_retries(self, empty_registry: Registry) -> None:
         p = ScriptedProvider(
             [
-                ("end_error", "Upstream error from Alibaba: An error occurred "
-                              "in model serving, error message is: [Rate limit "
-                              "reached. Please slow down and retry.]"),
+                (
+                    "end_error",
+                    "Upstream error from Alibaba: An error occurred "
+                    "in model serving, error message is: [Rate limit "
+                    "reached. Please slow down and retry.]",
+                ),
                 ("ok", "segunda oportunidad"),
             ]
         )
         result = await run_loop(
-            p, system="s", user_prompt="hi", tools=empty_registry,
-            budget=Budget(100_000), max_turns=5,
+            p,
+            system="s",
+            user_prompt="hi",
+            tools=empty_registry,
+            budget=Budget(100_000),
+            max_turns=5,
         )
         assert result.stop_reason == "end_turn"
         assert result.final_text == "segunda oportunidad"
         assert p.stream_calls == 2
 
-    async def test_deterministic_message_end_no_retry(
-        self, empty_registry: Registry
-    ) -> None:
+    async def test_deterministic_message_end_no_retry(self, empty_registry: Registry) -> None:
         p = ScriptedProvider(
             [
                 ("end_error", "unrecognized finish_reason 'weird_stop'"),
@@ -178,8 +193,12 @@ class TestTransientMessageEnd:
             ]
         )
         result = await run_loop(
-            p, system="s", user_prompt="hi", tools=empty_registry,
-            budget=Budget(100_000), max_turns=5,
+            p,
+            system="s",
+            user_prompt="hi",
+            tools=empty_registry,
+            budget=Budget(100_000),
+            max_turns=5,
         )
         assert result.stop_reason == "error"
         assert p.stream_calls == 1
@@ -188,13 +207,16 @@ class TestTransientMessageEnd:
         self, empty_registry: Registry
     ) -> None:
         steps: list[tuple[Any, ...]] = [
-            ("end_error", "rate limit reached")
-            for _ in range(loop_mod._MAX_PROVIDER_RETRIES + 1)
+            ("end_error", "rate limit reached") for _ in range(loop_mod._MAX_PROVIDER_RETRIES + 1)
         ]
         p = ScriptedProvider(steps)
         result = await run_loop(
-            p, system="s", user_prompt="hi", tools=empty_registry,
-            budget=Budget(100_000), max_turns=5,
+            p,
+            system="s",
+            user_prompt="hi",
+            tools=empty_registry,
+            budget=Budget(100_000),
+            max_turns=5,
         )
         assert result.stop_reason == "error"
         assert "rate limit" in (result.error or "").lower()
@@ -211,8 +233,12 @@ class TestRetryEvent:
             ]
         )
         result = await run_loop(
-            p, system="s", user_prompt="hi", tools=empty_registry,
-            budget=Budget(100_000), max_turns=5,
+            p,
+            system="s",
+            user_prompt="hi",
+            tools=empty_registry,
+            budget=Budget(100_000),
+            max_turns=5,
             on_event=lambda kind, data: events.append((kind, data)),
         )
         assert result.stop_reason == "end_turn"

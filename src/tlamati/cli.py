@@ -532,6 +532,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
     store: SessionStore | None = None
     session_id: str | None = None
     resumed_history: list[Any] = []
+    resumed_seqs: list[Any] = []
     if not args.no_session:
         store = SessionStore(args.session_db)
         if store.broken:
@@ -549,6 +550,7 @@ async def _run_headless(args: argparse.Namespace) -> int:
                     return EXIT_USAGE
                 session_id = resume_id
                 resumed_history = loaded.messages
+                resumed_seqs = loaded.history_seqs
                 print(
                     f"[session] retomando {resume_id} ({len(loaded.messages)} mensajes previos)",
                     file=sys.stderr,
@@ -839,10 +841,18 @@ async def _run_headless(args: argparse.Namespace) -> int:
                 return 2
         cli_images = tuple(img_blocks)
 
-    def _persist(m: Any) -> None:
+    def _persist(m: Any) -> int | None:
         run_messages.append(m)
         if store is not None and session_id is not None:
-            store.append_message(session_id, m)
+            return store.append_message(session_id, m)
+        return None
+
+    def _persist_summary(from_seq: int, to_seq: int, text: str) -> None:
+        # T2: cierre del circuito append-only — la compactación reemplazó el
+        # rango de seqs por un resumen; la tabla summaries lo registra y
+        # load_session reconstruye la misma history al retomar.
+        if store is not None and session_id is not None:
+            store.record_summary(session_id, from_seq, to_seq, text, model=model)
 
     result: LoopResult = await run_loop(
         provider,
@@ -863,7 +873,9 @@ async def _run_headless(args: argparse.Namespace) -> int:
         on_event=_ledger_wrapper(ledger, args.quiet, emitter),
         compactor=compactor,
         history=resumed_history or None,
+        history_seqs=resumed_seqs or None,
         on_message=_persist,
+        on_summary=_persist_summary,
         user_images=cli_images,
     )
 

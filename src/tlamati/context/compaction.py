@@ -83,7 +83,16 @@ class CompactionConfig:
 
 @dataclass(frozen=True)
 class CompactionReport:
-    """What one compaction pass did — feeds the audit trail and evals."""
+    """What one compaction pass did — feeds the audit trail and evals.
+
+    T2 (persistencia de compactación): cuando ``summarized > 0``, el rango
+    ``[head_end, tail_start)`` de la history DE ENTRADA fue reemplazado por un
+    único mensaje cuyo contenido completo viaja en ``summary_text`` (ya con su
+    marker). El llamador que persista (loop → store.record_summary) usa el
+    rango para mapear posiciones a seqs de DB; el texto permite reconstruir la
+    MISMA history al retomar (append-only: los mensajes crudos nunca se borran
+    de la tabla messages).
+    """
 
     microcompacted: int = 0  # tool results cleared to placeholder
     summarized: int = 0  # middle messages replaced by the summary
@@ -91,6 +100,9 @@ class CompactionReport:
     tokens_before: int = 0
     tokens_after: int = 0
     usage: Usage = field(default_factory=Usage)  # summarizer spend, folded into loop
+    head_end: int = -1  # inicio del rango reemplazado (exclusive head anchor)
+    tail_start: int = -1  # fin del rango reemplazado (inicio de la cola reciente)
+    summary_text: str | None = None  # contenido COMPLETO del mensaje insertado
 
 
 @runtime_checkable
@@ -276,21 +288,26 @@ class Compactor:
                 summary, usage = await self.summarizer.summarize(transcript)
                 report = replace(report, usage=report.usage + usage)
                 if summary is not None:
-                    new_history = [
-                        *new_history[:head_end],
-                        _summary_message(summary),
-                        *new_history[tail_start:],
-                    ]
-                    summarized = len(middle)
+                    marker_msg = _summary_message(summary)
                 else:
                     # Honest degradation: window drop with a loud marker.
-                    new_history = [
-                        *new_history[:head_end],
-                        _window_drop_message(len(middle)),
-                        *new_history[tail_start:],
-                    ]
-                    summarized = len(middle)
+                    marker_msg = _window_drop_message(len(middle))
                     report = replace(report, summary_failed=True)
+                new_history = [
+                    *new_history[:head_end],
+                    marker_msg,
+                    *new_history[tail_start:],
+                ]
+                summarized = len(middle)
+                # T2: microcompact preserva posiciones (mismo len que history),
+                # así que head_end/tail_start son índices válidos de la history
+                # DE ENTRADA — el loop los usa para mapear a seqs de DB.
+                report = replace(
+                    report,
+                    head_end=head_end,
+                    tail_start=tail_start,
+                    summary_text=marker_msg.content,
+                )
 
         if cleared == 0 and summarized == 0:
             return list(history), None  # nothing to do — no report, no churn
