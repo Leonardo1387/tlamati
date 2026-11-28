@@ -24,10 +24,13 @@ from __future__ import annotations
 import asyncio
 import json
 import random
+import re
 import signal
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from difflib import SequenceMatcher
+from typing import Any, Literal
 
 from tlamati.context.budget import Budget
 from tlamati.context.compaction import Compactor
@@ -62,6 +65,10 @@ class LoopState:
     usage: Usage = field(default_factory=Usage)
     turns: int = 0
     pending_interjection: str | None = None
+    # T1 (cuasi-stall): ventana deslizante de firmas NORMALIZADAS de las
+    # últimas llamadas a tools (runtime puro; no se persiste).
+    quasi_window: deque[str] = field(default_factory=deque)
+    quasi_last_warned: int = 0
 
 
 @dataclass(frozen=True)
@@ -132,6 +139,77 @@ _TRANSIENT_PATTERNS = (
     "timed out",
     "timeout",
 )
+
+
+# T1 — Detector de cuasi-stall (dogfood 27-nov: el detector exacto nunca
+# cortó una sesión real — 0 rachas de ≥3 idénticas consecutivas en las
+# sesiones de 332/433 turnos — pero el 43% de las llamadas terminal
+# repitieron el mismo prefijo-80 en ventana de 20: el bucle real es
+# CUASI-repetitivo, mutando timeouts/flags/rutas). Decisiones del fundador
+# (YA TOMADAS): similitud ≥85% (las mutaciones reales mueven 10-15% del
+# texto), ventana 15, ≥5 → aviso SOFT inyectado al modelo, ≥8 → ASK al
+# usuario (seguir/redirigir/parar). NUNCA corte duro por cuasi-similitud:
+# el corte duro por firma EXACTA consecutiva (stall_repeats) se queda solo.
+QuasiAskDecision = Literal["seguir", "redirigir", "parar"]
+QUASI_ASK_OPTIONS: tuple[str, ...] = ("seguir", "redirigir", "parar")
+# La TUI pasa un handler async (matches:int)->QuasiAskDecision que muestra
+# el diálogo; headless sin handler = degradación honesta a stop_reason stall.
+QuasiAskHandler = Callable[[int], Any]
+
+# Dígitos a placeholder: timeouts/sleeps/puertos/contadores mutados son la
+# variación típica del bucle cuasi-repetitivo (timeout 90→110, intento 3→4).
+_DIGITS_RE = re.compile(r"\d+")
+_WS_RE = re.compile(r"\s+")
+
+
+def _quasi_signature(calls: tuple[ToolCall, ...]) -> str | None:
+    """Firma NORMALIZADA de los tool calls del turno (T1).
+
+    Misma base que _calls_signature (json canónico de (name, args)) colapsada
+    para similitud: whitespace → espacio único y dígitos → '#'. Sin tool
+    calls = None (los turnos de texto nunca "repiten")."""
+    if not calls:
+        return None
+    raw = json.dumps(
+        [(tc.name, tc.arguments) for tc in calls],
+        ensure_ascii=False,
+        sort_keys=True,
+        default=str,
+    )
+    return _WS_RE.sub(" ", _DIGITS_RE.sub("#", raw))
+
+
+def _quasi_count(signature: str, window: deque[str], threshold: float) -> int:
+    """Cuántas firmas de la ventana son cuasi-idénticas (ratio ≥ threshold)."""
+    return sum(1 for prev in window if SequenceMatcher(None, prev, signature).ratio() >= threshold)
+
+
+QUASI_WARN_TEMPLATE = (
+    "[AVISO DE ESTANCAMIENTO CUASI-REPETITIVO] Llevas {n} llamadas "
+    "cuasi-idénticas (similitud ≥{pct}%) en las últimas {w}. Cambia de "
+    "estrategia: si el comando falla, diagnostica la causa raíz en vez de "
+    "reintentar con variaciones menores; si esperas un estado externo, dilo "
+    "explícitamente y pregunta al usuario."
+)
+
+
+@dataclass(frozen=True)
+class QuasiStallConfig:
+    """Knobs del detector de cuasi-stall (T1). Defaults = decisión del fundador.
+
+    ``similarity`` a 0 (o ``window``/``warn_count`` ≤ 0) desactiva el detector
+    por completo. El corte duro de firma EXACTA (``stall_repeats`` de run_loop)
+    es ortogonal y sigue operando independiente de esta config.
+    """
+
+    similarity: float = 0.85
+    window: int = 15
+    warn_count: int = 5
+    ask_count: int = 8
+
+    @property
+    def enabled(self) -> bool:
+        return self.similarity > 0 and self.window > 0 and self.warn_count > 0
 
 
 def _is_transient_error(message: str | None) -> bool:
@@ -334,6 +412,8 @@ async def run_loop(
     budget: Budget,
     max_turns: int = 60,
     stall_repeats: int = 3,
+    quasi_stall: QuasiStallConfig | None = None,
+    quasi_ask: QuasiAskHandler | None = None,
     on_event: LoopEvent | None = None,
     compactor: Compactor | None = None,
     history: list[Message] | None = None,
@@ -363,6 +443,13 @@ async def run_loop(
     cuando una compactación reemplaza un rango crudo por un resumen (el
     llamador lo persiste con store.record_summary). ``LoopResult.history``
     trae la history FINAL compactada para que la TUI no re-infle en memoria.
+
+    T1 (cuasi-stall): ``quasi_stall`` activa el detector de bucle
+    cuasi-repetitivo (None = desactivado); ``quasi_ask`` es el handler async
+    (matches→"seguir"|"redirigir"|"parar") que la TUI usa al superar el
+    umbral de ASK. Sin handler (headless) el umbral de ASK degrada a un corte
+    honesto stop_reason="stall". El aviso SOFT se inyecta al final del turno
+    como user message (NUNCA muta el prefijo cacheable — caching is sacred).
     """
     noop: LoopEvent = lambda kind, data: None  # noqa: E731
     on_event = on_event or noop
@@ -400,6 +487,8 @@ async def run_loop(
             stall_repeats=stall_repeats,
             control=control,
             on_summary=on_summary,
+            quasi_stall=quasi_stall,
+            quasi_ask=quasi_ask,
         )
     except _Abort as ab:
         return _result(
@@ -469,6 +558,8 @@ async def _run_inner(
     stall_repeats: int = 3,
     control: LoopControl | None = None,
     on_summary: SummarySink | None = None,
+    quasi_stall: QuasiStallConfig | None = None,
+    quasi_ask: QuasiAskHandler | None = None,
 ) -> LoopResult:
     last_text = ""
     tool_specs = tools.specs()
@@ -598,6 +689,77 @@ async def _run_inner(
             on_event("tool_result", {"id": tc.id, "is_error": result.is_error})
             tool_msg = Message(role="tool", tool_result=result)
             _append(state, tool_msg, on_message)
+
+        # T1 — Cuasi-stall: firma NORMALIZADA del turno contra la ventana
+        # deslizante. El aviso SOFT entra como user message al FINAL del turno
+        # (frontera de mensaje, nunca mid-stream; el prefijo cacheable intacto).
+        if quasi_stall is not None and quasi_stall.enabled and assistant.tool_calls:
+            qsig = _quasi_signature(assistant.tool_calls)
+            assert qsig is not None  # tool_calls no vacío ⇒ firma no None
+            matches = _quasi_count(qsig, state.quasi_window, quasi_stall.similarity)
+            state.quasi_window.append(qsig)
+            if len(state.quasi_window) > quasi_stall.window:
+                state.quasi_window.popleft()
+            if matches >= quasi_stall.ask_count:
+                on_event(
+                    "quasi_stall_ask",
+                    {"matches": matches, "window": quasi_stall.window},
+                )
+                decision: QuasiAskDecision = "parar"
+                if quasi_ask is not None:
+                    raw = await quasi_ask(matches)
+                    if raw in QUASI_ASK_OPTIONS:
+                        decision = raw
+                if decision == "parar":
+                    msg = (
+                        f"bucle cuasi-repetitivo: {matches} llamadas cuasi-idénticas "
+                        f"(similitud ≥{quasi_stall.similarity:.0%}) en las últimas "
+                        f"{quasi_stall.window}"
+                        + (
+                            "; el usuario decidió parar."
+                            if quasi_ask is not None
+                            else "; sin canal de pregunta en modo headless — corrida "
+                            "detenida honestamente."
+                        )
+                    )
+                    on_event("quasi_stall_stop", {"matches": matches})
+                    return _result(state, final_text=last_text, stop_reason="stall", error=msg)
+                if decision == "redirigir":
+                    state.quasi_window.clear()
+                    note = (
+                        "[REDIRECCIÓN DEL USUARIO] El usuario detectó un bucle "
+                        "cuasi-repetitivo y pidió redirigir. Pregunta qué enfoque "
+                        "quiere y NO vuelvas a la estrategia anterior."
+                    )
+                else:  # seguir
+                    state.quasi_window.clear()
+                    note = (
+                        "[DECISIÓN DEL USUARIO] Pese al bucle cuasi-repetitivo el "
+                        "usuario decidió SEGUIR. Continúa, pero cambia de estrategia "
+                        "si el resultado no llega."
+                    )
+                note_msg = Message(role="user", content=note)
+                _append(state, note_msg, on_message)
+            elif matches >= quasi_stall.warn_count and matches > state.quasi_last_warned:
+                state.quasi_last_warned = matches
+                on_event(
+                    "quasi_stall_warning",
+                    {
+                        "matches": matches,
+                        "window": quasi_stall.window,
+                        "similarity": quasi_stall.similarity,
+                    },
+                )
+                warn = QUASI_WARN_TEMPLATE.format(
+                    n=matches,
+                    pct=int(quasi_stall.similarity * 100),
+                    w=quasi_stall.window,
+                )
+                warn_msg = Message(role="user", content=warn)
+                _append(state, warn_msg, on_message)
+        elif assistant.tool_calls:
+            # Sin detector activo la ventana no se llena (costo cero).
+            pass
 
         # Detector de estancamiento: firma idéntica N turnos seguidos = corte.
         if stall_repeats > 0 and assistant.tool_calls:
