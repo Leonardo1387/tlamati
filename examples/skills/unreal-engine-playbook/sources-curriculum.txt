@@ -1,0 +1,48 @@
+UNREAL ENGINE
+Gameplay Framework
+https://dev.epicgames.com/documentation/unreal-engine/gameplay-framework-in-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/gameplay-framework-quick-reference-in-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/game-objects-in-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/gameplay-ability-system-for-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/get-started?lang=en-US
+
+Cámara (qué produce visualmente cada tipo)
+https://dev.epicgames.com/documentation/unreal-engine/cameras-in-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/cinematic-cameras-in-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/camera-actors-in-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/cinematics-and-movie-making-in-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/cinematic-viewport-controls-in-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/using-cameras-in-unreal-engine
+
+Iluminación y Sombras (qué se ve con cada configuración)
+https://dev.epicgames.com/documentation/unreal-engine/designing-visuals-rendering-and-graphics-with-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/shadowing-in-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/virtual-shadow-maps-in-unreal-engine?lang=en-US
+https://dev.epicgames.com/documentation/unreal-engine/hdri-backdrop-visualization-tool-in-unreal-engine
+https://cdn2.unrealengine.com/lighting-for-educators-and-students-20mb-6b793664ebe8.pdf
+
+Post-Process (qué produce cada parámetro en pantalla)
+https://dev.epicgames.com/documentation/unreal-engine/post-process-effects-in-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/color-grading-and-the-filmic-tonemapper-in-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/bloom-in-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/add-post-process-volumes?lang=en-US
+
+VR (qué produce cada decisión en confort/usabilidad)
+https://dev.epicgames.com/documentation/unreal-engine/vr-template-in-unreal-engine
+https://dev.epicgames.com/documentation/unreal-engine/xr-best-practices-in-unreal-engine
+https://developers.meta.com/vr/design/locomotion-best-practices/
+https://developers.meta.com/vr/design/locomotion-user-preferences/
+
+World Building
+https://dev.epicgames.com/documentation/unreal-engine/world-partition-in-unreal-engine
+https://dev.epicgames.com/community/learning/knowledge-base/r6wl/unreal-engine-world-building-guide
+https://dev.epicgames.com/documentation/unreal-engine/designer-01-project-setup-and-level-blockout-in-unreal-engine
+
+BLENDER
+https://quickpoly.com/blog/how-to-model-a-low-poly-character-in-blender-from-blockout-to-game-ready
+https://cada-edu.com/guides/retopology-for-games-what-it-is-and-how-to-do-it-in-blender
+https://triverse.ai/blog/quads-vs-triangles-game-retopology
+https://neta.art/blog/quad-remesher-blender
+https://cada-edu.com/guides/low-poly-modelling-for-games-how-to-make-models-in-blender
+https://quickpoly.com/blog/retopology-in-blender-turn-a-dense-sculpt-into-a-game-ready-mesh
+https://cada-edu.com/guides/3d-character-modelling-for-games-how-to-model-in-blender

@@ -6,7 +6,15 @@ Los cambios que rompen la superficie estable (STABILITY.md) se etiquetan
 
 ## Unreleased
 
-(vacío)
+### Agregado
+
+- **examples/skills/** — tres skills de apps creativas saneadas para
+  publicación (clon + sustitución de rutas/nombres de proyecto; los
+  originales locales quedan intactos): `unreal-engine-playbook` (UE 5.8
+  como herramienta: iluminación, cámaras, archviz, VR, PCG),
+  `blender-game-art-playbook` (pipeline de assets low-poly→game-ready) y
+  `creative-apps-mcp-bridges` (puentes MCP WSL⇄Windows medidos en
+  producción). Verificación: grep de patrones privados = 0 hits.
 
 ## v2.1.0 (2026-11-26)
 
