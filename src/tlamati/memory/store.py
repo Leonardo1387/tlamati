@@ -22,6 +22,7 @@ No database: memory must survive tool migrations and be readable by a human.
 
 from __future__ import annotations
 
+import difflib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -161,7 +162,18 @@ class MemoryStore:
                     raise MemoryError(f"op[{i}]: {action} sin old_text")
                 matches = [j for j, e in enumerate(entries) if old_text in e]
                 if not matches:
-                    raise MemoryError(f"op[{i}]: old_text no encontrado: {old_text[:60]!r}")
+                    # T6: candidato más cercano (ratio ≥0.6) en vez de fallo
+                    # seco — el modelo transcribe de memoria y se equivoca en
+                    # una palabra; la sugerencia le ahorra un memory_list.
+                    # La semántica atómica del batch NO cambia: sigue siendo
+                    # MemoryError, el archivo queda intacto.
+                    close = difflib.get_close_matches(old_text, entries, n=1, cutoff=0.6)
+                    hint = (
+                        f"; entrada más parecida: {close[0][:120]!r} — corrige old_text"
+                        if close
+                        else ""
+                    )
+                    raise MemoryError(f"op[{i}]: old_text no encontrado: {old_text[:60]!r}{hint}")
                 if len(matches) > 1:
                     raise MemoryError(
                         f"op[{i}]: old_text ambiguo ({len(matches)} entradas); sé más específico"

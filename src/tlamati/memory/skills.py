@@ -21,6 +21,7 @@ microcompact-whitelisted: re-fetchable from disk at zero cost.
 
 from __future__ import annotations
 
+import difflib
 import re
 from collections.abc import Collection
 from dataclasses import dataclass
@@ -112,13 +113,50 @@ class SkillLibrary:
     def get(self, name: str) -> Skill | None:
         """Acepta el nombre pelado Y la forma publicada por catalog_text
         ("categoria/nombre") — bug real dogfooding #2: el catálogo mostraba
-        el prefijo pero get() lo rechazaba (4 errores is_error en sesión)."""
+        el prefijo pero get() lo rechazaba (4 errores is_error en sesión).
+
+        T6 (50% de los errores reales de dogfooding venían de skill_view):
+        además resuelve la forma "categoría/nombre" contra la forma canónica
+        publicada (prefijo de categoría completo, no solo el último segmento)
+        y es case-insensitive como último recurso — el modelo transcribe
+        nombres del catálogo a mano y se equivoca en mayúsculas."""
         sk = self._skills.get(name)
         if sk is not None:
             return sk
         if "/" in name:
-            return self._skills.get(name.rpartition("/")[2])
+            sk = self._skills.get(name.rpartition("/")[2])
+            if sk is not None:
+                return sk
+            # T6: "cat/nombre" exacto contra la forma publicada (category/name).
+            low = name.lower()
+            for cand in self._skills.values():
+                if cand.category and f"{cand.category}/{cand.name}".lower() == low:
+                    return cand
+        # T6 último recurso: case-insensitive sobre el nombre pelado.
+        low_name = name.lower().rpartition("/")[2]
+        for cand in self._skills.values():
+            if cand.name.lower() == low_name:
+                return cand
         return None
+
+    def suggestions(self, name: str, limit: int = 3) -> list[str]:
+        """T6: candidatos cercanos al nombre pedido (difflib sobre nombre
+        pelado Y forma publicada). Para el mensaje de error: "no existe X;
+        ¿quisiste Y?" — el modelo se autocorrige en 1 turno en vez de 4."""
+        low = name.lower().rpartition("/")[2]
+        published: dict[str, str] = {}
+        for cand in self._skills.values():
+            prefix = f"{cand.category}/" if cand.category else ""
+            published[prefix + cand.name] = cand.name
+            published[cand.name] = cand.name
+        close = difflib.get_close_matches(low, list(published), n=limit, cutoff=0.5)
+        # Dedupe preservando orden de cercanía (nombre canónico como etiqueta).
+        out: list[str] = []
+        for c in close:
+            canonical = published[c]
+            if canonical not in out:
+                out.append(canonical)
+        return out[:limit]
 
     def catalog_text(self, only: Collection[str] | None = None) -> str:
         """The block injected into the system prompt. Stable order → the
@@ -149,6 +187,11 @@ def make_skill_tools(library: SkillLibrary) -> list[Tool]:
         name = str(args.get("name", "")).strip()
         sk = library.get(name)
         if sk is None:
+            # T6: sugerencias difflib antes del listado plano — el modelo se
+            # autocorrige en 1 turno ("no existe X; ¿quisiste Y?") en vez de
+            # escanear 20 nombres a ojo (50% de los errores reales de dogfood).
+            sugg = library.suggestions(name)
+            hint = f" ¿quisiste decir: {', '.join(sugg)}?" if sugg else ""
             known = ", ".join(s.name for s in library.catalog()[:20])
             if not known:
                 return (
@@ -157,7 +200,7 @@ def make_skill_tools(library: SkillLibrary) -> list[Tool]:
                     "flag --skills-dir (ej. --skills-dir ~/.hermes/skills) o "
                     "config skills.extra_dirs."
                 )
-            return f"ERROR: skill {name!r} no existe. Disponibles: {known}"
+            return f"ERROR: skill {name!r} no existe.{hint} Disponibles: {known}"
         file_path = str(args.get("file_path", "")).strip()
         if file_path:
             target = (sk.dir / file_path).resolve()

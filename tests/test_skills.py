@@ -190,6 +190,46 @@ class TestSkillTools:
             assert not t.produces_untrusted  # local read-only, re-fetchable
 
 
+class TestT6Ergonomia:
+    """T6 — ergonomía de errores: 50% de los errores reales de dogfooding
+    venían de skill_view (nombre mal transcrito del catálogo)."""
+
+    def test_get_case_insensitive(self, lib_root: Path) -> None:
+        _make_skill(lib_root, "doodle-blackboard-video", category="creative")
+        lib = SkillLibrary([lib_root])
+        assert lib.get("DOODLE-BLACKBOARD-VIDEO") is not None
+        assert lib.get("Creative/doodle-blackboard-video") is not None
+        assert lib.get("CREATIVE/Doodle-Blackboard-Video") is not None
+        # inexistente sigue siendo None honesto (nunca inventa)
+        assert lib.get("video-inexistente") is None
+
+    def test_suggestions_close_matches(self, lib_root: Path) -> None:
+        _make_skill(lib_root, "unreal-engine-playbook", category="creative")
+        _make_skill(lib_root, "pixel-art", category="creative")
+        lib = SkillLibrary([lib_root])
+        sugg = lib.suggestions("unreal-engine-playbookk")  # typo de una letra
+        assert "unreal-engine-playbook" in sugg
+        # nombre sin esperanza → lista vacía (nunca ruido irrelevante)
+        assert lib.suggestions("zzz-qqq-xxx") == []
+
+    async def test_skill_view_error_sugiere_candidato(self, lib_root: Path) -> None:
+        _make_skill(lib_root, "pixel-art", category="creative")
+        lib = SkillLibrary([lib_root])
+        view = next(t for t in make_skill_tools(lib) if t.name == "skill_view")
+        out = await view.run({"name": "pixel-artt"})
+        assert out.startswith("ERROR")
+        assert "¿quisiste decir: pixel-art" in out
+
+    async def test_skill_view_error_sin_sugerencia_sigue_listando(self, lib_root: Path) -> None:
+        _make_skill(lib_root, "deploy")
+        lib = SkillLibrary([lib_root])
+        view = next(t for t in make_skill_tools(lib) if t.name == "skill_view")
+        out = await view.run({"name": "zzz-inexistente-total"})
+        assert out.startswith("ERROR")
+        assert "¿quisiste" not in out
+        assert "deploy" in out  # el listado plano sigue ahí
+
+
 class TestRootsAndHermesCompat:
     def test_default_roots_order(self, tmp_path: Path) -> None:
         roots = default_skill_roots(tmp_path, [Path("/extra")])

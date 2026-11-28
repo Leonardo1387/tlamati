@@ -19,6 +19,16 @@ Los cambios que rompen la superficie estable (STABILITY.md) se etiquetan
   cuelga: sin handler el muro cierra honesto (stop=max_turns, exit 1) y, si
   hay summarizer, imprime un resumen de cierre en stderr.
 
+- **Ergonomía de errores skill_view/memory (T6)** — skill_view causaba el
+  50% de los errores reales de dogfooding (nombre mal transcrito del
+  catálogo). Ahora `SkillLibrary.get()` es case-insensitive como último
+  recurso y el error de no-encontrado sugiere candidatos cercanos
+  (`difflib.get_close_matches`, "no existe X; ¿quisiste Y?") en vez de solo
+  volcar el listado. En `memory` (17% de los errores), replace/remove con
+  `old_text` que no matchea devuelve la entrada más parecida (ratio ≥0.6) en
+  el mensaje de error; la semántica atómica del batch NO cambia (una op
+  falla → nada aplica).
+
 - **Detector de cuasi-stall (T1)** — el agente que reintentaba la misma
   estrategia con mutaciones menores (timeout 90→110, un flag extra, ruta
   cambiada) quemaba el presupuesto entero: el detector exacto

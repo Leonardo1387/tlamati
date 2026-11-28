@@ -110,6 +110,56 @@ class TestMemoryStore:
         with pytest.raises(MemoryError, match="ambiguo"):
             mem.apply_batch("memory", [{"action": "remove", "old_text": "x"}])
 
+    def test_old_text_not_found_suggests_closest(self, mem: MemoryStore) -> None:
+        """T6 (17% de los errores reales): old_text mal transcrito → el error
+        devuelve la entrada más parecida en vez de fallo seco."""
+        seed_if_empty(mem)
+        mem.apply_batch(
+            "memory",
+            [{"action": "add", "content": "El usuario prefiere respuestas concisas y directas"}],
+        )
+        with pytest.raises(MemoryError, match="entrada más parecida") as exc:
+            mem.apply_batch(
+                "memory",
+                [
+                    {
+                        "action": "replace",
+                        "old_text": "El usuario prefiere respuestas concisas y diretas",  # typo
+                        "content": "otra cosa",
+                    }
+                ],
+            )
+        assert "concisas y directas" in str(exc.value)
+        # El archivo queda intacto (semántica atómica preservada).
+        assert mem.load("memory").entries == ("El usuario prefiere respuestas concisas y directas",)
+
+    def test_old_text_not_found_sin_candidato_fallo_seco(self, mem: MemoryStore) -> None:
+        """Sin candidato ≥0.6 NO se inventa sugerencia (nunca ruido)."""
+        seed_if_empty(mem)
+        mem.apply_batch("memory", [{"action": "add", "content": "entrada sobre perros"}])
+        with pytest.raises(MemoryError) as exc:
+            mem.apply_batch("memory", [{"action": "remove", "old_text": "zzz qqq www inexistente"}])
+        assert "old_text no encontrado" in str(exc.value)
+        assert "entrada más parecida" not in str(exc.value)
+        assert mem.load("memory").entries == ("entrada sobre perros",)
+
+    def test_sugerencia_no_cambia_atomicidad_del_batch(self, mem: MemoryStore) -> None:
+        """T6: la sugerencia es solo texto del error; el batch atómico sigue
+        siendo all-or-nothing (op 1 válida + op 2 fallida → nada aplica)."""
+        seed_if_empty(mem)
+        mem.apply_batch("memory", [{"action": "add", "content": "entrada uno sobre gatos"}])
+        with pytest.raises(MemoryError, match="entrada más parecida"):
+            mem.apply_batch(
+                "memory",
+                [
+                    {"action": "add", "content": "entrada dos"},
+                    # similar pero NO substring → no matchea → sugerencia
+                    {"action": "remove", "old_text": "entrada una sobre gatos"},
+                ],
+            )
+        # op[0] (add) NO aplicó porque op[1] falló: todo o nada.
+        assert mem.load("memory").entries == ("entrada uno sobre gatos",)
+
     def test_invalid_target(self, mem: MemoryStore) -> None:
         with pytest.raises(MemoryError, match="target inválido"):
             mem.load("equipo")
