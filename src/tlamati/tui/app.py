@@ -104,6 +104,10 @@ QuasiAskScreen { align: center middle; }
 QuasiAskScreen > Vertical { width: 88; height: auto;
     border: thick $error; background: $surface; padding: 1 2; }
 #quasi-buttons { height: 3; align: center middle; }
+TurnLimitAskScreen { align: center middle; }
+TurnLimitAskScreen > Vertical { width: 88; height: auto;
+    border: thick $warning; background: $surface; padding: 1 2; }
+#turn-limit-buttons { height: 3; align: center middle; }
 """
 
 
@@ -239,6 +243,51 @@ class QuasiAskScreen(ModalScreen[QuasiAskDecision]):
         self.dismiss("parar")
 
 
+class TurnLimitAskScreen(ModalScreen[int]):
+    """T3: diálogo al topar el muro de max_turns (mid-run, donor:
+    QuasiAskScreen/ApproveScreen — push_screen_wait bloquea el worker).
+
+    Devuelve turnos EXTRA a conceder: 30 (\"seguir\"), 0 (\"resumir/cerrar\" —
+    la corrida cierra con stop=max_turns y el flujo post-muro existente
+    ofrece 'continúa'/'resumen' en el prompt). Escape = 0 (fail closed:
+    cerrar, nunca extender en silencio).
+
+    IMPORTANTE (handoff T3): \"seguir\" extiende el límite DENTRO de la misma
+    corrida — LoopState intacto, la ventana cuasi-stall (T1) y los contadores
+    del detector exacto NO se reinician."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("s", "seguir", "Seguir 30 turnos más", priority=True),
+        Binding("c", "cerrar", "Cerrar", priority=True),
+        Binding("escape", "cerrar", "Cerrar", priority=True),
+    ]
+
+    def __init__(self, turns: int) -> None:
+        super().__init__()
+        self.turns = turns
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="turn-limit-ask"):
+            yield Static(
+                f"[b]Límite de {self.turns} turnos alcanzado.[/b] La tarea "
+                "sigue en curso. ¿Qué hacemos?",
+                markup=True,
+            )
+            yield Static("")
+            with Horizontal(id="turn-limit-buttons"):
+                yield Button("Seguir 30 turnos más (s)", id="b-seguir", variant="primary")
+                yield Button("Cerrar (c)", id="b-cerrar", variant="error")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.dismiss(30 if event.button.id == "b-seguir" else 0)
+
+    def action_seguir(self) -> None:
+        self.dismiss(30)
+
+    def action_cerrar(self) -> None:
+        self.dismiss(0)
+
+
 class ModelPalette(ModalScreen[int]):
     """F1: selector de modelo (lista OptionsView). Dismiss con el indice
     elegido; Escape = None (no cambia nada, fail closed como ApproveScreen).
@@ -290,7 +339,7 @@ class TlamatiApp(App[None]):
         workdir: Path | None = None,
         session_db: str | None = None,
         skills_extra_dirs: list[Path] | None = None,
-        max_turns: int = 60,
+        max_turns: int = 90,
         stall_repeats: int = 3,
         quasi_stall: QuasiStallConfig | None = None,
         sandbox: bool | None = None,
@@ -555,6 +604,24 @@ class TlamatiApp(App[None]):
         self._note(f"[cuasi-stall] decisión del usuario: {decision}", cls="note-line")
         return decision
 
+    async def _turn_limit_ask(self, turns: int) -> int:
+        """T3: handler del muro de max_turns (mid-run). Devuelve turnos EXTRA
+        (30 = seguir, 0 = cerrar). Al extender, sincroniza self.max_turns con
+        el tope interno del loop para que las notas del transcript digan la
+        verdad. OJO: la extensión NO reinicia LoopState — la ventana
+        cuasi-stall (T1) y el detector exacto siguen contando."""
+        extra = await self.push_screen_wait(TurnLimitAskScreen(turns))
+        if not isinstance(extra, int) or extra <= 0:
+            self._note("[muro] límite alcanzado — cerrando (stop=max_turns)", cls="note-line")
+            return 0
+        self.max_turns += extra
+        self._note(
+            f"[muro] el usuario concedió {extra} turnos más (nuevo tope: "
+            f"{self.max_turns}); contadores de bucle INTACTOS",
+            cls="note-line",
+        )
+        return extra
+
     # ------------------------------------------------------------- F1: modelos
 
     def _make_provider(self, model: str) -> OpenAICompat | AnthropicMessages:
@@ -764,6 +831,7 @@ class TlamatiApp(App[None]):
                 stall_repeats=self._stall_repeats,
                 quasi_stall=self._quasi_stall,
                 quasi_ask=self._quasi_ask,
+                turn_limit_ask=self._turn_limit_ask,
                 on_event=self._handle_event,
                 compactor=self.compactor,
                 history=list(self._history) or None,
@@ -945,6 +1013,16 @@ class TlamatiApp(App[None]):
                 f"[cuasi-stall] corrida detenida ({data['matches']} llamadas cuasi-idénticas)",
                 cls="tool-error",
             )
+        elif kind == "turn_limit_reached":
+            self._note(
+                f"[muro] límite de {data['max_turns']} turnos alcanzado (turnos: {data['turns']})",
+                cls="note-line",
+            )
+        elif kind == "turn_limit_extended":
+            self._note(
+                f"[muro] +{data['extra']} turnos concedidos (nuevo tope: {data['max_turns']})",
+                cls="note-line",
+            )
 
     # ------------------------------------------------------- transcript
 
@@ -991,7 +1069,7 @@ def run_tui(
     workdir: Path | None = None,
     session_db: str | None = None,
     skills_extra_dirs: list[Path] | None = None,
-    max_turns: int = 60,
+    max_turns: int = 90,
     stall_repeats: int = 3,
     quasi_stall: QuasiStallConfig | None = None,
     sandbox: bool | None = None,

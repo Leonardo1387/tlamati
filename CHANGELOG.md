@@ -8,6 +8,17 @@ Los cambios que rompen la superficie estable (STABILITY.md) se etiquetan
 
 ### Agregado
 
+- **Muro de turnos interactivo (T3)** — default `max_turns` 60→90 (loop,
+  CLI, TUI, config). Al topar el muro el loop emite el evento nuevo
+  `turn_limit_reached` {turns, max_turns}; la TUI abre un modal "Seguir 30
+  turnos más (s) / Cerrar (c)" mid-run (donor: QuasiAskScreen) y la
+  extensión ocurre DENTRO de la misma corrida: `LoopState` intacto — la
+  ventana cuasi-stall (T1) y el detector exacto NO se reinician ("seguir"
+  nunca evade detectores; dos tests lo protegen). Evento
+  `turn_limit_extended` {extra, max_turns} al conceder. Headless nunca
+  cuelga: sin handler el muro cierra honesto (stop=max_turns, exit 1) y, si
+  hay summarizer, imprime un resumen de cierre en stderr.
+
 - **Detector de cuasi-stall (T1)** — el agente que reintentaba la misma
   estrategia con mutaciones menores (timeout 90→110, un flag extra, ruta
   cambiada) quemaba el presupuesto entero: el detector exacto

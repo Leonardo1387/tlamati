@@ -162,7 +162,7 @@ def resolve_turn_limits(cfg: dict[str, Any], args: argparse.Namespace) -> tuple[
         except (TypeError, ValueError):
             return default
 
-    return _int(args.max_turns, "max_turns", 60), _int(args.stall_repeats, "stall_repeats", 3)
+    return _int(args.max_turns, "max_turns", 90), _int(args.stall_repeats, "stall_repeats", 3)
 
 
 def resolve_quasi_stall(cfg: dict[str, Any]) -> QuasiStallConfig | None:
@@ -227,7 +227,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         metavar="N",
-        help="turn budget (default: config general.max_turns or 60; "
+        help="turn budget (default: config general.max_turns or 90; "
         "<=0 = yolo, sin muro — el presupuesto de contexto sigue siendo el techo)",
     )
     p.add_argument(
@@ -921,6 +921,19 @@ async def _run_headless(args: argparse.Namespace) -> int:
     # wait → kill). Un servidor colgado NUNCA cuelga la corrida (nunca raise).
     if mcp_clients:
         await close_mcp(mcp_clients)
+
+    # T3 headless: al topar el muro, resumen final de estado si el
+    # presupuesto lo permite (nunca colgar esperando input — el handler
+    # interactivo NO se pasa en headless). Fallo del summarizer = degradación
+    # silenciosa: el stop_reason max_turns ya es honesto por sí solo.
+    if result.stop_reason == "max_turns" and summarizer is not None:
+        summary, _summary_usage = await summarizer.summarize(
+            "La corrida topó el límite de turnos. Resume en cristiano qué se "
+            "hizo, qué falta y dónde quedó el trabajo:\n\n"
+            + "\n".join(f"{m.role}: {m.content}" for m in result.history if m.content)[-60_000:]
+        )
+        if summary:
+            print(f"[resumen de cierre]\n{summary}", file=sys.stderr)
 
     # C2 auto-dream: consolidation AFTER the run, never in the hot turn
     # (CC donor). Uses the cheap summarizer chain; opt-in with --dream.
